@@ -66,7 +66,14 @@ export default function MarkerScoring({ group, groupCode, players, holes, existi
         syncStatus,
         lastSyncTime,
         forceSyncNow,
-    } = useOfflineScores({ groupId: group.id, players, holes, existingScores });
+    } = useOfflineScores({
+        groupId: group.id,
+        players,
+        holes,
+        existingScores,
+        saveUrl: route('marqueur.save', group.id),
+        csrfRefreshUrl: route('marqueur.login'),
+    });
 
     const hole = holes[currentHole];
     if (!hole) return null;

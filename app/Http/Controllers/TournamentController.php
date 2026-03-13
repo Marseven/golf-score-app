@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Tournament;
-use App\Models\Category;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -40,10 +40,14 @@ class TournamentController extends Controller
             ->whereIn('registration_status', ['pending', 'rejected'])
             ->orWhere(function ($q) use ($tournament) {
                 $q->where('tournament_id', $tournament->id)
-                  ->whereNotNull('email');
+                    ->whereNotNull('email');
             })
             ->with('category', 'payments')
             ->get();
+
+        $markers = User::whereHas('roles', fn ($q) => $q->where('role', 'marker')
+            ->where(fn ($q2) => $q2->whereNull('tournament_id')->orWhere('tournament_id', $tournament->id))
+        )->orderBy('name')->get(['id', 'name', 'email']);
 
         return Inertia::render('Admin/Tournaments/Manage', [
             'tournament' => $tournament,
@@ -54,6 +58,7 @@ class TournamentController extends Controller
             'scores' => $scores,
             'registrations' => $registrations,
             'payments' => $payments,
+            'markers' => $markers,
         ]);
     }
 
@@ -61,7 +66,8 @@ class TournamentController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'date' => 'required|date',
+            'start_date' => 'required|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
             'club' => 'required|string|max:255',
             'scoring_mode' => 'required|in:stroke_play,stableford,both',
             'rules' => 'nullable|string',
@@ -71,6 +77,8 @@ class TournamentController extends Controller
             ...$validated,
             'created_by' => $request->user()->id,
         ]);
+
+        $tournament->syncStatus();
 
         // Create default categories
         $defaultCategories = [
@@ -108,9 +116,10 @@ class TournamentController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'date' => 'required|date',
+            'start_date' => 'required|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
             'club' => 'required|string|max:255',
-            'status' => 'required|in:draft,active,finished',
+            'status' => 'required|in:draft,published,active,finished',
             'scoring_mode' => 'required|in:stroke_play,stableford,both',
             'rules' => 'nullable|string',
             'registration_open' => 'boolean',
@@ -119,8 +128,21 @@ class TournamentController extends Controller
         ]);
 
         $tournament->update($validated);
+        $tournament->syncStatus();
 
         return back()->with('success', 'Tournoi mis à jour.');
+    }
+
+    public function togglePublish(Tournament $tournament)
+    {
+        $isPublished = in_array($tournament->status, ['published', 'active']);
+        $newStatus = $isPublished ? 'draft' : 'published';
+        $tournament->update(['status' => $newStatus]);
+        $tournament->syncStatus();
+
+        $message = $isPublished ? 'Tournoi dépublié.' : 'Tournoi publié.';
+
+        return back()->with('success', $message);
     }
 
     public function destroy(Tournament $tournament)

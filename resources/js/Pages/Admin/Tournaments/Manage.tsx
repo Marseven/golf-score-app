@@ -1,9 +1,16 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
-import { ArrowLeft, Settings, BarChart3, Trophy, Users, Target, MapPin, Save, Plus, Trash2, Pencil, X, Check, RefreshCw, Clock, Copy, UserPlus, Send, FileText, FileSpreadsheet, QrCode, Flag, Tag, UserCheck, CreditCard, LinkIcon } from 'lucide-react';
+import { ArrowLeft, Settings, BarChart3, Trophy, Users, Target, MapPin, Save, Plus, Trash2, Pencil, X, Check, RefreshCw, Clock, Copy, UserPlus, Send, FileText, FileSpreadsheet, QrCode, Flag, Tag, UserCheck, CreditCard, LinkIcon, Download, Hash } from 'lucide-react';
 import type { Tournament, Category, Player, Group, Hole, Score, Payment, PageProps } from '@/types';
 import { categoryColors, categoryDotColors } from '@/Lib/category-colors';
+import { QRCodeSVG } from 'qrcode.react';
+
+interface MarkerUser {
+    id: string;
+    name: string;
+    email: string;
+}
 
 interface Props {
     tournament: Tournament;
@@ -14,6 +21,7 @@ interface Props {
     scores: Score[];
     registrations: Player[];
     payments: Payment[];
+    markers: MarkerUser[];
 }
 
 interface TabDef {
@@ -86,16 +94,22 @@ function DashboardTab({ players, groups, scores }: { players: Player[]; groups: 
 }
 
 // --- Tournament Tab ---
+function formatDateForInput(dateStr: string | null | undefined): string {
+    if (!dateStr) return '';
+    return dateStr.substring(0, 10);
+}
+
 function TournamentTab({ tournament }: { tournament: Tournament }) {
+    const [copied, setCopied] = useState(false);
     const form = useForm({
         name: tournament.name,
-        date: tournament.date,
+        start_date: formatDateForInput(tournament.start_date),
+        end_date: formatDateForInput(tournament.end_date),
         club: tournament.club,
         status: tournament.status,
         scoring_mode: tournament.scoring_mode,
         rules: tournament.rules || '',
         registration_open: tournament.registration_open,
-        registration_fee: tournament.registration_fee,
         registration_currency: tournament.registration_currency,
     });
 
@@ -110,6 +124,13 @@ function TournamentTab({ tournament }: { tournament: Tournament }) {
         form.put(route('tournaments.update', tournament.id));
     };
 
+    const copyRegistrationLink = () => {
+        const link = `${route('inscription.create', tournament.id)}`;
+        navigator.clipboard.writeText(link);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
     return (
         <form onSubmit={handleSave} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -120,15 +141,20 @@ function TournamentTab({ tournament }: { tournament: Tournament }) {
                             <label className="text-sm text-muted-foreground block mb-1.5">Nom du tournoi</label>
                             <input type="text" value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:border-primary focus:outline-none transition-colors" />
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-4">
                             <div>
-                                <label className="text-sm text-muted-foreground block mb-1.5">Date</label>
-                                <input type="date" value={form.data.date} onChange={(e) => form.setData('date', e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:border-primary focus:outline-none transition-colors" />
+                                <label className="text-sm text-muted-foreground block mb-1.5">Date de début</label>
+                                <input type="date" value={form.data.start_date} onChange={(e) => form.setData('start_date', e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:border-primary focus:outline-none transition-colors" />
+                            </div>
+                            <div>
+                                <label className="text-sm text-muted-foreground block mb-1.5">Date de fin</label>
+                                <input type="date" value={form.data.end_date} onChange={(e) => form.setData('end_date', e.target.value)} min={form.data.start_date} className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:border-primary focus:outline-none transition-colors" />
                             </div>
                             <div>
                                 <label className="text-sm text-muted-foreground block mb-1.5">Statut</label>
                                 <select value={form.data.status} onChange={(e) => form.setData('status', e.target.value as any)} className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:border-primary focus:outline-none transition-colors appearance-none">
                                     <option value="draft">Brouillon</option>
+                                    <option value="published">Publié</option>
                                     <option value="active">En cours</option>
                                     <option value="finished">Terminé</option>
                                 </select>
@@ -152,6 +178,66 @@ function TournamentTab({ tournament }: { tournament: Tournament }) {
                     </div>
                 </div>
             </div>
+
+            <div className="glass-card">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                        <UserPlus className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-semibold text-foreground">Inscription en ligne</h3>
+                        <p className="text-xs text-muted-foreground">Paramètres d'inscription publique</p>
+                    </div>
+                </div>
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <label className="text-sm text-foreground">Inscription ouverte</label>
+                        <button
+                            type="button"
+                            onClick={() => form.setData('registration_open', !form.data.registration_open)}
+                            className={`relative w-12 h-7 rounded-full transition-colors ${form.data.registration_open ? 'bg-primary' : 'bg-surface-hover border border-border'}`}
+                        >
+                            <span className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${form.data.registration_open ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                        </button>
+                    </div>
+                    <div>
+                        <label className="text-sm text-muted-foreground block mb-1.5">Devise</label>
+                        <select
+                            value={form.data.registration_currency}
+                            onChange={(e) => form.setData('registration_currency', e.target.value)}
+                            className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:border-primary focus:outline-none transition-colors appearance-none"
+                        >
+                            <option value="XAF">XAF (Franc CFA)</option>
+                            <option value="XOF">XOF (Franc CFA BCEAO)</option>
+                            <option value="EUR">EUR (Euro)</option>
+                            <option value="USD">USD (Dollar US)</option>
+                        </select>
+                        <p className="text-xs text-muted-foreground mt-1.5">Les frais d'inscription sont configurés par catégorie dans l'onglet Catégories.</p>
+                    </div>
+                    {form.data.registration_open && (
+                        <div>
+                            <label className="text-sm text-muted-foreground block mb-1.5">Lien d'inscription</label>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    readOnly
+                                    value={`${route('inscription.create', tournament.id)}`}
+                                    className="flex-1 bg-surface border border-border rounded-xl px-4 py-3 text-sm text-muted-foreground focus:outline-none"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={copyRegistrationLink}
+                                    className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium transition-colors"
+                                >
+                                    <Copy className="w-4 h-4" />
+                                    {copied ? 'Copié !' : 'Copier'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
             <div className="flex justify-end">
                 <button type="submit" disabled={form.processing} className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 shadow-lg shadow-primary/25 disabled:opacity-50">
                     <Save className="w-4 h-4" />
@@ -166,7 +252,7 @@ function TournamentTab({ tournament }: { tournament: Tournament }) {
 function CategoriesTab({ tournament, categories }: { tournament: Tournament; categories: Category[] }) {
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const form = useForm({ name: '', short_name: '', color: 'blue' });
+    const form = useForm({ name: '', short_name: '', color: 'blue', registration_fee: 0 });
 
     const colorOptions = ['blue', 'pink', 'emerald', 'violet', 'amber', 'red', 'cyan', 'orange'];
 
@@ -174,7 +260,7 @@ function CategoriesTab({ tournament, categories }: { tournament: Tournament; cat
 
     const startEdit = (cat: Category) => {
         setEditingId(cat.id);
-        form.setData({ name: cat.name, short_name: cat.short_name, color: cat.color });
+        form.setData({ name: cat.name, short_name: cat.short_name, color: cat.color, registration_fee: cat.registration_fee ?? 0 });
         setShowForm(false);
     };
 
@@ -195,7 +281,7 @@ function CategoriesTab({ tournament, categories }: { tournament: Tournament; cat
     const formUI = (showForm || editingId) && (
         <form onSubmit={handleSave} className="glass-card space-y-4">
             <h3 className="text-sm font-semibold text-foreground">{editingId ? 'Modifier la catégorie' : 'Nouvelle catégorie'}</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                     <label className="text-xs text-muted-foreground block mb-1">Nom</label>
                     <input type="text" value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} placeholder="Ex: Pro H" className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
@@ -203,6 +289,10 @@ function CategoriesTab({ tournament, categories }: { tournament: Tournament; cat
                 <div>
                     <label className="text-xs text-muted-foreground block mb-1">Abréviation</label>
                     <input type="text" value={form.data.short_name} onChange={(e) => form.setData('short_name', e.target.value)} placeholder="Ex: PH" className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
+                </div>
+                <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Frais d'inscription</label>
+                    <input type="number" value={form.data.registration_fee} onChange={(e) => form.setData('registration_fee', Number(e.target.value))} step={100} min={0} placeholder="0" className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
                 </div>
                 <div>
                     <label className="text-xs text-muted-foreground block mb-1">Couleur</label>
@@ -242,6 +332,7 @@ function CategoriesTab({ tournament, categories }: { tournament: Tournament; cat
                                 <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Nom</th>
                                 <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Abréviation</th>
                                 <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Couleur</th>
+                                <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Frais</th>
                                 <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Actions</th>
                             </tr>
                         </thead>
@@ -255,6 +346,9 @@ function CategoriesTab({ tournament, categories }: { tournament: Tournament; cat
                                             <div className={`w-4 h-4 rounded-full ${categoryDotColors[cat.name] ?? 'bg-gray-500'}`} />
                                             <span className="text-xs text-muted-foreground">{cat.color}</span>
                                         </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <span className="text-sm font-medium text-foreground">{cat.registration_fee > 0 ? `${cat.registration_fee} ${tournament.registration_currency}` : '—'}</span>
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex items-center justify-end gap-1">
@@ -381,15 +475,47 @@ function PlayersTab({ tournament, players, categories, groups }: { tournament: T
     );
 }
 
-// --- Groups Tab (enriched with marker) ---
-function GroupsTab({ tournament, groups }: { tournament: Tournament; groups: Group[] }) {
+// --- Groups Tab (enriched with marker, PIN, QR code) ---
+function GroupsTab({ tournament, groups, markers, players }: { tournament: Tournament; groups: Group[]; markers: MarkerUser[]; players: Player[] }) {
     const [showForm, setShowForm] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
-    const form = useForm({ tee_time: '08:00', marker_name: '', marker_email: '' });
+    const [showQR, setShowQR] = useState<string | null>(null);
+    const form = useForm({ tee_time: '08:00', marker_id: '', player_ids: [] as string[] });
 
-    const handleCreate = (e: React.FormEvent) => {
+    const resetForm = () => { form.reset(); setShowForm(false); setEditingId(null); };
+
+    // Players not assigned to any group, or assigned to the group being edited
+    const availablePlayers = players.filter((p) =>
+        !p.group_id || p.group_id === editingId
+    );
+
+    const startEdit = (group: Group) => {
+        setEditingId(group.id);
+        form.setData({
+            tee_time: group.tee_time,
+            marker_id: group.marker_id ?? '',
+            player_ids: group.players?.map((p) => p.id) ?? [],
+        });
+        setShowForm(false);
+    };
+
+    const togglePlayer = (playerId: string) => {
+        const current = form.data.player_ids;
+        if (current.includes(playerId)) {
+            form.setData('player_ids', current.filter((id) => id !== playerId));
+        } else {
+            form.setData('player_ids', [...current, playerId]);
+        }
+    };
+
+    const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
-        form.post(route('groups.store', tournament.id), { onSuccess: () => { setShowForm(false); form.reset(); } });
+        if (editingId) {
+            form.put(route('groups.update', [tournament.id, editingId]), { onSuccess: resetForm });
+        } else {
+            form.post(route('groups.store', tournament.id), { onSuccess: resetForm });
+        }
     };
 
     const handleDelete = (id: string, code: string) => {
@@ -398,8 +524,7 @@ function GroupsTab({ tournament, groups }: { tournament: Tournament; groups: Gro
     };
 
     const copyMarkerLink = (token: string) => {
-        const link = `${window.location.origin}${route('marqueur.token', token, false)}`;
-        navigator.clipboard.writeText(link);
+        navigator.clipboard.writeText(route('marqueur.token', token));
         setCopiedToken(token);
         setTimeout(() => setCopiedToken(null), 2000);
     };
@@ -408,33 +533,121 @@ function GroupsTab({ tournament, groups }: { tournament: Tournament; groups: Gro
         navigator.clipboard.writeText(code);
     };
 
+    const getMarkerUrl = (token: string) => {
+        return route('marqueur.token', token);
+    };
+
+    const downloadQR = (group: Group) => {
+        if (!group.marker_token) return;
+        const markerUrl = getMarkerUrl(group.marker_token);
+        const qrSize = 256;
+        const padding = 40;
+        const width = qrSize + padding * 2;
+        const headerHeight = 100;
+        const footerHeight = group.marker_pin ? 80 : 40;
+        const height = headerHeight + qrSize + footerHeight + padding;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // Background
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+
+        // Group code
+        ctx.fillStyle = '#111111';
+        ctx.font = 'bold 24px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(group.code, width / 2, padding + 30);
+
+        // Tee time
+        ctx.fillStyle = '#666666';
+        ctx.font = '14px Arial, sans-serif';
+        ctx.fillText(`Depart: ${group.tee_time}`, width / 2, padding + 55);
+
+        // PIN
+        if (group.marker_pin) {
+            ctx.fillStyle = '#111111';
+            ctx.font = 'bold 18px monospace';
+            ctx.fillText(`PIN: ${group.marker_pin}`, width / 2, padding + 80);
+        }
+
+        // QR code from the inline SVG
+        const svgEl = document.querySelector(`[data-qr-group="${group.id}"] svg`);
+        if (!svgEl) return;
+        const svgData = new XMLSerializer().serializeToString(svgEl);
+        const img = new Image();
+        img.onload = () => {
+            ctx.drawImage(img, padding, headerHeight, qrSize, qrSize);
+
+            // URL at bottom
+            ctx.fillStyle = '#999999';
+            ctx.font = '9px Arial, sans-serif';
+            const urlY = headerHeight + qrSize + 20;
+            // Truncate URL if too long
+            const displayUrl = markerUrl.length > 60 ? markerUrl.substring(0, 57) + '...' : markerUrl;
+            ctx.fillText(displayUrl, width / 2, urlY);
+
+            // Download
+            const link = document.createElement('a');
+            link.download = `qr-${group.code}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        };
+        img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+    };
+
     return (
         <div className="space-y-4">
             <div className="flex flex-wrap gap-3">
-                <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 shadow-lg shadow-primary/25">
+                <button onClick={() => { resetForm(); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 shadow-lg shadow-primary/25">
                     <Plus className="w-4 h-4" />Nouveau groupe
                 </button>
             </div>
-            {showForm && (
-                <form onSubmit={handleCreate} className="glass-card space-y-4">
-                    <h3 className="text-sm font-semibold text-foreground">Nouveau groupe</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {(showForm || editingId) && (
+                <form onSubmit={handleSave} className="glass-card space-y-4">
+                    <h3 className="text-sm font-semibold text-foreground">{editingId ? 'Modifier le groupe' : 'Nouveau groupe'}</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label className="text-xs text-muted-foreground block mb-1">Heure de départ</label>
+                            <label className="text-xs text-muted-foreground block mb-1">Heure de depart</label>
                             <input type="time" value={form.data.tee_time} onChange={(e) => form.setData('tee_time', e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
                         </div>
                         <div>
-                            <label className="text-xs text-muted-foreground block mb-1">Nom du marqueur</label>
-                            <input type="text" value={form.data.marker_name} onChange={(e) => form.setData('marker_name', e.target.value)} placeholder="Optionnel" className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
-                        </div>
-                        <div>
-                            <label className="text-xs text-muted-foreground block mb-1">Email du marqueur</label>
-                            <input type="email" value={form.data.marker_email} onChange={(e) => form.setData('marker_email', e.target.value)} placeholder="Optionnel" className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
+                            <label className="text-xs text-muted-foreground block mb-1">Marqueur</label>
+                            <select value={form.data.marker_id} onChange={(e) => form.setData('marker_id', e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none appearance-none">
+                                <option value="">-- Aucun marqueur --</option>
+                                {markers.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.email})</option>)}
+                            </select>
                         </div>
                     </div>
+                    {availablePlayers.length > 0 && (
+                        <div>
+                            <label className="text-xs text-muted-foreground block mb-2">Joueurs {editingId ? '' : '(non affectes)'}</label>
+                            <div className="flex flex-wrap gap-2">
+                                {availablePlayers.map((p) => {
+                                    const selected = form.data.player_ids.includes(p.id);
+                                    return (
+                                        <button
+                                            key={p.id}
+                                            type="button"
+                                            onClick={() => togglePlayer(p.id)}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${selected ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-surface border border-border text-muted-foreground hover:text-foreground hover:bg-surface-hover'}`}
+                                        >
+                                            <div className={`w-2 h-2 rounded-full ${selected ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
+                                            {p.name}
+                                            {p.category?.short_name && <span className="text-[10px] opacity-60">{p.category.short_name}</span>}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                     <div className="flex gap-2 justify-end">
-                        <button type="button" onClick={() => setShowForm(false)} className="flex items-center gap-2 px-4 py-2 bg-surface border border-border rounded-xl text-sm text-foreground hover:bg-surface-hover"><X className="w-4 h-4" />Annuler</button>
-                        <button type="submit" disabled={form.processing} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm hover:bg-primary/90"><Check className="w-4 h-4" />{form.processing ? '...' : 'Créer'}</button>
+                        <button type="button" onClick={resetForm} className="flex items-center gap-2 px-4 py-2 bg-surface border border-border rounded-xl text-sm text-foreground hover:bg-surface-hover"><X className="w-4 h-4" />Annuler</button>
+                        <button type="submit" disabled={form.processing} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm hover:bg-primary/90"><Check className="w-4 h-4" />{form.processing ? '...' : editingId ? 'Enregistrer' : 'Creer'}</button>
                     </div>
                 </form>
             )}
@@ -446,13 +659,22 @@ function GroupsTab({ tournament, groups }: { tournament: Tournament; groups: Gro
                                 <span className="text-lg font-bold text-foreground">{group.code}</span>
                                 <div className="flex items-center gap-1.5 text-muted-foreground">
                                     <Clock className="w-3.5 h-3.5" />
-                                    <span className="text-xs">Départ: {group.tee_time}</span>
+                                    <span className="text-xs">Depart: {group.tee_time}</span>
                                 </div>
+                                {group.marker_pin && (
+                                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 text-xs font-mono font-bold">
+                                        <Hash className="w-3 h-3" />
+                                        {group.marker_pin}
+                                    </span>
+                                )}
                             </div>
                             <div className="flex items-center gap-2">
                                 <button onClick={() => copyCode(group.code)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-hover transition-colors">
                                     <span className="text-xs font-mono text-muted-foreground">{group.code}</span>
                                     <Copy className="w-3 h-3 text-muted-foreground" />
+                                </button>
+                                <button onClick={() => startEdit(group)} className="p-1.5 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-foreground transition-colors">
+                                    <Pencil className="w-4 h-4" />
                                 </button>
                                 <button onClick={() => handleDelete(group.id, group.code)} className="p-1.5 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-destructive transition-colors">
                                     <Trash2 className="w-4 h-4" />
@@ -463,38 +685,41 @@ function GroupsTab({ tournament, groups }: { tournament: Tournament; groups: Gro
                         {/* Marker info */}
                         <div className="px-5 py-3 border-b border-border">
                             {group.marker ? (
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <UserCheck className="w-4 h-4 text-primary" />
-                                        <span className="text-sm text-foreground">{group.marker.name}</span>
-                                        <span className="text-xs text-muted-foreground">({group.marker.email})</span>
-                                    </div>
-                                    {group.marker_token && (
-                                        <button
-                                            onClick={() => copyMarkerLink(group.marker_token!)}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium transition-colors"
-                                        >
-                                            <LinkIcon className="w-3 h-3" />
-                                            {copiedToken === group.marker_token ? 'Copié !' : 'Copier le lien'}
-                                        </button>
-                                    )}
+                                <div className="flex items-center gap-2">
+                                    <UserCheck className="w-4 h-4 text-primary" />
+                                    <span className="text-sm text-foreground">{group.marker.name}</span>
+                                    <span className="text-xs text-muted-foreground">({group.marker.email})</span>
                                 </div>
                             ) : (
                                 <div className="flex items-center gap-2">
                                     <Target className="w-4 h-4 text-muted-foreground" />
-                                    <span className="text-xs text-muted-foreground italic">Aucun marqueur assigné</span>
-                                    {group.marker_token && (
-                                        <button
-                                            onClick={() => copyMarkerLink(group.marker_token!)}
-                                            className="flex items-center gap-1.5 ml-auto px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-hover text-muted-foreground text-xs transition-colors"
-                                        >
-                                            <LinkIcon className="w-3 h-3" />
-                                            {copiedToken === group.marker_token ? 'Copié !' : 'Lien marqueur'}
-                                        </button>
-                                    )}
+                                    <span className="text-xs text-muted-foreground italic">Aucun marqueur assigne</span>
                                 </div>
                             )}
                         </div>
+
+                        {/* QR Code inline */}
+                        {showQR === group.id && group.marker_token && (
+                            <div className="px-5 py-4 border-b border-border flex flex-col items-center gap-3">
+                                <div className="bg-white p-3 rounded-xl" data-qr-group={group.id}>
+                                    <QRCodeSVG
+                                        value={getMarkerUrl(group.marker_token)}
+                                        size={180}
+                                        level="M"
+                                        bgColor="#ffffff"
+                                        fgColor="#000000"
+                                    />
+                                </div>
+                                <p className="text-[10px] text-muted-foreground font-mono break-all max-w-[220px] text-center">{getMarkerUrl(group.marker_token)}</p>
+                                <button
+                                    onClick={() => downloadQR(group)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-hover text-muted-foreground text-xs font-medium transition-colors"
+                                >
+                                    <Download className="w-3.5 h-3.5" />
+                                    Telecharger PNG
+                                </button>
+                            </div>
+                        )}
 
                         <ul className="divide-y divide-white/5">
                             {group.players?.length ? group.players.map((player) => (
@@ -509,6 +734,26 @@ function GroupsTab({ tournament, groups }: { tournament: Tournament; groups: Gro
                                 <li className="px-5 py-4 text-xs text-muted-foreground italic">Aucun joueur</li>
                             )}
                         </ul>
+
+                        {/* Actions bar */}
+                        {group.marker_token && (
+                            <div className="flex items-center gap-2 px-5 py-3 border-t border-border bg-surface/50">
+                                <button
+                                    onClick={() => copyMarkerLink(group.marker_token!)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium transition-colors"
+                                >
+                                    <LinkIcon className="w-3.5 h-3.5" />
+                                    {copiedToken === group.marker_token ? 'Copie !' : 'Copier le lien'}
+                                </button>
+                                <button
+                                    onClick={() => setShowQR(showQR === group.id ? null : group.id)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${showQR === group.id ? 'bg-primary/20 text-primary' : 'bg-surface hover:bg-surface-hover text-muted-foreground hover:text-foreground'}`}
+                                >
+                                    <QrCode className="w-3.5 h-3.5" />
+                                    QR Code
+                                </button>
+                            </div>
+                        )}
                     </div>
                 ))}
             </div>
@@ -736,7 +981,7 @@ function PaymentsTab({ payments }: { payments: (Payment & { player?: Player })[]
 }
 
 // --- Main Page ---
-export default function TournamentManage({ tournament, categories, players, groups, holes, scores, registrations, payments }: Props) {
+export default function TournamentManage({ tournament, categories, players, groups, holes, scores, registrations, payments, markers }: Props) {
     const [activeTab, setActiveTab] = useState('dashboard');
     const { auth } = usePage<PageProps>().props;
     const roles = auth?.roles ?? [];
@@ -771,7 +1016,7 @@ export default function TournamentManage({ tournament, categories, players, grou
             {activeTab === 'tournament' && <TournamentTab tournament={tournament} />}
             {activeTab === 'categories' && <CategoriesTab tournament={tournament} categories={categories} />}
             {activeTab === 'players' && <PlayersTab tournament={tournament} players={players} categories={categories} groups={groups} />}
-            {activeTab === 'groups' && <GroupsTab tournament={tournament} groups={groups} />}
+            {activeTab === 'groups' && <GroupsTab tournament={tournament} groups={groups} markers={markers} players={players} />}
             {activeTab === 'course' && <CourseTab tournament={tournament} holes={holes} />}
             {activeTab === 'registrations' && <RegistrationsTab tournament={tournament} registrations={registrations} />}
             {activeTab === 'payments' && <PaymentsTab payments={payments} />}

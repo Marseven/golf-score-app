@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\ScoreUpdated;
 use App\Models\Group;
 use App\Models\Score;
-use App\Events\ScoreUpdated;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -18,13 +18,28 @@ class MarkerController extends Controller
     public function authenticate(Request $request)
     {
         $validated = $request->validate([
-            'code' => 'required|string',
+            'code' => 'nullable|string',
+            'pin' => 'nullable|string|digits_between:4,6',
         ]);
 
-        $group = Group::where('code', $validated['code'])->first();
+        $group = null;
 
-        if (!$group) {
-            return back()->withErrors(['code' => 'Code de groupe invalide.']);
+        if (! empty($validated['pin'])) {
+            $group = Group::where('marker_pin', $validated['pin'])
+                ->whereHas('tournament', fn ($q) => $q->whereIn('status', ['published', 'active']))
+                ->first();
+
+            if (! $group) {
+                return back()->withErrors(['pin' => 'PIN invalide.']);
+            }
+        } elseif (! empty($validated['code'])) {
+            $group = Group::where('code', $validated['code'])->first();
+
+            if (! $group) {
+                return back()->withErrors(['code' => 'Code de groupe invalide.']);
+            }
+        } else {
+            return back()->withErrors(['code' => 'Veuillez saisir un PIN ou un code de groupe.']);
         }
 
         $request->session()->put('marker_group_id', $group->id);

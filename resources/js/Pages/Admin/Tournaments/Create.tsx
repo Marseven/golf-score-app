@@ -5,7 +5,8 @@ import { ArrowLeft, Trophy, Save } from 'lucide-react';
 export default function TournamentCreate() {
     const form = useForm({
         name: '',
-        date: '',
+        start_date: '',
+        end_date: '',
         club: '',
         scoring_mode: 'stroke_play' as 'stroke_play' | 'stableford' | 'both',
         rules: '',
@@ -53,16 +54,27 @@ export default function TournamentCreate() {
                             />
                             {form.errors.name && <p className="text-xs text-destructive mt-1">{form.errors.name}</p>}
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div>
-                                <label className="text-sm text-muted-foreground block mb-1.5">Date</label>
+                                <label className="text-sm text-muted-foreground block mb-1.5">Date de début</label>
                                 <input
                                     type="date"
-                                    value={form.data.date}
-                                    onChange={(e) => form.setData('date', e.target.value)}
+                                    value={form.data.start_date}
+                                    onChange={(e) => form.setData('start_date', e.target.value)}
                                     className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:border-primary focus:outline-none transition-colors"
                                 />
-                                {form.errors.date && <p className="text-xs text-destructive mt-1">{form.errors.date}</p>}
+                                {form.errors.start_date && <p className="text-xs text-destructive mt-1">{form.errors.start_date}</p>}
+                            </div>
+                            <div>
+                                <label className="text-sm text-muted-foreground block mb-1.5">Date de fin</label>
+                                <input
+                                    type="date"
+                                    value={form.data.end_date}
+                                    onChange={(e) => form.setData('end_date', e.target.value)}
+                                    min={form.data.start_date}
+                                    className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:border-primary focus:outline-none transition-colors"
+                                />
+                                {form.errors.end_date && <p className="text-xs text-destructive mt-1">{form.errors.end_date}</p>}
                             </div>
                             <div>
                                 <label className="text-sm text-muted-foreground block mb-1.5">Club</label>
@@ -112,7 +124,7 @@ export default function TournamentCreate() {
                     </Link>
                     <button
                         type="submit"
-                        disabled={form.processing || !form.data.name.trim() || !form.data.date || !form.data.club.trim()}
+                        disabled={form.processing || !form.data.name.trim() || !form.data.start_date || !form.data.club.trim()}
                         className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 shadow-lg shadow-primary/25 disabled:opacity-50"
                     >
                         <Save className="w-4 h-4" />

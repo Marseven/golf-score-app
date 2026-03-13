@@ -12,9 +12,7 @@ class ScoreUpdated implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public function __construct(public string $tournamentId)
-    {
-    }
+    public function __construct(public string $tournamentId) {}
 
     public function broadcastOn(): array
     {

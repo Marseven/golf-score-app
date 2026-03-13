@@ -16,7 +16,7 @@
 </head>
 <body>
     <h1>{{ $tournament->name }}</h1>
-    <p class="subtitle">{{ $tournament->club }} - {{ $tournament->date?->format('d/m/Y') }}</p>
+    <p class="subtitle">{{ $tournament->club }} - {{ $tournament->start_date?->format('d/m/Y') }}@if($tournament->end_date && $tournament->end_date->ne($tournament->start_date)) – {{ $tournament->end_date->format('d/m/Y') }}@endif</p>
 
     <table>
         <thead>

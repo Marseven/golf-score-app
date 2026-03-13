@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -30,7 +31,8 @@ class Tournament extends Model
      */
     protected $fillable = [
         'name',
-        'date',
+        'start_date',
+        'end_date',
         'club',
         'status',
         'scoring_mode',
@@ -49,10 +51,56 @@ class Tournament extends Model
     protected function casts(): array
     {
         return [
-            'date' => 'date',
+            'start_date' => 'date',
+            'end_date' => 'date',
             'registration_open' => 'boolean',
             'registration_fee' => 'decimal:2',
         ];
+    }
+
+    /**
+     * Compute the expected status based on today's date relative to start_date/end_date.
+     *
+     * Lifecycle: draft → published → active → finished
+     * - draft: not visible publicly
+     * - published: visible publicly, before start_date (registrations possible)
+     * - active: tournament in progress (start_date reached)
+     * - finished: tournament ended (end_date passed)
+     */
+    public function computeStatus(): string
+    {
+        if ($this->status === 'draft') {
+            return 'draft';
+        }
+
+        $today = Carbon::today();
+        $endDate = $this->end_date ?? $this->start_date;
+
+        if ($today->gt($endDate)) {
+            return 'finished';
+        }
+
+        if ($today->gte($this->start_date)) {
+            return 'active';
+        }
+
+        return 'published';
+    }
+
+    /**
+     * Sync the status column based on current dates if it has changed.
+     */
+    public function syncStatus(): bool
+    {
+        $computed = $this->computeStatus();
+
+        if ($this->status !== $computed) {
+            $this->status = $computed;
+
+            return $this->saveQuietly();
+        }
+
+        return false;
     }
 
     /**

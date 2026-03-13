@@ -2,13 +2,13 @@
 
 namespace Database\Seeders;
 
+use App\Models\Category;
+use App\Models\Group;
+use App\Models\Hole;
+use App\Models\Player;
+use App\Models\Tournament;
 use App\Models\User;
 use App\Models\UserRole;
-use App\Models\Tournament;
-use App\Models\Category;
-use App\Models\Hole;
-use App\Models\Group;
-use App\Models\Player;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -40,7 +40,8 @@ class DatabaseSeeder extends Seeder
         // 3. Tournament
         $tournament = Tournament::create([
             'name' => 'Open de Libreville 2026',
-            'date' => '2026-04-15',
+            'start_date' => '2026-04-15',
+            'end_date' => '2026-04-17',
             'club' => 'Golf Club de Libreville',
             'status' => 'active',
             'scoring_mode' => 'both',
@@ -55,6 +56,20 @@ class DatabaseSeeder extends Seeder
             'user_id' => $captain->id,
             'tournament_id' => $tournament->id,
             'role' => 'captain',
+        ]);
+
+        // Marker user
+        $marker = User::create([
+            'name' => 'Paul',
+            'email' => 'paul@test.com',
+            'password' => Hash::make('password'),
+            'email_verified_at' => now(),
+        ]);
+
+        UserRole::create([
+            'user_id' => $marker->id,
+            'tournament_id' => $tournament->id,
+            'role' => 'marker',
         ]);
 
         // 4. Categories
@@ -89,6 +104,7 @@ class DatabaseSeeder extends Seeder
             'tournament_id' => $tournament->id,
             'code' => 'GOLF-2026-G1',
             'tee_time' => '08:00',
+            'marker_id' => $marker->id,
         ]);
 
         $group2 = Group::create([

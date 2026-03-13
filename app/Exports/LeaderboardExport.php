@@ -9,9 +9,7 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 
 class LeaderboardExport implements FromCollection, WithHeadings, WithMapping
 {
-    public function __construct(protected Tournament $tournament)
-    {
-    }
+    public function __construct(protected Tournament $tournament) {}
 
     public function collection()
     {
@@ -27,8 +25,8 @@ class LeaderboardExport implements FromCollection, WithHeadings, WithMapping
     {
         $scores = $player->scores;
         $totalStrokes = $scores->sum('strokes');
-        $totalPar = $scores->sum(fn($s) => $s->hole->par ?? 0);
-        $stableford = $scores->sum(fn($s) => max(0, ($s->hole->par ?? 0) - $s->strokes + 2));
+        $totalPar = $scores->sum(fn ($s) => $s->hole->par ?? 0);
+        $stableford = $scores->sum(fn ($s) => max(0, ($s->hole->par ?? 0) - $s->strokes + 2));
 
         static $position = 0;
         $position++;

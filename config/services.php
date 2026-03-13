@@ -41,4 +41,20 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
     ],
 
+    'ebilling' => [
+        'username' => env('EBILLING_USERNAME', ''),
+        'shared_key' => env('EBILLING_SHARED_KEY', ''),
+        'environment' => env('EBILLING_ENVIRONMENT', 'lab'),
+        'urls' => [
+            'lab' => [
+                'api' => 'https://lab.billing-easy.net',
+                'portal' => 'https://test.billing-easy.net',
+            ],
+            'prod' => [
+                'api' => 'https://app.billing-easy.net',
+                'portal' => 'https://billing-easy.net',
+            ],
+        ],
+    ],
+
 ];

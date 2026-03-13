@@ -14,9 +14,9 @@ class LeaderboardController extends Controller
 
     public function tournamentList()
     {
-        $tournaments = Tournament::where('status', 'active')
+        $tournaments = Tournament::whereIn('status', ['published', 'active'])
             ->withCount('players', 'groups')
-            ->orderBy('date', 'desc')
+            ->orderBy('start_date', 'desc')
             ->get();
 
         return Inertia::render('Tournaments', [
@@ -28,7 +28,7 @@ class LeaderboardController extends Controller
     {
         $tournament = $tournament ?? Tournament::where('status', 'active')->latest()->first();
 
-        if (!$tournament) {
+        if (! $tournament) {
             return Inertia::render('Classement', [
                 'tournament' => null,
                 'players' => [],
@@ -51,7 +51,7 @@ class LeaderboardController extends Controller
     {
         $tournament = $tournament ?? Tournament::where('status', 'active')->latest()->first();
 
-        if (!$tournament) {
+        if (! $tournament) {
             return Inertia::render('TvScreen', [
                 'tournament' => null,
                 'players' => [],

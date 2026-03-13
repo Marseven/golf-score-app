@@ -68,7 +68,12 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                         </div>
                         <div>
                             <h1 className="text-3xl font-black text-white tracking-tight">{tournament?.name ?? ''}</h1>
-                            <p className="text-base text-white/50">{tournament?.club} &bull; {tournament?.date ? new Date(tournament.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}</p>
+                            <p className="text-base text-white/50">
+                                {tournament?.club} &bull; {tournament?.start_date ? new Date(tournament.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}
+                                {tournament?.end_date && tournament.end_date !== tournament.start_date && (
+                                    <> – {new Date(tournament.end_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</>
+                                )}
+                            </p>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">

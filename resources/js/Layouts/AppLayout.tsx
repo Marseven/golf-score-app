@@ -1,6 +1,6 @@
 import { PropsWithChildren, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { Settings, Wifi, WifiOff, Menu, LogOut, X, User, ExternalLink, Sun, Moon, Monitor } from 'lucide-react';
+import { Settings, Wifi, WifiOff, Menu, LogOut, X, User, ExternalLink, Sun, Moon, Monitor, Cog, Users } from 'lucide-react';
 import { useTheme, type Theme } from '@/Hooks/useTheme';
 import logo from '@/assets/logo.png';
 
@@ -9,22 +9,27 @@ interface NavItem {
     routeName: string;
     routeParams?: any;
     icon: any;
+    adminOnly?: boolean;
 }
 
 const adminNavItems: NavItem[] = [
     { title: 'Mes tournois', routeName: 'admin.dashboard', icon: Settings },
+    { title: 'Utilisateurs', routeName: 'admin.users', icon: Users, adminOnly: true },
+    { title: 'Paramètres', routeName: 'admin.settings', icon: Cog, adminOnly: true },
     { title: 'Mon profil', routeName: 'profile.edit', icon: User },
 ];
 
 const themeIcon: Record<Theme, typeof Sun> = { light: Sun, dark: Moon, system: Monitor };
 const themeLabel: Record<Theme, string> = { light: 'Clair', dark: 'Sombre', system: 'Système' };
 
-function SidebarContent({ tournament, user, onNavClick }: {
+function SidebarContent({ tournament, user, roles, onNavClick }: {
     tournament?: any;
     user?: any;
+    roles?: string[];
     onNavClick?: () => void;
 }) {
     const { url } = usePage();
+    const visibleNavItems = adminNavItems.filter((item) => !item.adminOnly || roles?.includes('admin'));
     const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
     const { theme, cycleTheme } = useTheme();
     const ThemeIcon = themeIcon[theme];
@@ -53,7 +58,7 @@ function SidebarContent({ tournament, user, onNavClick }: {
 
             <nav className="flex-1 px-3">
                 <ul className="space-y-1">
-                    {adminNavItems.map((item) => {
+                    {visibleNavItems.map((item) => {
                         const itemUrl = route(item.routeName, item.routeParams);
                         const isActive = url.startsWith(new URL(itemUrl).pathname);
                         return (
@@ -115,13 +120,14 @@ function SidebarContent({ tournament, user, onNavClick }: {
 export default function AppLayout({ children, tournament }: PropsWithChildren<{ tournament?: any }>) {
     const { auth } = usePage().props as any;
     const user = auth?.user;
+    const roles = auth?.roles ?? [];
     const [mobileOpen, setMobileOpen] = useState(false);
 
     return (
         <div className="min-h-screen bg-background">
             {/* Desktop Sidebar */}
             <aside className="hidden lg:flex lg:w-72 lg:flex-col lg:fixed lg:inset-y-0 bg-sidebar border-r border-sidebar-border">
-                <SidebarContent tournament={tournament} user={user} />
+                <SidebarContent tournament={tournament} user={user} roles={roles} />
             </aside>
 
             {/* Mobile Header */}
@@ -149,6 +155,7 @@ export default function AppLayout({ children, tournament }: PropsWithChildren<{ 
                         <SidebarContent
                             tournament={tournament}
                             user={user}
+                            roles={roles}
                             onNavClick={() => setMobileOpen(false)}
                         />
                     </div>

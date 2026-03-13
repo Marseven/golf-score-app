@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Tournament;
 use App\Models\Category;
+use App\Models\Tournament;
 use Illuminate\Http\Request;
 
 class CategoryController extends Controller
@@ -14,6 +14,7 @@ class CategoryController extends Controller
             'name' => 'required|string|max:255',
             'short_name' => 'required|string|max:10',
             'color' => 'required|string|max:50',
+            'registration_fee' => 'numeric|min:0',
         ]);
 
         $tournament->categories()->create($validated);
@@ -27,6 +28,7 @@ class CategoryController extends Controller
             'name' => 'required|string|max:255',
             'short_name' => 'required|string|max:10',
             'color' => 'required|string|max:50',
+            'registration_fee' => 'numeric|min:0',
         ]);
 
         $category->update($validated);

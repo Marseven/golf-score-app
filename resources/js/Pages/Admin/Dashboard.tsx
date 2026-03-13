@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
-import { Plus, Trash2, Users, Calendar, MapPin, Trophy, CreditCard, UserCheck, Layers, ArrowRight, Clock } from 'lucide-react';
+import { Plus, Trash2, Users, Calendar, MapPin, Trophy, CreditCard, UserCheck, Layers, ArrowRight, Clock, Globe, EyeOff } from 'lucide-react';
 import type { Tournament } from '@/types';
 
 interface Stats {
@@ -20,11 +20,12 @@ interface Props {
 
 const statusConfig: Record<string, { badge: string; dot: string; label: string }> = {
     draft: { badge: 'bg-amber-500/10 text-amber-500 dark:text-amber-400 ring-1 ring-amber-500/20', dot: 'bg-amber-400', label: 'Brouillon' },
+    published: { badge: 'bg-cyan-500/10 text-cyan-500 dark:text-cyan-400 ring-1 ring-cyan-500/20', dot: 'bg-cyan-400', label: 'Publié' },
     active: { badge: 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 ring-1 ring-emerald-500/20', dot: 'bg-emerald-400 animate-pulse', label: 'En cours' },
     finished: { badge: 'bg-blue-500/10 text-blue-500 dark:text-blue-400 ring-1 ring-blue-500/20', dot: 'bg-blue-400', label: 'Terminé' },
 };
 
-type FilterStatus = 'all' | 'draft' | 'active' | 'finished';
+type FilterStatus = 'all' | 'draft' | 'published' | 'active' | 'finished';
 
 export default function AdminDashboard({ tournaments, stats, isAdmin }: Props) {
     const { auth } = usePage().props as any;
@@ -40,8 +41,18 @@ export default function AdminDashboard({ tournaments, stats, isAdmin }: Props) {
         router.delete(route('tournaments.destroy', tournament.id));
     };
 
+    const handleTogglePublish = (e: React.MouseEvent, tournament: Tournament) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const isPublished = tournament.status === 'published' || tournament.status === 'active';
+        const action = isPublished ? 'Dépublier' : 'Publier';
+        if (!confirm(`${action} le tournoi "${tournament.name}" ?`)) return;
+        router.patch(route('tournaments.togglePublish', tournament.id));
+    };
+
     const filters: { id: FilterStatus; label: string; count: number }[] = [
         { id: 'all', label: 'Tous', count: tournaments.length },
+        { id: 'published', label: 'Publié', count: tournaments.filter(t => t.status === 'published').length },
         { id: 'active', label: 'En cours', count: tournaments.filter(t => t.status === 'active').length },
         { id: 'draft', label: 'Brouillon', count: tournaments.filter(t => t.status === 'draft').length },
         { id: 'finished', label: 'Terminé', count: tournaments.filter(t => t.status === 'finished').length },
@@ -200,13 +211,28 @@ export default function AdminDashboard({ tournaments, stats, isAdmin }: Props) {
                                         <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
                                         {config.label}
                                     </span>
-                                    <button
-                                        onClick={(e) => handleDelete(e, tournament)}
-                                        className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-surface-hover text-muted-foreground hover:text-destructive transition-all"
-                                        title="Supprimer"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
+                                    <div className="flex items-center gap-1">
+                                        {tournament.status !== 'finished' && (
+                                            <button
+                                                onClick={(e) => handleTogglePublish(e, tournament)}
+                                                className={`p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all ${
+                                                    tournament.status === 'published' || tournament.status === 'active'
+                                                        ? 'hover:bg-surface-hover text-muted-foreground hover:text-amber-400'
+                                                        : 'hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-400'
+                                                }`}
+                                                title={tournament.status === 'published' || tournament.status === 'active' ? 'Dépublier' : 'Publier'}
+                                            >
+                                                {tournament.status === 'published' || tournament.status === 'active' ? <EyeOff className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={(e) => handleDelete(e, tournament)}
+                                            className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-surface-hover text-muted-foreground hover:text-destructive transition-all"
+                                            title="Supprimer"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <h3 className="text-base font-bold text-foreground mb-1.5 group-hover:text-primary transition-colors">
@@ -220,7 +246,12 @@ export default function AdminDashboard({ tournaments, stats, isAdmin }: Props) {
                                     </div>
                                     <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                                         <Calendar className="w-3.5 h-3.5 shrink-0" />
-                                        <span>{new Date(tournament.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                                        <span>
+                                            {new Date(tournament.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                            {tournament.end_date && tournament.end_date !== tournament.start_date && (
+                                                <> – {new Date(tournament.end_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</>
+                                            )}
+                                        </span>
                                     </div>
                                 </div>
 

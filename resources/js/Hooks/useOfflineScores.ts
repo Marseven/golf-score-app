@@ -14,6 +14,8 @@ interface UseOfflineScoresOptions {
     players: Player[];
     holes: Hole[];
     existingScores: Record<string, Score[]>;
+    saveUrl: string;
+    csrfRefreshUrl: string;
 }
 
 function getCsrfToken(): string {
@@ -21,7 +23,7 @@ function getCsrfToken(): string {
     return match ? decodeURIComponent(match[1]) : '';
 }
 
-export function useOfflineScores({ groupId, players, holes, existingScores }: UseOfflineScoresOptions) {
+export function useOfflineScores({ groupId, players, holes, existingScores, saveUrl, csrfRefreshUrl }: UseOfflineScoresOptions) {
     // Build initial scores grid from server data
     const buildInitialScores = useCallback((): number[][] => {
         return players.map((player) => {
@@ -90,7 +92,7 @@ export function useOfflineScores({ groupId, players, holes, existingScores }: Us
                 strokes: p.strokes,
             }));
 
-            const response = await fetch(`/marqueur/scoring/${groupId}/save`, {
+            const response = await fetch(saveUrl, {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: {
@@ -109,7 +111,7 @@ export function useOfflineScores({ groupId, players, holes, existingScores }: Us
                 setLastSyncTime(new Date());
             } else if (response.status === 419) {
                 // CSRF token expired — refresh page cookie silently
-                await fetch('/marqueur', { credentials: 'same-origin' }).catch(() => {});
+                await fetch(csrfRefreshUrl, { credentials: 'same-origin' }).catch(() => {});
                 setSyncStatus('error');
             } else {
                 setSyncStatus('error');

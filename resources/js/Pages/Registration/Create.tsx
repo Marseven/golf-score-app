@@ -17,6 +17,9 @@ export default function RegistrationCreate({ tournament, categories }: Props) {
         category_id: '',
     });
 
+    const selectedCategory = categories.find((c) => c.id === form.data.category_id);
+    const fee = selectedCategory?.registration_fee ?? 0;
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         form.post(route('inscription.store', tournament.id));
@@ -33,7 +36,12 @@ export default function RegistrationCreate({ tournament, categories }: Props) {
                             <Target className="w-8 h-8 text-white" />
                         </div>
                         <h1 className="text-2xl font-bold text-foreground">{tournament.name}</h1>
-                        <p className="text-sm text-muted-foreground mt-1">{tournament.club} &bull; {tournament.date}</p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            {tournament.club} &bull; {new Date(tournament.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            {tournament.end_date && tournament.end_date !== tournament.start_date && (
+                                <> – {new Date(tournament.end_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</>
+                            )}
+                        </p>
                     </div>
 
                     <div className="glass-card">
@@ -43,11 +51,7 @@ export default function RegistrationCreate({ tournament, categories }: Props) {
                             </div>
                             <div>
                                 <h2 className="text-lg font-semibold text-foreground">Inscription</h2>
-                                {tournament.registration_fee > 0 && (
-                                    <p className="text-xs text-muted-foreground">
-                                        Frais : {tournament.registration_fee} {tournament.registration_currency}
-                                    </p>
-                                )}
+                                <p className="text-xs text-muted-foreground">Remplissez le formulaire pour vous inscrire</p>
                             </div>
                         </div>
 
@@ -116,11 +120,22 @@ export default function RegistrationCreate({ tournament, categories }: Props) {
                                 >
                                     <option value="">Sélectionner une catégorie</option>
                                     {categories.map((cat) => (
-                                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                        <option key={cat.id} value={cat.id}>
+                                            {cat.name}{cat.registration_fee > 0 ? ` — ${cat.registration_fee} ${tournament.registration_currency}` : ''}
+                                        </option>
                                     ))}
                                 </select>
                                 {form.errors.category_id && <p className="mt-1.5 text-sm text-destructive">{form.errors.category_id}</p>}
                             </div>
+
+                            {fee > 0 && (
+                                <div className="bg-surface rounded-xl p-4 border border-border">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-muted-foreground">Frais d'inscription</span>
+                                        <span className="text-sm font-bold text-amber-400">{fee} {tournament.registration_currency}</span>
+                                    </div>
+                                </div>
+                            )}
 
                             <button
                                 type="submit"

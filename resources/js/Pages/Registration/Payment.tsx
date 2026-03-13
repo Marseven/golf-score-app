@@ -1,15 +1,20 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import PublicLayout from '@/Layouts/PublicLayout';
-import { Target, Loader2, CreditCard } from 'lucide-react';
+import { Target, Loader2, CreditCard, Phone, AlertTriangle } from 'lucide-react';
 import type { Tournament, Player } from '@/types';
 
 interface Props {
     tournament: Tournament;
     player: Player;
+    registrationFee: number;
+    ebillingConfigured: boolean;
 }
 
-export default function RegistrationPayment({ tournament, player }: Props) {
-    const form = useForm({});
+export default function RegistrationPayment({ tournament, player, registrationFee, ebillingConfigured }: Props) {
+    const { errors: pageErrors } = usePage().props as any;
+    const form = useForm({
+        payer_msisdn: player.phone ?? '',
+    });
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -29,6 +34,13 @@ export default function RegistrationPayment({ tournament, player }: Props) {
                         <h1 className="text-2xl font-bold text-foreground">{tournament.name}</h1>
                         <p className="text-sm text-muted-foreground mt-1">Inscription de {player.name}</p>
                     </div>
+
+                    {!ebillingConfigured && (
+                        <div className="flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+                            <p className="text-sm text-amber-400">Le paiement en ligne n'est pas encore configuré. Contactez l'administrateur.</p>
+                        </div>
+                    )}
 
                     <div className="glass-card">
                         <div className="flex items-center gap-3 mb-6">
@@ -54,16 +66,33 @@ export default function RegistrationPayment({ tournament, player }: Props) {
                                 <div className="flex items-center justify-between">
                                     <span className="text-sm font-semibold text-foreground">Montant</span>
                                     <span className="text-lg font-bold text-amber-400">
-                                        {tournament.registration_fee} {tournament.registration_currency}
+                                        {registrationFee} {tournament.registration_currency}
                                     </span>
                                 </div>
                             </div>
                         </div>
 
-                        <form onSubmit={handleSubmit}>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div>
+                                <label className="text-sm text-muted-foreground block mb-1.5">
+                                    <Phone className="w-3.5 h-3.5 inline-block mr-1" />
+                                    Numéro de téléphone
+                                </label>
+                                <input
+                                    type="tel"
+                                    value={form.data.payer_msisdn}
+                                    onChange={(e) => form.setData('payer_msisdn', e.target.value)}
+                                    placeholder="Ex: 237690000000"
+                                    className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:border-primary focus:outline-none transition-colors"
+                                />
+                                {form.errors.payer_msisdn && (
+                                    <p className="text-xs text-destructive mt-1">{form.errors.payer_msisdn}</p>
+                                )}
+                            </div>
+
                             <button
                                 type="submit"
-                                disabled={form.processing}
+                                disabled={form.processing || !ebillingConfigured}
                                 className="w-full bg-amber-500 text-amber-950 hover:bg-amber-400 shadow-lg shadow-amber-500/25 h-12 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                                 {form.processing ? (
@@ -75,6 +104,10 @@ export default function RegistrationPayment({ tournament, player }: Props) {
                                     </>
                                 )}
                             </button>
+
+                            {pageErrors?.payment && (
+                                <p className="text-sm text-destructive text-center">{pageErrors.payment}</p>
+                            )}
                         </form>
                     </div>
                 </div>

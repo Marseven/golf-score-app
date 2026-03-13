@@ -38,6 +38,10 @@ class HandleInertiaRequests extends Middleware
                     ? $request->user()->roles->pluck('role')->unique()->values()
                     : [],
             ],
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error' => fn () => $request->session()->get('error'),
+            ],
             'ziggy' => fn () => [
                 ...(new Ziggy)->toArray(),
                 'url' => config('app.url'),

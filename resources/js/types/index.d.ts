@@ -19,9 +19,10 @@ export type PageProps<
 export interface Tournament {
     id: string;
     name: string;
-    date: string;
+    start_date: string;
+    end_date: string | null;
     club: string;
-    status: 'draft' | 'active' | 'finished';
+    status: 'draft' | 'published' | 'active' | 'finished';
     scoring_mode: 'stroke_play' | 'stableford' | 'both';
     rules: string | null;
     registration_open: boolean;
@@ -44,6 +45,7 @@ export interface Category {
     name: string;
     short_name: string;
     color: string;
+    registration_fee: number;
 }
 
 export interface Hole {
@@ -62,6 +64,7 @@ export interface Group {
     tee_time: string;
     marker_id: string | null;
     marker_token: string | null;
+    marker_pin: string | null;
     marker?: User | null;
     players?: Player[];
 }

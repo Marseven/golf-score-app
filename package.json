@@ -62,6 +62,7 @@
         "laravel-echo": "^2.3.1",
         "lucide-react": "^0.577.0",
         "pusher-js": "^8.4.0",
+        "qrcode.react": "^4.2.0",
         "react-day-picker": "^9.14.0",
         "react-hook-form": "^7.71.2",
         "react-resizable-panels": "^4.7.2",

@@ -32,7 +32,15 @@ class Category extends Model
         'name',
         'short_name',
         'color',
+        'registration_fee',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'registration_fee' => 'decimal:2',
+        ];
+    }
 
     /**
      * Get the tournament that the category belongs to.

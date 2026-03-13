@@ -34,15 +34,31 @@ class Group extends Model
         'tee_time',
         'marker_id',
         'marker_token',
+        'marker_pin',
     ];
 
     protected static function booted(): void
     {
         static::creating(function (Group $group) {
-            if (!$group->marker_token) {
+            if (! $group->marker_token) {
                 $group->marker_token = Str::random(64);
             }
+            if (! $group->marker_pin && $group->tournament_id) {
+                $group->marker_pin = static::generateUniquePin($group->tournament_id);
+            }
         });
+    }
+
+    /**
+     * Generate a unique 4-digit PIN for a tournament.
+     */
+    public static function generateUniquePin(string $tournamentId): string
+    {
+        do {
+            $pin = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        } while (static::where('tournament_id', $tournamentId)->where('marker_pin', $pin)->exists());
+
+        return $pin;
     }
 
     /**

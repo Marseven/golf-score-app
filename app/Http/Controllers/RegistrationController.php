@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Tournament;
 use App\Models\Player;
+use App\Models\Tournament;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -17,7 +17,7 @@ class RegistrationController extends Controller
                 ->where('registration_status', '!=', 'approved')
                 ->orWhere(function ($q) use ($tournament) {
                     $q->where('tournament_id', $tournament->id)
-                      ->whereNotNull('email');
+                        ->whereNotNull('email');
                 })
                 ->with('category', 'payments')
                 ->get(),
@@ -26,12 +26,12 @@ class RegistrationController extends Controller
 
     public function create(Tournament $tournament)
     {
-        if (!$tournament->registration_open) {
+        if (! $tournament->registration_open) {
             abort(403, 'Les inscriptions sont fermées.');
         }
 
         return Inertia::render('Registration/Create', [
-            'tournament' => $tournament->only('id', 'name', 'date', 'club', 'registration_fee', 'registration_currency'),
+            'tournament' => $tournament->only('id', 'name', 'start_date', 'end_date', 'club', 'registration_currency'),
             'categories' => $tournament->categories,
         ]);
     }
@@ -51,7 +51,10 @@ class RegistrationController extends Controller
             'registration_status' => 'pending',
         ]);
 
-        if ($tournament->registration_fee > 0) {
+        $category = $tournament->categories()->find($validated['category_id']);
+        $fee = $category ? $category->registration_fee : 0;
+
+        if ($fee > 0) {
             return redirect()->route('paiement.create', [$tournament, $player]);
         }
 

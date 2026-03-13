@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Tournament;
 use App\Imports\PlayersImport;
+use App\Models\Tournament;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -17,9 +17,10 @@ class PlayerImportController extends Controller
 
         try {
             Excel::import(new PlayersImport($tournament), $request->file('file'));
+
             return back()->with('success', 'Joueurs importés avec succès.');
         } catch (\Exception $e) {
-            return back()->withErrors(['file' => 'Erreur d\'import: ' . $e->getMessage()]);
+            return back()->withErrors(['file' => 'Erreur d\'import: '.$e->getMessage()]);
         }
     }
 }

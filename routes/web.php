@@ -12,8 +12,10 @@ use App\Http\Controllers\PlayerController;
 use App\Http\Controllers\PlayerImportController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RegistrationController;
+use App\Http\Controllers\SettingController;
 use App\Http\Controllers\SocialiteController;
 use App\Http\Controllers\TournamentController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 // Landing page
@@ -36,6 +38,7 @@ Route::post('/inscription/{tournament}', [RegistrationController::class, 'store'
 Route::get('/inscription/{tournament}/paiement/{player}', [PaymentController::class, 'create'])->name('paiement.create');
 Route::post('/inscription/{tournament}/paiement/{player}', [PaymentController::class, 'store'])->name('paiement.store');
 Route::post('/paiement/callback', [PaymentController::class, 'callback'])->name('paiement.callback');
+Route::get('/paiement/{payment}/status', [PaymentController::class, 'status'])->name('paiement.status');
 
 // Marker (public login, session-based scoring)
 Route::get('/marqueur', [MarkerController::class, 'login'])->name('marqueur.login');
@@ -58,6 +61,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Tournament CRUD
     Route::resource('tournaments', TournamentController::class)->middleware('role:admin,captain');
 
+    // Quick publish/unpublish toggle
+    Route::patch('tournaments/{tournament}/toggle-publish', [TournamentController::class, 'togglePublish'])
+        ->name('tournaments.togglePublish')
+        ->middleware('role:admin,captain');
+
     // Nested tournament resources
     Route::prefix('tournaments/{tournament}')->middleware('role:admin,captain')->group(function () {
         Route::resource('categories', CategoryController::class)->except(['show']);
@@ -75,6 +83,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('tournaments/{tournament}')->middleware('role:admin')->group(function () {
         Route::get('registrations', [RegistrationController::class, 'index'])->name('registrations.index');
         Route::patch('registrations/{player}', [RegistrationController::class, 'update'])->name('registrations.update');
+    });
+
+    // Admin-only: settings & user management
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/admin/settings', [SettingController::class, 'index'])->name('admin.settings');
+        Route::put('/admin/settings', [SettingController::class, 'update'])->name('admin.settings.update');
+
+        Route::get('/admin/users', [UserController::class, 'index'])->name('admin.users');
+        Route::post('/admin/users', [UserController::class, 'store'])->name('admin.users.store');
+        Route::put('/admin/users/{user}', [UserController::class, 'update'])->name('admin.users.update');
+        Route::delete('/admin/users/{user}', [UserController::class, 'destroy'])->name('admin.users.destroy');
     });
 });
 

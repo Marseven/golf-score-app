@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Tournament;
 use App\Models\Group;
-use App\Models\User;
+use App\Models\Player;
+use App\Models\Tournament;
 use App\Models\UserRole;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class GroupController extends Controller
 {
@@ -15,37 +14,36 @@ class GroupController extends Controller
     {
         $validated = $request->validate([
             'tee_time' => 'required|string',
-            'marker_name' => 'nullable|string|max:255',
-            'marker_email' => 'nullable|email|max:255',
+            'marker_id' => 'nullable|uuid|exists:users,id',
+            'player_ids' => 'nullable|array',
+            'player_ids.*' => 'uuid|exists:players,id',
         ]);
 
         $count = $tournament->groups()->count() + 1;
-        $code = 'GOLF-' . date('Y') . '-G' . $count;
+        $code = 'GOLF-'.date('Y').'-G'.$count;
 
         $groupData = [
             'code' => $code,
             'tee_time' => $validated['tee_time'],
         ];
 
-        if (!empty($validated['marker_email'])) {
-            $marker = User::firstOrCreate(
-                ['email' => $validated['marker_email']],
-                [
-                    'name' => $validated['marker_name'] ?? explode('@', $validated['marker_email'])[0],
-                    'password' => bcrypt(Str::random(32)),
-                ]
-            );
+        if (! empty($validated['marker_id'])) {
+            $groupData['marker_id'] = $validated['marker_id'];
 
             UserRole::firstOrCreate([
-                'user_id' => $marker->id,
+                'user_id' => $validated['marker_id'],
                 'tournament_id' => $tournament->id,
                 'role' => 'marker',
             ]);
-
-            $groupData['marker_id'] = $marker->id;
         }
 
-        $tournament->groups()->create($groupData);
+        $group = $tournament->groups()->create($groupData);
+
+        if (! empty($validated['player_ids'])) {
+            Player::where('tournament_id', $tournament->id)
+                ->whereIn('id', $validated['player_ids'])
+                ->update(['group_id' => $group->id]);
+        }
 
         return back()->with('success', 'Groupe créé.');
     }
@@ -54,33 +52,36 @@ class GroupController extends Controller
     {
         $validated = $request->validate([
             'tee_time' => 'required|string',
-            'marker_name' => 'nullable|string|max:255',
-            'marker_email' => 'nullable|email|max:255',
+            'marker_id' => 'nullable|uuid|exists:users,id',
+            'player_ids' => 'nullable|array',
+            'player_ids.*' => 'uuid|exists:players,id',
         ]);
 
         $groupData = ['tee_time' => $validated['tee_time']];
 
-        if (!empty($validated['marker_email'])) {
-            $marker = User::firstOrCreate(
-                ['email' => $validated['marker_email']],
-                [
-                    'name' => $validated['marker_name'] ?? explode('@', $validated['marker_email'])[0],
-                    'password' => bcrypt(Str::random(32)),
-                ]
-            );
+        if (! empty($validated['marker_id'])) {
+            $groupData['marker_id'] = $validated['marker_id'];
 
             UserRole::firstOrCreate([
-                'user_id' => $marker->id,
+                'user_id' => $validated['marker_id'],
                 'tournament_id' => $tournament->id,
                 'role' => 'marker',
             ]);
-
-            $groupData['marker_id'] = $marker->id;
-        } elseif ($request->has('marker_email') && empty($validated['marker_email'])) {
+        } elseif ($request->has('marker_id')) {
             $groupData['marker_id'] = null;
         }
 
         $group->update($groupData);
+
+        // Unassign all current players from this group
+        $group->players()->update(['group_id' => null]);
+
+        // Assign selected players
+        if (! empty($validated['player_ids'])) {
+            Player::where('tournament_id', $tournament->id)
+                ->whereIn('id', $validated['player_ids'])
+                ->update(['group_id' => $group->id]);
+        }
 
         return back()->with('success', 'Groupe mis à jour.');
     }

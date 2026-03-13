@@ -2,17 +2,15 @@
 
 namespace App\Imports;
 
-use App\Models\Tournament;
 use App\Models\Player;
+use App\Models\Tournament;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
 
 class PlayersImport implements ToModel, WithHeadingRow, WithValidation
 {
-    public function __construct(protected Tournament $tournament)
-    {
-    }
+    public function __construct(protected Tournament $tournament) {}
 
     public function model(array $row): Player
     {
