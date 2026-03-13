@@ -44,9 +44,9 @@ return new class extends Migration
             DB::statement('ALTER TABLE "tournaments_new" RENAME TO "tournaments"');
 
             DB::statement('PRAGMA foreign_keys = ON');
+        } else {
+            DB::statement("ALTER TABLE tournaments MODIFY COLUMN status ENUM('draft', 'published', 'active', 'finished') NOT NULL DEFAULT 'draft'");
         }
-        // MySQL/MariaDB: status is already a varchar, no constraint to modify.
-        // The 'published' value is handled at application level.
     }
 
     /**
@@ -87,6 +87,8 @@ return new class extends Migration
             DB::statement('ALTER TABLE "tournaments_old" RENAME TO "tournaments"');
 
             DB::statement('PRAGMA foreign_keys = ON');
+        } else {
+            DB::statement("ALTER TABLE tournaments MODIFY COLUMN status ENUM('draft', 'active', 'finished') NOT NULL DEFAULT 'draft'");
         }
     }
 };
