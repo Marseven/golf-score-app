@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('http://localhost:8888/golf-score-app/public/build/sw.js', { scope: 'http://localhost:8888/golf-score-app/public/build/' })})}
