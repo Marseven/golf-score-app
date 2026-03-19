@@ -173,6 +173,76 @@
   .stagger-2 { animation-delay: 0.1s; }
   .stagger-3 { animation-delay: 0.15s; }
   .stagger-4 { animation-delay: 0.2s; }
+
+  /* react-international-phone overrides */
+  .phone-input-container.react-international-phone-input-container {
+    width: 100%;
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.75rem;
+    overflow: hidden;
+    transition: border-color 0.15s;
+  }
+
+  .phone-input-container.react-international-phone-input-container:focus-within {
+    border-color: hsl(var(--primary));
+  }
+
+  .phone-country-btn.react-international-phone-country-selector-button {
+    background: transparent;
+    border: none;
+    border-right: 1px solid hsl(var(--border));
+    padding: 0 0.75rem;
+    height: auto;
+  }
+
+  .phone-country-btn.react-international-phone-country-selector-button:hover {
+    background: hsl(var(--surface-hover));
+  }
+
+  .phone-input-field.react-international-phone-input {
+    background: transparent;
+    border: none;
+    color: hsl(var(--foreground));
+    font-size: 1rem;
+    padding: 0.75rem 1rem;
+    height: auto;
+    width: 100%;
+  }
+
+  .phone-input-field.react-international-phone-input::placeholder {
+    color: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  .react-international-phone-country-selector-dropdown {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 25px -5px rgb(0 0 0 / 0.1);
+    z-index: 50;
+  }
+
+  .react-international-phone-country-selector-dropdown__list-item {
+    color: hsl(var(--foreground));
+    padding: 0.5rem 0.75rem;
+  }
+
+  .react-international-phone-country-selector-dropdown__list-item:hover {
+    background: hsl(var(--surface-hover));
+  }
+
+  .react-international-phone-country-selector-dropdown__list-item--focused {
+    background: hsl(var(--surface));
+  }
+
+  .react-international-phone-country-selector-dropdown__search {
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.5rem;
+    color: hsl(var(--foreground));
+    margin: 0.5rem;
+    padding: 0.5rem 0.75rem;
+  }
 }
 
 @keyframes fadeSlideIn {

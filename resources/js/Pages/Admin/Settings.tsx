@@ -1,5 +1,6 @@
 import { Head, useForm, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
+import PhoneInput from '@/Components/PhoneInput';
 import { Save, Eye, EyeOff, Cog, Building2, Mail, CreditCard, Trophy, Upload, ImageIcon } from 'lucide-react';
 import { useState, useRef } from 'react';
 
@@ -210,12 +211,10 @@ function GeneralTab({ settings }: { settings: SettingsData }) {
                     placeholder="contact@mangagolfclub.com"
                     error={form.errors.club_email}
                 />
-                <InputField
+                <PhoneInput
                     label="Téléphone de contact"
                     value={form.data.club_phone}
                     onChange={(v) => form.setData('club_phone', v)}
-                    type="tel"
-                    placeholder="+241 XX XX XX XX"
                     error={form.errors.club_phone}
                 />
                 <SaveButton processing={form.processing} />

@@ -1,5 +1,6 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
 import PublicLayout from '@/Layouts/PublicLayout';
+import PhoneInput from '@/Components/PhoneInput';
 import { Target, Loader2, CreditCard, Phone, AlertTriangle } from 'lucide-react';
 import type { Tournament, Player } from '@/types';
 
@@ -73,22 +74,12 @@ export default function RegistrationPayment({ tournament, player, registrationFe
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            <div>
-                                <label className="text-sm text-muted-foreground block mb-1.5">
-                                    <Phone className="w-3.5 h-3.5 inline-block mr-1" />
-                                    Numéro de téléphone
-                                </label>
-                                <input
-                                    type="tel"
-                                    value={form.data.payer_msisdn}
-                                    onChange={(e) => form.setData('payer_msisdn', e.target.value)}
-                                    placeholder="Ex: 237690000000"
-                                    className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:border-primary focus:outline-none transition-colors"
-                                />
-                                {form.errors.payer_msisdn && (
-                                    <p className="text-xs text-destructive mt-1">{form.errors.payer_msisdn}</p>
-                                )}
-                            </div>
+                            <PhoneInput
+                                label="Numéro de téléphone"
+                                value={form.data.payer_msisdn}
+                                onChange={(value) => form.setData('payer_msisdn', value)}
+                                error={form.errors.payer_msisdn}
+                            />
 
                             <button
                                 type="submit"

@@ -1,5 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import PublicLayout from '@/Layouts/PublicLayout';
+import PhoneInput from '@/Components/PhoneInput';
 import { Target, Loader2, UserPlus } from 'lucide-react';
 import type { Tournament, Category } from '@/types';
 
@@ -82,17 +83,12 @@ export default function RegistrationCreate({ tournament, categories }: Props) {
                                 {form.errors.email && <p className="mt-1.5 text-sm text-destructive">{form.errors.email}</p>}
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-foreground mb-1.5">Téléphone</label>
-                                <input
-                                    type="tel"
-                                    value={form.data.phone}
-                                    onChange={(e) => form.setData('phone', e.target.value)}
-                                    className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:border-primary focus:outline-none transition-colors placeholder:text-muted-foreground/50"
-                                    placeholder="+237 6XX XXX XXX"
-                                />
-                                {form.errors.phone && <p className="mt-1.5 text-sm text-destructive">{form.errors.phone}</p>}
-                            </div>
+                            <PhoneInput
+                                label="Téléphone"
+                                value={form.data.phone}
+                                onChange={(value) => form.setData('phone', value)}
+                                error={form.errors.phone}
+                            />
 
                             <div>
                                 <label className="block text-sm font-medium text-foreground mb-1.5">Handicap *</label>
