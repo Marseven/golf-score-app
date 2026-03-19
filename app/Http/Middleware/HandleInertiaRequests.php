@@ -2,7 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Setting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Middleware;
 use Tighten\Ziggy\Ziggy;
 
@@ -42,6 +44,15 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
             ],
+            'logo_url' => function () {
+                try {
+                    $path = Setting::getValue('logo_path');
+
+                    return $path ? Storage::disk('public')->url($path) : null;
+                } catch (\Throwable) {
+                    return null;
+                }
+            },
             'ziggy' => fn () => [
                 ...(new Ziggy)->toArray(),
                 'url' => config('app.url'),

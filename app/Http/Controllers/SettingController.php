@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Setting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class SettingController extends Controller
@@ -12,6 +13,7 @@ class SettingController extends Controller
     {
         $sharedKey = Setting::getValue('ebilling_shared_key', '');
         $mailPassword = Setting::getValue('mail_password', '');
+        $logoPath = Setting::getValue('logo_path');
 
         return Inertia::render('Admin/Settings', [
             'settings' => [
@@ -20,6 +22,7 @@ class SettingController extends Controller
                 'club_name' => Setting::getValue('club_name', 'Manga Golf Club'),
                 'club_email' => Setting::getValue('club_email', ''),
                 'club_phone' => Setting::getValue('club_phone', ''),
+                'logo_url' => $logoPath ? Storage::disk('public')->url($logoPath) : null,
 
                 // Email SMTP
                 'mail_from_address' => Setting::getValue('mail_from_address', ''),
@@ -114,5 +117,22 @@ class SettingController extends Controller
         }
 
         return redirect()->route('admin.settings')->with('success', 'Paramètres sauvegardés.');
+    }
+
+    public function uploadLogo(Request $request)
+    {
+        $request->validate([
+            'logo' => 'required|image|mimes:jpg,jpeg,png,webp,svg|max:2048',
+        ]);
+
+        $oldPath = Setting::getValue('logo_path');
+        if ($oldPath && Storage::disk('public')->exists($oldPath)) {
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        $path = $request->file('logo')->store('logos', 'public');
+        Setting::setValue('logo_path', $path);
+
+        return redirect()->route('admin.settings')->with('success', 'Logo mis à jour.');
     }
 }

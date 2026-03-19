@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Head, useForm, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
-import { Users, Plus, Pencil, Trash2, X, Save, Shield, Eye, EyeOff } from 'lucide-react';
+import { Users, UserCheck, Plus, Pencil, Trash2, X, Save, Shield, Eye, EyeOff } from 'lucide-react';
 
 interface UserItem {
     id: string;
@@ -21,13 +21,90 @@ const roleConfig: Record<string, { label: string; badge: string }> = {
     marker: { label: 'Marqueur', badge: 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 ring-1 ring-emerald-500/20' },
 };
 
-const availableRoles = [
+const userRoles = [
     { value: 'admin', label: 'Admin' },
     { value: 'captain', label: 'Capitaine' },
-    { value: 'marker', label: 'Marqueur' },
 ];
 
+function UserTable({ users, onEdit, onDelete }: {
+    users: UserItem[];
+    onEdit: (user: UserItem) => void;
+    onDelete: (user: UserItem) => void;
+}) {
+    if (users.length === 0) return null;
+
+    return (
+        <div className="glass-card !p-0 overflow-hidden">
+            <div className="overflow-x-auto">
+                <table className="w-full">
+                    <thead>
+                        <tr className="border-b border-border">
+                            <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Nom</th>
+                            <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Email</th>
+                            <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Rôles</th>
+                            <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Inscrit le</th>
+                            <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                        {users.map((user) => (
+                            <tr key={user.id} className="hover:bg-surface/50 transition-colors">
+                                <td className="px-5 py-3.5">
+                                    <span className="text-sm font-medium text-foreground">{user.name}</span>
+                                </td>
+                                <td className="px-5 py-3.5">
+                                    <span className="text-sm text-muted-foreground">{user.email}</span>
+                                </td>
+                                <td className="px-5 py-3.5">
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {user.roles.length > 0 ? (
+                                            user.roles.map((role) => {
+                                                const config = roleConfig[role];
+                                                return config ? (
+                                                    <span key={role} className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${config.badge}`}>
+                                                        {config.label}
+                                                    </span>
+                                                ) : null;
+                                            })
+                                        ) : (
+                                            <span className="text-xs text-muted-foreground/50">Aucun rôle</span>
+                                        )}
+                                    </div>
+                                </td>
+                                <td className="px-5 py-3.5">
+                                    <span className="text-sm text-muted-foreground">
+                                        {new Date(user.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                    </span>
+                                </td>
+                                <td className="px-5 py-3.5">
+                                    <div className="flex items-center justify-end gap-1">
+                                        <button
+                                            onClick={() => onEdit(user)}
+                                            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
+                                            title="Modifier"
+                                        >
+                                            <Pencil className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => onDelete(user)}
+                                            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-surface transition-colors"
+                                            title="Supprimer"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
 export default function AdminUsers({ users }: Props) {
+    const [activeTab, setActiveTab] = useState<'users' | 'markers'>('users');
     const [showModal, setShowModal] = useState(false);
     const [editingUser, setEditingUser] = useState<UserItem | null>(null);
     const [showPassword, setShowPassword] = useState(false);
@@ -39,10 +116,24 @@ export default function AdminUsers({ users }: Props) {
         roles: [] as string[],
     });
 
+    // Filter: markers = users with ONLY 'marker' role (or marker among roles)
+    // Users = everyone else (admin/captain, even if they also have marker)
+    const filteredUsers = useMemo(() => {
+        const markerOnly = users.filter((u) => u.roles.length === 1 && u.roles[0] === 'marker');
+        const nonMarker = users.filter((u) => !(u.roles.length === 1 && u.roles[0] === 'marker'));
+        return { users: nonMarker, markers: markerOnly };
+    }, [users]);
+
+    const currentList = activeTab === 'users' ? filteredUsers.users : filteredUsers.markers;
+    const isMarkerTab = activeTab === 'markers';
+
     const openCreate = () => {
         setEditingUser(null);
         form.reset();
         form.clearErrors();
+        if (isMarkerTab) {
+            form.setData('roles', ['marker']);
+        }
         setShowPassword(false);
         setShowModal(true);
     };
@@ -92,6 +183,16 @@ export default function AdminUsers({ users }: Props) {
         router.delete(route('admin.users.destroy', user.id));
     };
 
+    const tabs = [
+        { id: 'users' as const, label: 'Utilisateurs', icon: Users, count: filteredUsers.users.length },
+        { id: 'markers' as const, label: 'Marqueurs', icon: UserCheck, count: filteredUsers.markers.length },
+    ];
+
+    // Determine if we're editing in marker context
+    const editingIsMarker = editingUser
+        ? (editingUser.roles.length === 1 && editingUser.roles[0] === 'marker')
+        : isMarkerTab;
+
     return (
         <AppLayout>
             <Head title="Utilisateurs" />
@@ -115,88 +216,55 @@ export default function AdminUsers({ users }: Props) {
                 </button>
             </div>
 
-            {users.length === 0 ? (
+            {/* Tabs */}
+            <div className="flex gap-1 mb-6 overflow-x-auto pb-1 -mx-2 px-2">
+                {tabs.map((tab) => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
+                            activeTab === tab.id
+                                ? 'bg-primary/10 text-primary'
+                                : 'text-muted-foreground hover:text-foreground hover:bg-surface'
+                        }`}
+                    >
+                        <tab.icon className="w-4 h-4" />
+                        {tab.label}
+                        <span className={`ml-1 px-1.5 py-0.5 rounded-md text-xs ${
+                            activeTab === tab.id
+                                ? 'bg-primary/20 text-primary'
+                                : 'bg-surface text-muted-foreground'
+                        }`}>
+                            {tab.count}
+                        </span>
+                    </button>
+                ))}
+            </div>
+
+            {currentList.length === 0 ? (
                 <div className="glass-card text-center py-16">
                     <div className="w-14 h-14 rounded-2xl bg-surface flex items-center justify-center mx-auto mb-4">
-                        <Users className="w-7 h-7 text-muted-foreground/40" />
+                        {isMarkerTab
+                            ? <UserCheck className="w-7 h-7 text-muted-foreground/40" />
+                            : <Users className="w-7 h-7 text-muted-foreground/40" />
+                        }
                     </div>
-                    <h3 className="text-base font-semibold text-foreground mb-2">Aucun utilisateur</h3>
-                    <p className="text-sm text-muted-foreground mb-6">Ajoutez des utilisateurs pour gérer les accès.</p>
+                    <h3 className="text-base font-semibold text-foreground mb-2">
+                        {isMarkerTab ? 'Aucun marqueur' : 'Aucun utilisateur'}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-6">
+                        {isMarkerTab ? 'Ajoutez des marqueurs pour la saisie des scores.' : 'Ajoutez des utilisateurs pour gérer les accès.'}
+                    </p>
                     <button
                         onClick={openCreate}
                         className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors"
                     >
                         <Plus className="w-4 h-4" />
-                        Ajouter un utilisateur
+                        {isMarkerTab ? 'Ajouter un marqueur' : 'Ajouter un utilisateur'}
                     </button>
                 </div>
             ) : (
-                <div className="glass-card !p-0 overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-border">
-                                    <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Nom</th>
-                                    <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Email</th>
-                                    <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Rôles</th>
-                                    <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Inscrit le</th>
-                                    <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border">
-                                {users.map((user) => (
-                                    <tr key={user.id} className="hover:bg-surface/50 transition-colors">
-                                        <td className="px-5 py-3.5">
-                                            <span className="text-sm font-medium text-foreground">{user.name}</span>
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            <span className="text-sm text-muted-foreground">{user.email}</span>
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            <div className="flex flex-wrap gap-1.5">
-                                                {user.roles.length > 0 ? (
-                                                    user.roles.map((role) => {
-                                                        const config = roleConfig[role];
-                                                        return config ? (
-                                                            <span key={role} className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${config.badge}`}>
-                                                                {config.label}
-                                                            </span>
-                                                        ) : null;
-                                                    })
-                                                ) : (
-                                                    <span className="text-xs text-muted-foreground/50">Aucun rôle</span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            <span className="text-sm text-muted-foreground">
-                                                {new Date(user.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                            </span>
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            <div className="flex items-center justify-end gap-1">
-                                                <button
-                                                    onClick={() => openEdit(user)}
-                                                    className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
-                                                    title="Modifier"
-                                                >
-                                                    <Pencil className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(user)}
-                                                    className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-surface transition-colors"
-                                                    title="Supprimer"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                <UserTable users={currentList} onEdit={openEdit} onDelete={handleDelete} />
             )}
 
             {/* Create/Edit Modal */}
@@ -210,7 +278,10 @@ export default function AdminUsers({ users }: Props) {
                                     <Shield className="w-4.5 h-4.5 text-blue-500 dark:text-blue-400" />
                                 </div>
                                 <h2 className="text-lg font-semibold text-foreground">
-                                    {editingUser ? 'Modifier l\'utilisateur' : 'Nouvel utilisateur'}
+                                    {editingUser
+                                        ? (editingIsMarker ? 'Modifier le marqueur' : 'Modifier l\'utilisateur')
+                                        : (isMarkerTab ? 'Nouveau marqueur' : 'Nouvel utilisateur')
+                                    }
                                 </h2>
                             </div>
                             <button onClick={closeModal} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface transition-colors">
@@ -266,39 +337,47 @@ export default function AdminUsers({ users }: Props) {
                                 {form.errors.password && <p className="text-xs text-destructive mt-1">{form.errors.password}</p>}
                             </div>
 
-                            <div>
-                                <label className="text-sm text-muted-foreground block mb-2">Rôles</label>
-                                <div className="flex flex-wrap gap-2">
-                                    {availableRoles.map((role) => {
-                                        const isSelected = form.data.roles.includes(role.value);
-                                        const config = roleConfig[role.value];
-                                        return (
-                                            <button
-                                                key={role.value}
-                                                type="button"
-                                                onClick={() => toggleRole(role.value)}
-                                                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
-                                                    isSelected
-                                                        ? config.badge
-                                                        : 'bg-surface border border-border text-muted-foreground hover:text-foreground hover:border-border'
-                                                }`}
-                                            >
-                                                <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center transition-colors ${
-                                                    isSelected ? 'border-current bg-current/20' : 'border-muted-foreground/30'
-                                                }`}>
-                                                    {isSelected && (
-                                                        <svg className="w-2 h-2" fill="currentColor" viewBox="0 0 12 12">
-                                                            <path d="M10.28 2.28L4.75 7.81 1.72 4.78a.75.75 0 00-1.06 1.06l3.75 3.75a.75.75 0 001.06 0l6.25-6.25a.75.75 0 00-1.06-1.06z" />
-                                                        </svg>
-                                                    )}
-                                                </div>
-                                                {role.label}
-                                            </button>
-                                        );
-                                    })}
+                            {/* Role selection: only show for Users tab, not Markers */}
+                            {!editingIsMarker ? (
+                                <div>
+                                    <label className="text-sm text-muted-foreground block mb-2">Rôles</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {userRoles.map((role) => {
+                                            const isSelected = form.data.roles.includes(role.value);
+                                            const config = roleConfig[role.value];
+                                            return (
+                                                <button
+                                                    key={role.value}
+                                                    type="button"
+                                                    onClick={() => toggleRole(role.value)}
+                                                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                                                        isSelected
+                                                            ? config.badge
+                                                            : 'bg-surface border border-border text-muted-foreground hover:text-foreground hover:border-border'
+                                                    }`}
+                                                >
+                                                    <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center transition-colors ${
+                                                        isSelected ? 'border-current bg-current/20' : 'border-muted-foreground/30'
+                                                    }`}>
+                                                        {isSelected && (
+                                                            <svg className="w-2 h-2" fill="currentColor" viewBox="0 0 12 12">
+                                                                <path d="M10.28 2.28L4.75 7.81 1.72 4.78a.75.75 0 00-1.06 1.06l3.75 3.75a.75.75 0 001.06 0l6.25-6.25a.75.75 0 00-1.06-1.06z" />
+                                                            </svg>
+                                                        )}
+                                                    </div>
+                                                    {role.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    {form.errors.roles && <p className="text-xs text-destructive mt-1">{form.errors.roles}</p>}
                                 </div>
-                                {form.errors.roles && <p className="text-xs text-destructive mt-1">{form.errors.roles}</p>}
-                            </div>
+                            ) : (
+                                <div className="flex items-center gap-2 px-3 py-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+                                    <UserCheck className="w-4 h-4 text-emerald-500" />
+                                    <span className="text-sm text-emerald-600 dark:text-emerald-400">Rôle marqueur attribué automatiquement</span>
+                                </div>
+                            )}
 
                             <div className="flex justify-end gap-3 pt-2">
                                 <button

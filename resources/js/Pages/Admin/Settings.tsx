@@ -1,7 +1,7 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
-import { Save, Eye, EyeOff, Cog, Building2, Mail, CreditCard, Trophy, ShieldCheck } from 'lucide-react';
-import { useState } from 'react';
+import { Save, Eye, EyeOff, Cog, Building2, Mail, CreditCard, Trophy, Upload, ImageIcon } from 'lucide-react';
+import { useState, useRef } from 'react';
 
 interface SettingsData {
     // General
@@ -9,6 +9,7 @@ interface SettingsData {
     club_name: string;
     club_email: string;
     club_phone: string;
+    logo_url: string | null;
     // Email
     mail_from_address: string;
     mail_from_name: string;
@@ -125,44 +126,101 @@ function GeneralTab({ settings }: { settings: SettingsData }) {
         club_phone: settings.club_phone,
     });
 
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [logoPreview, setLogoPreview] = useState<string | null>(null);
+    const [uploading, setUploading] = useState(false);
+
+    const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = () => setLogoPreview(reader.result as string);
+        reader.readAsDataURL(file);
+
+        setUploading(true);
+        router.post(route('admin.settings.upload-logo'), { logo: file }, {
+            forceFormData: true,
+            onFinish: () => setUploading(false),
+        });
+    };
+
+    const displayLogo = logoPreview || settings.logo_url;
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         form.put(route('admin.settings.update'));
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            <InputField
-                label="Nom de la plateforme"
-                value={form.data.platform_name}
-                onChange={(v) => form.setData('platform_name', v)}
-                placeholder="MGC Score"
-                error={form.errors.platform_name}
-            />
-            <InputField
-                label="Nom du club"
-                value={form.data.club_name}
-                onChange={(v) => form.setData('club_name', v)}
-                placeholder="Manga Golf Club"
-                error={form.errors.club_name}
-            />
-            <InputField
-                label="Email de contact"
-                value={form.data.club_email}
-                onChange={(v) => form.setData('club_email', v)}
-                type="email"
-                placeholder="contact@mangagolfclub.com"
-                error={form.errors.club_email}
-            />
-            <InputField
-                label="Téléphone de contact"
-                value={form.data.club_phone}
-                onChange={(v) => form.setData('club_phone', v)}
-                placeholder="+237 6XX XXX XXX"
-                error={form.errors.club_phone}
-            />
-            <SaveButton processing={form.processing} />
-        </form>
+        <div className="space-y-6">
+            {/* Logo upload */}
+            <div>
+                <label className="text-sm text-muted-foreground block mb-2">Logo du club</label>
+                <div className="flex items-center gap-4">
+                    <div className="w-20 h-20 rounded-xl bg-surface border border-border flex items-center justify-center overflow-hidden">
+                        {displayLogo ? (
+                            <img src={displayLogo} alt="Logo" className="w-full h-full object-contain" />
+                        ) : (
+                            <ImageIcon className="w-8 h-8 text-muted-foreground/40" />
+                        )}
+                    </div>
+                    <div>
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={uploading}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 bg-surface border border-border rounded-xl text-sm font-medium text-foreground hover:bg-surface-hover transition-colors disabled:opacity-50"
+                        >
+                            <Upload className="w-4 h-4" />
+                            {uploading ? 'Envoi...' : 'Changer le logo'}
+                        </button>
+                        <p className="text-xs text-muted-foreground mt-1.5">JPG, PNG, WebP ou SVG. Max 2 Mo.</p>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleLogoChange}
+                            hidden
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <InputField
+                    label="Nom de la plateforme"
+                    value={form.data.platform_name}
+                    onChange={(v) => form.setData('platform_name', v)}
+                    placeholder="MGC Score"
+                    error={form.errors.platform_name}
+                />
+                <InputField
+                    label="Nom du club"
+                    value={form.data.club_name}
+                    onChange={(v) => form.setData('club_name', v)}
+                    placeholder="Manga Golf Club"
+                    error={form.errors.club_name}
+                />
+                <InputField
+                    label="Email de contact"
+                    value={form.data.club_email}
+                    onChange={(v) => form.setData('club_email', v)}
+                    type="email"
+                    placeholder="contact@mangagolfclub.com"
+                    error={form.errors.club_email}
+                />
+                <InputField
+                    label="Téléphone de contact"
+                    value={form.data.club_phone}
+                    onChange={(v) => form.setData('club_phone', v)}
+                    type="tel"
+                    placeholder="+241 XX XX XX XX"
+                    error={form.errors.club_phone}
+                />
+                <SaveButton processing={form.processing} />
+            </form>
+        </div>
     );
 }
 

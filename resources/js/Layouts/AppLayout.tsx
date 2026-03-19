@@ -23,11 +23,12 @@ const adminNavItems: NavItem[] = [
 const themeIcon: Record<Theme, typeof Sun> = { light: Sun, dark: Moon, system: Monitor };
 const themeLabel: Record<Theme, string> = { light: 'Clair', dark: 'Sombre', system: 'Système' };
 
-function SidebarContent({ tournament, user, roles, onNavClick }: {
+function SidebarContent({ tournament, user, roles, onNavClick, logoSrc: sidebarLogo }: {
     tournament?: any;
     user?: any;
     roles?: string[];
     onNavClick?: () => void;
+    logoSrc?: string;
 }) {
     const visibleNavItems = adminNavItems.filter((item) => !item.adminOnly || roles?.includes('admin'));
     const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
@@ -38,7 +39,7 @@ function SidebarContent({ tournament, user, roles, onNavClick }: {
         <div className="flex flex-col h-full">
             <div className="p-6">
                 <Link href={route('admin.dashboard')} className="flex items-center gap-3">
-                    <img src={logo} alt="MGC Score" className="w-10 h-10 object-contain" />
+                    <img src={sidebarLogo || logo} alt="MGC Score" className="w-10 h-10 object-contain" />
                     <h1 className="text-lg font-bold text-foreground tracking-tight">MGC Score</h1>
                 </Link>
             </div>
@@ -119,16 +120,18 @@ function SidebarContent({ tournament, user, roles, onNavClick }: {
 }
 
 export default function AppLayout({ children, tournament }: PropsWithChildren<{ tournament?: any }>) {
-    const { auth } = usePage().props as any;
+    const pageProps = usePage().props as any;
+    const { auth } = pageProps;
     const user = auth?.user;
     const roles = auth?.roles ?? [];
+    const logoSrc = pageProps.logo_url || logo;
     const [mobileOpen, setMobileOpen] = useState(false);
 
     return (
         <div className="min-h-screen bg-background">
             {/* Desktop Sidebar */}
             <aside className="hidden lg:flex lg:w-72 lg:flex-col lg:fixed lg:inset-y-0 bg-sidebar border-r border-sidebar-border">
-                <SidebarContent tournament={tournament} user={user} roles={roles} />
+                <SidebarContent tournament={tournament} user={user} roles={roles} logoSrc={logoSrc} />
             </aside>
 
             {/* Mobile Header */}
@@ -137,7 +140,7 @@ export default function AppLayout({ children, tournament }: PropsWithChildren<{ 
                     <Menu className="w-6 h-6" />
                 </button>
                 <div className="flex items-center gap-2 ml-3">
-                    <img src={logo} alt="MGC Score" className="w-7 h-7 object-contain" />
+                    <img src={logoSrc} alt="MGC Score" className="w-7 h-7 object-contain" />
                     <span className="text-sm font-bold text-foreground">MGC Score</span>
                 </div>
             </div>
@@ -157,6 +160,7 @@ export default function AppLayout({ children, tournament }: PropsWithChildren<{ 
                             tournament={tournament}
                             user={user}
                             roles={roles}
+                            logoSrc={logoSrc}
                             onNavClick={() => setMobileOpen(false)}
                         />
                     </div>
