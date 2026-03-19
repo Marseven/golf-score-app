@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\RegistrationApproved;
+use App\Mail\RegistrationConfirmation;
+use App\Mail\RegistrationRejected;
 use App\Models\Player;
 use App\Models\Tournament;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 
 class RegistrationController extends Controller
@@ -14,12 +18,9 @@ class RegistrationController extends Controller
         return Inertia::render('Admin/Registrations', [
             'tournament' => $tournament,
             'players' => $tournament->players()
-                ->where('registration_status', '!=', 'approved')
-                ->orWhere(function ($q) use ($tournament) {
-                    $q->where('tournament_id', $tournament->id)
-                        ->whereNotNull('email');
-                })
+                ->whereNotNull('email')
                 ->with('category', 'payments')
+                ->latest()
                 ->get(),
         ]);
     }
@@ -51,6 +52,15 @@ class RegistrationController extends Controller
             'registration_status' => 'pending',
         ]);
 
+        // Send confirmation email
+        if ($player->email) {
+            try {
+                Mail::to($player->email)->queue(new RegistrationConfirmation($tournament, $player->load('category')));
+            } catch (\Exception $e) {
+                // Silently fail — email is optional
+            }
+        }
+
         $category = $tournament->categories()->find($validated['category_id']);
         $fee = $category ? $category->registration_fee : 0;
 
@@ -69,6 +79,33 @@ class RegistrationController extends Controller
 
         $player->update($validated);
 
+        // Send notification email
+        if ($player->email) {
+            try {
+                $mailable = $validated['registration_status'] === 'approved'
+                    ? new RegistrationApproved($tournament, $player->load('category'))
+                    : new RegistrationRejected($tournament, $player);
+                Mail::to($player->email)->queue($mailable);
+            } catch (\Exception $e) {
+                // Silently fail — email is optional
+            }
+        }
+
         return back()->with('success', 'Statut mis à jour.');
+    }
+
+    public function bulkUpdate(Request $request, Tournament $tournament)
+    {
+        $validated = $request->validate([
+            'registration_status' => 'required|in:approved,rejected',
+        ]);
+
+        $count = $tournament->players()
+            ->where('registration_status', 'pending')
+            ->update(['registration_status' => $validated['registration_status']]);
+
+        $label = $validated['registration_status'] === 'approved' ? 'approuvée(s)' : 'refusée(s)';
+
+        return back()->with('success', $count.' inscription(s) '.$label.'.');
     }
 }

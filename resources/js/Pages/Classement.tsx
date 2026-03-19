@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import PublicLayout from '@/Layouts/PublicLayout';
-import { Trophy, Download, Share2, FileText, Tv } from 'lucide-react';
+import { Trophy, Download, Share2, FileText, Tv, Image, Loader2 } from 'lucide-react';
 import { buildLeaderboard } from '@/Lib/scoring';
 import { categoryColors } from '@/Lib/category-colors';
 import { useRealtimeScores } from '@/Hooks/useRealtimeScores';
@@ -30,6 +30,8 @@ export default function Classement({ tournament, players, scores, holes, categor
     const { lastUpdate } = useRealtimeScores(tournament?.id);
     const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
     const [scoringMode, setScoringMode] = useState<ScoringMode>('stroke');
+    const [capturing, setCapturing] = useState(false);
+    const leaderboardRef = useRef<HTMLDivElement>(null);
 
     const playersWithCategory = players.map((p) => ({
         ...p,
@@ -43,6 +45,58 @@ export default function Classement({ tournament, players, scores, holes, categor
         activeCategoryId ?? undefined,
         scoringMode
     );
+
+    const handleShareImage = async () => {
+        if (!leaderboardRef.current || !tournament) return;
+        setCapturing(true);
+        try {
+            const { default: html2canvas } = await import('html2canvas-pro');
+            const canvas = await html2canvas(leaderboardRef.current, {
+                backgroundColor: '#0f172a',
+                scale: 2,
+                useCORS: true,
+            });
+
+            // Try native share if available
+            if (navigator.share && navigator.canShare?.({ files: [new File([], 'test.png', { type: 'image/png' })] })) {
+                canvas.toBlob(async (blob) => {
+                    if (!blob) return;
+                    const file = new File([blob], `classement-${tournament.name}.png`, { type: 'image/png' });
+                    try {
+                        await navigator.share({
+                            title: `Classement - ${tournament.name}`,
+                            files: [file],
+                        });
+                    } catch {
+                        // User cancelled or share failed, fallback to download
+                        downloadCanvas(canvas);
+                    }
+                }, 'image/png');
+            } else {
+                // Fallback: download the image
+                downloadCanvas(canvas);
+            }
+        } catch {
+            // Fallback to text share
+            const top5 = leaderboard.slice(0, 5).map((entry, i) => {
+                const sign = entry.strokeToPar > 0 ? '+' : '';
+                const score = entry.strokeToPar === 0 ? 'E' : `${sign}${entry.strokeToPar}`;
+                return `${i + 1}. ${entry.player.name} (${score})`;
+            }).join('\n');
+            const classementUrl = route('classement', tournament!.id);
+            const text = `${tournament!.name}${tournament!.club ? ` - ${tournament!.club}` : ''}\n\n${top5}\n\nClassement complet :\n${classementUrl}`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+        } finally {
+            setCapturing(false);
+        }
+    };
+
+    const downloadCanvas = (canvas: HTMLCanvasElement) => {
+        const link = document.createElement('a');
+        link.download = `classement-${tournament!.name}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    };
 
     return (
         <PublicLayout>
@@ -62,7 +116,7 @@ export default function Classement({ tournament, players, scores, holes, categor
                     {tournament && (
                         <div className="hidden sm:flex items-center gap-2">
                             <a href={route('tv', tournament.id)} target="_blank" className="flex items-center gap-2 px-3 py-2 bg-surface border border-border rounded-xl text-sm text-foreground hover:bg-surface-hover">
-                                <Tv className="w-4 h-4" />Écran TV
+                                <Tv className="w-4 h-4" />Ecran TV
                             </a>
                             {user && (
                                 <>
@@ -74,6 +128,18 @@ export default function Classement({ tournament, players, scores, holes, categor
                                     </a>
                                 </>
                             )}
+                            <button
+                                onClick={handleShareImage}
+                                disabled={capturing}
+                                className="flex items-center gap-2 px-3 py-2 bg-surface border border-border rounded-xl text-sm text-foreground hover:bg-surface-hover disabled:opacity-50"
+                            >
+                                {capturing ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <Image className="w-4 h-4" />
+                                )}
+                                Partager
+                            </button>
                             <button
                                 onClick={() => {
                                     const top5 = leaderboard.slice(0, 5).map((entry, i) => {
@@ -114,8 +180,8 @@ export default function Classement({ tournament, players, scores, holes, categor
                     <button onClick={() => setScoringMode('stableford')} className={`py-2.5 rounded-xl text-sm font-medium transition-all ${scoringMode === 'stableford' ? 'bg-amber-500 text-amber-950' : 'bg-surface text-muted-foreground hover:bg-surface-hover'}`}>Stableford</button>
                 </div>
 
-                {/* Leaderboard */}
-                <div className="space-y-2">
+                {/* Leaderboard — captured for screenshot */}
+                <div ref={leaderboardRef} className="space-y-2">
                     {leaderboard.map((entry, idx) => {
                         const position = idx + 1;
                         const isTop3 = position <= 3;
@@ -157,7 +223,7 @@ export default function Classement({ tournament, players, scores, holes, categor
                 {/* Realtime indicator */}
                 <div className="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    Temps réel &bull; {lastUpdate.toLocaleTimeString('fr-FR')}
+                    Temps reel &bull; {lastUpdate.toLocaleTimeString('fr-FR')}
                 </div>
             </div>
         </PublicLayout>

@@ -6,6 +6,7 @@ use App\Models\Payment;
 use App\Models\Player;
 use App\Models\Tournament;
 use App\Services\EbillingService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -77,6 +78,33 @@ class PaymentController extends Controller
             'tournament' => $payment->tournament->only('id', 'name'),
             'player' => $payment->player->only('id', 'name'),
         ]);
+    }
+
+    public function markCompleted(Request $request, Tournament $tournament, Payment $payment)
+    {
+        $payment->update(['status' => 'completed']);
+
+        // Auto-approve player
+        if ($payment->player) {
+            $payment->player->update(['registration_status' => 'approved']);
+        }
+
+        return back()->with('success', 'Paiement marqué comme reçu.');
+    }
+
+    public function receipt(Tournament $tournament, Payment $payment)
+    {
+        $payment->load(['player.category', 'tournament']);
+
+        $pdf = Pdf::loadView('exports.receipt', [
+            'payment' => $payment,
+            'player' => $payment->player,
+            'tournament' => $payment->tournament,
+        ]);
+
+        $ref = strtoupper(substr($payment->id, 0, 8));
+
+        return $pdf->download("recu-{$ref}.pdf");
     }
 
     public function callback(Request $request)

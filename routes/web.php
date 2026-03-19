@@ -54,6 +54,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Profile (Breeze)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile/avatar', [ProfileController::class, 'updateAvatar'])->name('profile.avatar');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     // Admin dashboard
@@ -73,6 +74,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('players', PlayerController::class)->except(['show']);
         Route::post('players/import', [PlayerImportController::class, 'import'])->name('players.import');
         Route::resource('groups', GroupController::class)->except(['show']);
+        Route::post('markers', [GroupController::class, 'storeMarker'])->name('markers.store');
         Route::get('holes', [HoleController::class, 'edit'])->name('holes.edit');
         Route::put('holes', [HoleController::class, 'update'])->name('holes.update');
         Route::post('holes/init', [HoleController::class, 'init'])->name('holes.init');
@@ -85,6 +87,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('tournaments/{tournament}')->middleware('role:admin')->group(function () {
         Route::get('registrations', [RegistrationController::class, 'index'])->name('registrations.index');
         Route::patch('registrations/{player}', [RegistrationController::class, 'update'])->name('registrations.update');
+        Route::patch('registrations-bulk', [RegistrationController::class, 'bulkUpdate'])->name('registrations.bulkUpdate');
+        Route::patch('payments/{payment}/complete', [PaymentController::class, 'markCompleted'])->name('payments.complete');
+        Route::get('payments/{payment}/receipt', [PaymentController::class, 'receipt'])->name('payments.receipt');
     });
 
     // Admin-only: settings & user management

@@ -10,13 +10,14 @@ interface NavItem {
     routeParams?: any;
     icon: any;
     adminOnly?: boolean;
+    matchPatterns?: string[];
 }
 
 const adminNavItems: NavItem[] = [
-    { title: 'Mes tournois', routeName: 'admin.dashboard', icon: Settings },
-    { title: 'Utilisateurs', routeName: 'admin.users', icon: Users, adminOnly: true },
-    { title: 'Paramètres', routeName: 'admin.settings', icon: Cog, adminOnly: true },
-    { title: 'Mon profil', routeName: 'profile.edit', icon: User },
+    { title: 'Mes tournois', routeName: 'admin.dashboard', icon: Settings, matchPatterns: ['admin.dashboard', 'tournaments.*'] },
+    { title: 'Utilisateurs', routeName: 'admin.users', icon: Users, adminOnly: true, matchPatterns: ['admin.users'] },
+    { title: 'Paramètres', routeName: 'admin.settings', icon: Cog, adminOnly: true, matchPatterns: ['admin.settings', 'admin.settings.*'] },
+    { title: 'Mon profil', routeName: 'profile.edit', icon: User, matchPatterns: ['profile.*'] },
 ];
 
 const themeIcon: Record<Theme, typeof Sun> = { light: Sun, dark: Moon, system: Monitor };
@@ -28,7 +29,6 @@ function SidebarContent({ tournament, user, roles, onNavClick }: {
     roles?: string[];
     onNavClick?: () => void;
 }) {
-    const { url } = usePage();
     const visibleNavItems = adminNavItems.filter((item) => !item.adminOnly || roles?.includes('admin'));
     const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
     const { theme, cycleTheme } = useTheme();
@@ -59,12 +59,13 @@ function SidebarContent({ tournament, user, roles, onNavClick }: {
             <nav className="flex-1 px-3">
                 <ul className="space-y-1">
                     {visibleNavItems.map((item) => {
-                        const itemUrl = route(item.routeName, item.routeParams);
-                        const isActive = url.startsWith(new URL(itemUrl).pathname);
+                        const isActive = (item.matchPatterns ?? [item.routeName]).some(
+                            (pattern) => route().current(pattern)
+                        );
                         return (
                             <li key={item.routeName}>
                                 <Link
-                                    href={itemUrl}
+                                    href={route(item.routeName, item.routeParams)}
                                     onClick={onNavClick}
                                     className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
                                         isActive

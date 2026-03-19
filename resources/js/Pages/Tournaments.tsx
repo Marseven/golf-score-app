@@ -1,17 +1,45 @@
+import { useState, useMemo } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import PublicLayout from '@/Layouts/PublicLayout';
-import { Trophy, MapPin, Calendar, Users, Target, UserPlus } from 'lucide-react';
+import { Trophy, MapPin, Calendar, Users, Target, UserPlus, Search } from 'lucide-react';
 import type { Tournament } from '@/types';
 
 interface Props {
     tournaments: Tournament[];
 }
 
+type StatusFilter = 'all' | 'upcoming' | 'active' | 'open';
+
 function isUpcoming(tournament: Tournament): boolean {
     return tournament.status === 'published' || new Date(tournament.start_date) > new Date();
 }
 
 export default function Tournaments({ tournaments }: Props) {
+    const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+
+    const filtered = useMemo(() => {
+        return tournaments.filter((t) => {
+            const matchesSearch = !search ||
+                t.name.toLowerCase().includes(search.toLowerCase()) ||
+                t.club?.toLowerCase().includes(search.toLowerCase());
+
+            let matchesStatus = true;
+            if (statusFilter === 'upcoming') matchesStatus = isUpcoming(t);
+            else if (statusFilter === 'active') matchesStatus = t.status === 'active';
+            else if (statusFilter === 'open') matchesStatus = !!t.registration_open;
+
+            return matchesSearch && matchesStatus;
+        });
+    }, [tournaments, search, statusFilter]);
+
+    const filters: { value: StatusFilter; label: string }[] = [
+        { value: 'all', label: `Tous (${tournaments.length})` },
+        { value: 'upcoming', label: 'A venir' },
+        { value: 'active', label: 'En cours' },
+        { value: 'open', label: 'Inscriptions ouvertes' },
+    ];
+
     return (
         <PublicLayout>
             <Head title="Tournois" />
@@ -23,19 +51,45 @@ export default function Tournaments({ tournaments }: Props) {
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-foreground">Tournois</h1>
-                        <p className="text-sm text-muted-foreground">{tournaments.length} tournoi{tournaments.length !== 1 ? 's' : ''} disponible{tournaments.length !== 1 ? 's' : ''}</p>
+                        <p className="text-sm text-muted-foreground">{filtered.length} tournoi{filtered.length !== 1 ? 's' : ''} disponible{filtered.length !== 1 ? 's' : ''}</p>
                     </div>
                 </div>
 
-                {tournaments.length === 0 ? (
+                <div className="space-y-3 mb-6">
+                    <div className="relative">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Rechercher un tournoi..."
+                            className="w-full bg-surface border border-border rounded-xl pl-11 pr-4 py-3 text-sm text-foreground focus:border-primary focus:outline-none transition-colors"
+                        />
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                        {filters.map((f) => (
+                            <button
+                                key={f.value}
+                                onClick={() => setStatusFilter(f.value)}
+                                className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${statusFilter === f.value ? 'bg-primary text-primary-foreground' : 'bg-surface text-muted-foreground hover:bg-surface-hover'}`}
+                            >
+                                {f.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {filtered.length === 0 ? (
                     <div className="glass-card text-center py-16">
                         <Trophy className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-                        <h2 className="text-lg font-semibold text-foreground mb-2">Aucun tournoi disponible</h2>
-                        <p className="text-sm text-muted-foreground">Il n'y a pas de tournoi pour le moment.</p>
+                        <h2 className="text-lg font-semibold text-foreground mb-2">Aucun tournoi trouve</h2>
+                        <p className="text-sm text-muted-foreground">
+                            {search || statusFilter !== 'all' ? 'Essayez de modifier vos filtres.' : "Il n'y a pas de tournoi pour le moment."}
+                        </p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                        {tournaments.map((tournament) => {
+                        {filtered.map((tournament) => {
                             const upcoming = isUpcoming(tournament);
                             return (
                                 <div key={tournament.id} className="glass-card">

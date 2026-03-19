@@ -6,6 +6,7 @@ use App\Imports\HolesImport;
 use App\Models\Tournament;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
+use Maatwebsite\Excel\Validators\ValidationException;
 
 class HoleImportController extends Controller
 {
@@ -18,7 +19,12 @@ class HoleImportController extends Controller
         try {
             Excel::import(new HolesImport($tournament), $request->file('file'));
 
-            return back()->with('success', 'Parcours importé avec succès.');
+            return back()->with('success', 'Parcours mis à jour avec succès.');
+        } catch (ValidationException $e) {
+            $failures = $e->failures();
+            $messages = collect($failures)->map(fn ($f) => 'Ligne '.$f->row().': '.$f->errors()[0])->take(10)->toArray();
+
+            return back()->withErrors(['file' => implode(' | ', $messages)]);
         } catch (\Exception $e) {
             return back()->withErrors(['file' => 'Erreur d\'import: '.$e->getMessage()]);
         }

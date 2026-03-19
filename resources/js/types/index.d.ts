@@ -3,6 +3,8 @@ export interface User {
     name: string;
     email: string;
     email_verified_at?: string;
+    avatar_path?: string | null;
+    avatar_url?: string | null;
 }
 
 export type PageProps<

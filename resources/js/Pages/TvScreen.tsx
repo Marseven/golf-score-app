@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Head, Link } from '@inertiajs/react';
-import { Trophy, X, Pause, Play } from 'lucide-react';
+import { Trophy, X, Pause, Play, Maximize, Minimize } from 'lucide-react';
 import { buildLeaderboard } from '@/Lib/scoring';
 import { categoryDotColors, categoryColors } from '@/Lib/category-colors';
 import { useRealtimeScores } from '@/Hooks/useRealtimeScores';
@@ -26,22 +26,40 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
     const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
     const [isPaused, setIsPaused] = useState(false);
     const [animKey, setAnimKey] = useState(0);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
 
-    const catIds = ['all', ...(categories?.map((c) => c.id) ?? [])];
+    const catIdsRef = useRef<string[]>([]);
+    catIdsRef.current = ['all', ...(categories?.map((c) => c.id) ?? [])];
 
     useEffect(() => {
         if (isPaused || !categories?.length) return;
         const interval = setInterval(() => {
+            const ids = catIdsRef.current;
             setActiveCategoryId((prev) => {
-                const currentIdx = prev === null ? 0 : catIds.indexOf(prev);
-                const nextIdx = (currentIdx + 1) % catIds.length;
-                const next = catIds[nextIdx];
+                const currentIdx = prev === null ? 0 : ids.indexOf(prev);
+                const nextIdx = (currentIdx + 1) % ids.length;
+                const next = ids[nextIdx];
                 setAnimKey((k) => k + 1);
                 return next === 'all' ? null : next;
             });
         }, 8000);
         return () => clearInterval(interval);
-    }, [isPaused, categories, catIds]);
+    }, [isPaused, categories?.length]);
+
+    const toggleFullscreen = useCallback(() => {
+        if (!document.fullscreenElement) {
+            containerRef.current?.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+        } else {
+            document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+        }
+    }, []);
+
+    useEffect(() => {
+        const handler = () => setIsFullscreen(!!document.fullscreenElement);
+        document.addEventListener('fullscreenchange', handler);
+        return () => document.removeEventListener('fullscreenchange', handler);
+    }, []);
 
     const playersWithCategory = players.map((p) => ({
         ...p,
@@ -56,7 +74,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
     return (
         <>
             <Head title="Écran TV" />
-            <div className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 flex flex-col overflow-hidden">
+            <div ref={containerRef} className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 flex flex-col overflow-hidden">
                 <Link href={route('classement')} className="fixed top-4 left-4 z-50 w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
                     <X className="w-5 h-5 text-white/60" />
                 </Link>
@@ -80,6 +98,9 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                         <span className="text-lg font-semibold text-white/80">{activeCatName}</span>
                         <button onClick={() => setIsPaused(!isPaused)} className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
                             {isPaused ? <Play className="w-5 h-5 text-white/60" /> : <Pause className="w-5 h-5 text-white/60" />}
+                        </button>
+                        <button onClick={toggleFullscreen} className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
+                            {isFullscreen ? <Minimize className="w-5 h-5 text-white/60" /> : <Maximize className="w-5 h-5 text-white/60" />}
                         </button>
                     </div>
                 </header>
@@ -110,6 +131,11 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                             <span className="text-xs font-semibold text-white/40 uppercase tracking-widest text-right">Score</span>
                         </div>
                         <div className="flex-1 overflow-hidden" key={animKey}>
+                            {leaderboard.length === 0 && (
+                                <div className="flex items-center justify-center h-full">
+                                    <p className="text-lg text-white/30">Aucun score enregistre</p>
+                                </div>
+                            )}
                             {leaderboard.map((entry, idx) => {
                                 const position = idx + 1;
                                 const scoreColor = entry.strokeToPar < 0 ? 'text-emerald-400' : entry.strokeToPar === 0 ? 'text-white' : 'text-red-400';

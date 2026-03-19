@@ -6,6 +6,17 @@ import type { Tournament, Category, Player, Group, Hole, Score, Payment, PagePro
 import { categoryColors, categoryDotColors } from '@/Lib/category-colors';
 import { QRCodeSVG } from 'qrcode.react';
 
+function downloadCsvTemplate(filename: string, headers: string[], sampleRows: string[][]) {
+    const csv = [headers.join(','), ...sampleRows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
 interface MarkerUser {
     id: string;
     name: string;
@@ -470,6 +481,9 @@ function PlayersTab({ tournament, players, categories, groups }: { tournament: T
                 <button onClick={() => fileInputRef.current?.click()} disabled={importing} className="flex items-center gap-2 px-4 py-2.5 bg-surface border border-border text-foreground rounded-xl text-sm font-medium hover:bg-surface-hover disabled:opacity-50">
                     <Upload className="w-4 h-4" />{importing ? 'Import...' : 'Importer CSV'}
                 </button>
+                <button onClick={() => downloadCsvTemplate('template-joueurs.csv', ['name', 'handicap', 'category', 'email', 'phone'], [['Jean Dupont', '12', 'Pro H', 'jean@email.com', '077123456']])} className="flex items-center gap-2 px-4 py-2.5 bg-surface border border-border text-foreground rounded-xl text-sm font-medium hover:bg-surface-hover">
+                    <Download className="w-4 h-4" />Template
+                </button>
             </div>
             {formUI}
             <div className="glass-card p-0 overflow-hidden">
@@ -517,9 +531,18 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
     const [editingId, setEditingId] = useState<string | null>(null);
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
     const [showQR, setShowQR] = useState<string | null>(null);
+    const [showMarkerForm, setShowMarkerForm] = useState(false);
     const form = useForm({ tee_time: '08:00', tee_date: '', marker_id: '', player_ids: [] as string[] });
+    const markerForm = useForm({ name: '', email: '', password: '' });
 
     const resetForm = () => { form.reset(); setShowForm(false); setEditingId(null); };
+
+    const handleCreateMarker = (e: React.FormEvent) => {
+        e.preventDefault();
+        markerForm.post(route('markers.store', tournament.id), {
+            onSuccess: () => { markerForm.reset(); setShowMarkerForm(false); },
+        });
+    };
 
     // Players not assigned to any group, or assigned to the group being edited
     const availablePlayers = players.filter((p) =>
@@ -643,7 +666,36 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
                 <button onClick={() => { resetForm(); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 shadow-lg shadow-primary/25">
                     <Plus className="w-4 h-4" />Nouveau groupe
                 </button>
+                <button onClick={() => setShowMarkerForm(!showMarkerForm)} className="flex items-center gap-2 px-4 py-2.5 bg-surface border border-border text-foreground rounded-xl text-sm font-medium hover:bg-surface-hover">
+                    <UserPlus className="w-4 h-4" />Nouveau marqueur
+                </button>
             </div>
+            {showMarkerForm && (
+                <form onSubmit={handleCreateMarker} className="glass-card space-y-4">
+                    <h3 className="text-sm font-semibold text-foreground">Creer un marqueur</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label className="text-xs text-muted-foreground block mb-1">Nom</label>
+                            <input type="text" value={markerForm.data.name} onChange={(e) => markerForm.setData('name', e.target.value)} placeholder="Nom complet" className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
+                            {markerForm.errors.name && <p className="text-xs text-destructive mt-1">{markerForm.errors.name}</p>}
+                        </div>
+                        <div>
+                            <label className="text-xs text-muted-foreground block mb-1">Email</label>
+                            <input type="email" value={markerForm.data.email} onChange={(e) => markerForm.setData('email', e.target.value)} placeholder="email@exemple.com" className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
+                            {markerForm.errors.email && <p className="text-xs text-destructive mt-1">{markerForm.errors.email}</p>}
+                        </div>
+                        <div>
+                            <label className="text-xs text-muted-foreground block mb-1">Mot de passe</label>
+                            <input type="password" value={markerForm.data.password} onChange={(e) => markerForm.setData('password', e.target.value)} placeholder="Min. 6 caracteres" className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
+                            {markerForm.errors.password && <p className="text-xs text-destructive mt-1">{markerForm.errors.password}</p>}
+                        </div>
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                        <button type="button" onClick={() => { markerForm.reset(); setShowMarkerForm(false); }} className="flex items-center gap-2 px-4 py-2 bg-surface border border-border rounded-xl text-sm text-foreground hover:bg-surface-hover"><X className="w-4 h-4" />Annuler</button>
+                        <button type="submit" disabled={markerForm.processing || !markerForm.data.name.trim() || !markerForm.data.email.trim()} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm hover:bg-primary/90"><Check className="w-4 h-4" />{markerForm.processing ? '...' : 'Creer'}</button>
+                    </div>
+                </form>
+            )}
             {(showForm || editingId) && (
                 <form onSubmit={handleSave} className="glass-card space-y-4">
                     <h3 className="text-sm font-semibold text-foreground">{editingId ? 'Modifier le groupe' : 'Nouveau groupe'}</h3>
@@ -905,6 +957,9 @@ function CourseTab({ tournament, holes }: { tournament: Tournament; holes: Hole[
             </div>
             <div className="flex justify-end gap-3">
                 <input ref={holeFileRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleHoleImport} className="hidden" />
+                <button type="button" onClick={() => downloadCsvTemplate('template-parcours.csv', ['number', 'par', 'distance', 'index'], [['1', '4', '350', '7'], ['2', '3', '165', '15']])} className="flex items-center gap-2 px-6 py-3 bg-surface border border-border text-foreground rounded-xl font-medium hover:bg-surface-hover">
+                    <Download className="w-4 h-4" />Template
+                </button>
                 <button type="button" onClick={() => holeFileRef.current?.click()} disabled={importingHoles} className="flex items-center gap-2 px-6 py-3 bg-surface border border-border text-foreground rounded-xl font-medium hover:bg-surface-hover disabled:opacity-50">
                     <Upload className="w-4 h-4" />
                     {importingHoles ? 'Import...' : 'Importer CSV'}
@@ -931,12 +986,30 @@ function RegistrationsTab({ tournament, registrations }: { tournament: Tournamen
         rejected: 'Refusé',
     };
 
+    const pendingCount = registrations.filter((r) => r.registration_status === 'pending').length;
+
     const handleStatusChange = (playerId: string, status: 'approved' | 'rejected') => {
         router.patch(route('registrations.update', [tournament.id, playerId]), { registration_status: status });
     };
 
+    const handleBulk = (status: 'approved' | 'rejected') => {
+        const label = status === 'approved' ? 'approuver' : 'refuser';
+        if (!confirm(`Voulez-vous ${label} toutes les inscriptions en attente (${pendingCount}) ?`)) return;
+        router.patch(route('registrations.bulkUpdate', tournament.id), { registration_status: status });
+    };
+
     return (
         <div className="space-y-4">
+            {pendingCount > 0 && (
+                <div className="flex flex-wrap gap-3">
+                    <button onClick={() => handleBulk('approved')} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 rounded-xl text-sm font-medium transition-colors">
+                        <Check className="w-4 h-4" />Tout approuver ({pendingCount})
+                    </button>
+                    <button onClick={() => handleBulk('rejected')} className="flex items-center gap-2 px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-xl text-sm font-medium transition-colors">
+                        <X className="w-4 h-4" />Tout refuser ({pendingCount})
+                    </button>
+                </div>
+            )}
             <div className="glass-card p-0 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full">
@@ -998,8 +1071,8 @@ function RegistrationsTab({ tournament, registrations }: { tournament: Tournamen
     );
 }
 
-// --- Payments Tab (admin-only, read-only) ---
-function PaymentsTab({ payments }: { payments: (Payment & { player?: Player })[] }) {
+// --- Payments Tab (admin-only) ---
+function PaymentsTab({ tournament, payments }: { tournament: Tournament; payments: (Payment & { player?: Player })[] }) {
     const statusBadge: Record<string, string> = {
         pending: 'bg-amber-500/20 text-amber-400',
         completed: 'bg-emerald-500/20 text-emerald-400',
@@ -1025,12 +1098,13 @@ function PaymentsTab({ payments }: { payments: (Payment & { player?: Player })[]
                                 <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Statut</th>
                                 <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Référence</th>
                                 <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Date</th>
+                                <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {payments.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-8 text-center text-sm text-muted-foreground italic">Aucun paiement</td>
+                                    <td colSpan={6} className="px-6 py-8 text-center text-sm text-muted-foreground italic">Aucun paiement</td>
                                 </tr>
                             ) : payments.map((payment) => (
                                 <tr key={payment.id} className="hover:bg-surface transition-colors">
@@ -1043,12 +1117,53 @@ function PaymentsTab({ payments }: { payments: (Payment & { player?: Player })[]
                                     </td>
                                     <td className="px-6 py-4"><span className="text-xs font-mono text-muted-foreground">{payment.ebilling_reference ?? '—'}</span></td>
                                     <td className="px-6 py-4"><span className="text-xs text-muted-foreground">{new Date(payment.created_at ?? '').toLocaleDateString('fr-FR')}</span></td>
+                                    <td className="px-6 py-4 text-right">
+                                        <div className="flex items-center gap-2 justify-end">
+                                            {payment.status === 'pending' && (
+                                                <button
+                                                    onClick={() => router.patch(route('payments.complete', [tournament.id, payment.id]))}
+                                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-xs font-medium transition-colors"
+                                                >
+                                                    <Check className="w-3 h-3" />Marquer recu
+                                                </button>
+                                            )}
+                                            {payment.status === 'completed' && (
+                                                <a
+                                                    href={route('payments.receipt', [tournament.id, payment.id])}
+                                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 text-xs font-medium transition-colors"
+                                                >
+                                                    <FileText className="w-3 h-3" />Recu PDF
+                                                </a>
+                                            )}
+                                        </div>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
             </div>
+        </div>
+    );
+}
+
+// --- Flash Messages ---
+function FlashMessages() {
+    const { flash, errors } = usePage<PageProps & { flash: { success?: string; error?: string }; errors: Record<string, string> }>().props;
+    if (!flash?.success && !flash?.error && !Object.keys(errors ?? {}).length) return null;
+    return (
+        <div className="space-y-2 mb-4">
+            {flash?.success && (
+                <div className="px-4 py-3 rounded-xl bg-emerald-500/20 text-emerald-400 text-sm font-medium">{flash.success}</div>
+            )}
+            {flash?.error && (
+                <div className="px-4 py-3 rounded-xl bg-red-500/20 text-red-400 text-sm font-medium">{flash.error}</div>
+            )}
+            {Object.keys(errors ?? {}).length > 0 && (
+                <div className="px-4 py-3 rounded-xl bg-red-500/20 text-red-400 text-sm">
+                    {Object.values(errors).map((e, i) => <p key={i}>{e}</p>)}
+                </div>
+            )}
         </div>
     );
 }
@@ -1085,6 +1200,8 @@ export default function TournamentManage({ tournament, categories, players, grou
                 ))}
             </div>
 
+            <FlashMessages />
+
             {activeTab === 'dashboard' && <DashboardTab tournament={tournament} players={players} groups={groups} scores={scores} />}
             {activeTab === 'tournament' && <TournamentTab tournament={tournament} />}
             {activeTab === 'categories' && <CategoriesTab tournament={tournament} categories={categories} />}
@@ -1092,7 +1209,7 @@ export default function TournamentManage({ tournament, categories, players, grou
             {activeTab === 'groups' && <GroupsTab tournament={tournament} groups={groups} markers={markers} players={players} />}
             {activeTab === 'course' && <CourseTab tournament={tournament} holes={holes} />}
             {activeTab === 'registrations' && <RegistrationsTab tournament={tournament} registrations={registrations} />}
-            {activeTab === 'payments' && <PaymentsTab payments={payments} />}
+            {activeTab === 'payments' && <PaymentsTab tournament={tournament} payments={payments} />}
         </AppLayout>
     );
 }

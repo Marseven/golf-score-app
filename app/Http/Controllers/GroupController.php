@@ -5,8 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Group;
 use App\Models\Player;
 use App\Models\Tournament;
+use App\Models\User;
 use App\Models\UserRole;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 
 class GroupController extends Controller
 {
@@ -90,6 +93,29 @@ class GroupController extends Controller
         }
 
         return back()->with('success', 'Groupe mis à jour.');
+    }
+
+    public function storeMarker(Request $request, Tournament $tournament)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:users,email',
+            'password' => ['required', Password::min(6)],
+        ]);
+
+        $user = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+        ]);
+
+        UserRole::create([
+            'user_id' => $user->id,
+            'tournament_id' => null,
+            'role' => 'marker',
+        ]);
+
+        return back()->with('success', 'Marqueur "'.$user->name.'" cree avec succes.');
     }
 
     public function destroy(Tournament $tournament, Group $group)

@@ -5,6 +5,7 @@ import { User } from 'lucide-react';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm';
 import DeleteUserForm from './Partials/DeleteUserForm';
+import UpdateAvatarForm from './Partials/UpdateAvatarForm';
 
 export default function Edit({
     mustVerifyEmail,
@@ -20,11 +21,15 @@ export default function Edit({
                 </div>
                 <div>
                     <h1 className="text-2xl font-bold text-foreground">Mon profil</h1>
-                    <p className="text-sm text-muted-foreground">Gérez vos informations personnelles</p>
+                    <p className="text-sm text-muted-foreground">Gerez vos informations personnelles</p>
                 </div>
             </div>
 
             <div className="max-w-xl space-y-6">
+                <div className="glass-card">
+                    <UpdateAvatarForm status={status} />
+                </div>
+
                 <div className="glass-card">
                     <UpdateProfileInformationForm
                         mustVerifyEmail={mustVerifyEmail}
