@@ -41,6 +41,7 @@ class PaymentController extends Controller
             'amount' => $fee,
             'currency' => $tournament->registration_currency,
             'status' => 'pending',
+            'payment_method' => 'ebilling',
         ]);
 
         try {

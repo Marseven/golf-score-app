@@ -1,7 +1,7 @@
 import { Head, useForm } from '@inertiajs/react';
 import PublicLayout from '@/Layouts/PublicLayout';
 import PhoneInput from '@/Components/PhoneInput';
-import { Target, Loader2, UserPlus } from 'lucide-react';
+import { Target, Loader2, UserPlus, Smartphone, Banknote } from 'lucide-react';
 import type { Tournament, Category } from '@/types';
 
 interface Props {
@@ -16,6 +16,7 @@ export default function RegistrationCreate({ tournament, categories }: Props) {
         phone: '',
         handicap: '',
         category_id: '',
+        payment_method: '' as '' | 'ebilling' | 'cash',
     });
 
     const selectedCategory = categories.find((c) => c.id === form.data.category_id);
@@ -125,20 +126,61 @@ export default function RegistrationCreate({ tournament, categories }: Props) {
                             </div>
 
                             {fee > 0 && (
-                                <div className="bg-surface rounded-xl p-4 border border-border">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-muted-foreground">Frais d'inscription</span>
-                                        <span className="text-sm font-bold text-amber-400">{fee} {tournament.registration_currency}</span>
+                                <>
+                                    <div className="bg-surface rounded-xl p-4 border border-border">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-sm text-muted-foreground">Frais d'inscription</span>
+                                            <span className="text-sm font-bold text-amber-400">{fee} {tournament.registration_currency}</span>
+                                        </div>
                                     </div>
-                                </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-foreground mb-2">Moyen de paiement *</label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => form.setData('payment_method', 'ebilling')}
+                                                className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                                                    form.data.payment_method === 'ebilling'
+                                                        ? 'border-primary bg-primary/10'
+                                                        : 'border-border bg-surface hover:border-muted-foreground/50'
+                                                }`}
+                                            >
+                                                <Smartphone className={`w-6 h-6 ${form.data.payment_method === 'ebilling' ? 'text-primary' : 'text-muted-foreground'}`} />
+                                                <span className={`text-sm font-medium ${form.data.payment_method === 'ebilling' ? 'text-primary' : 'text-foreground'}`}>Mobile Money</span>
+                                                <span className="text-xs text-muted-foreground">Paiement en ligne via eBilling</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => form.setData('payment_method', 'cash')}
+                                                className={`relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all ${
+                                                    form.data.payment_method === 'cash'
+                                                        ? 'border-primary bg-primary/10'
+                                                        : 'border-border bg-surface hover:border-muted-foreground/50'
+                                                }`}
+                                            >
+                                                <Banknote className={`w-6 h-6 ${form.data.payment_method === 'cash' ? 'text-primary' : 'text-muted-foreground'}`} />
+                                                <span className={`text-sm font-medium ${form.data.payment_method === 'cash' ? 'text-primary' : 'text-foreground'}`}>Espèces</span>
+                                                <span className="text-xs text-muted-foreground">Paiement sur place au club</span>
+                                            </button>
+                                        </div>
+                                        {form.errors.payment_method && <p className="mt-1.5 text-sm text-destructive">{form.errors.payment_method}</p>}
+                                    </div>
+                                </>
                             )}
 
                             <button
                                 type="submit"
-                                disabled={form.processing}
+                                disabled={form.processing || (fee > 0 && !form.data.payment_method)}
                                 className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/25 h-12 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
                             >
-                                {form.processing ? <Loader2 className="w-5 h-5 animate-spin" /> : "S'inscrire"}
+                                {form.processing ? (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : fee > 0 && form.data.payment_method === 'ebilling' ? (
+                                    'Continuer vers le paiement'
+                                ) : (
+                                    "S'inscrire"
+                                )}
                             </button>
                         </form>
                     </div>

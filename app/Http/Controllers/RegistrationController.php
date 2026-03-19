@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\RegistrationApproved;
 use App\Mail\RegistrationConfirmation;
 use App\Mail\RegistrationRejected;
+use App\Models\Payment;
 use App\Models\Player;
 use App\Models\Tournament;
 use Illuminate\Http\Request;
@@ -45,10 +46,15 @@ class RegistrationController extends Controller
             'phone' => 'nullable|string|max:20',
             'handicap' => 'numeric|min:0|max:54',
             'category_id' => 'required|uuid|exists:categories,id',
+            'payment_method' => 'nullable|string|in:ebilling,cash',
         ]);
 
         $player = $tournament->players()->create([
-            ...$validated,
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'phone' => $validated['phone'] ?? null,
+            'handicap' => $validated['handicap'],
+            'category_id' => $validated['category_id'],
             'registration_status' => 'pending',
         ]);
 
@@ -65,6 +71,21 @@ class RegistrationController extends Controller
         $fee = $category ? $category->registration_fee : 0;
 
         if ($fee > 0) {
+            $paymentMethod = $validated['payment_method'] ?? 'ebilling';
+
+            if ($paymentMethod === 'cash') {
+                Payment::create([
+                    'player_id' => $player->id,
+                    'tournament_id' => $tournament->id,
+                    'amount' => $fee,
+                    'currency' => $tournament->registration_currency,
+                    'status' => 'pending',
+                    'payment_method' => 'cash',
+                ]);
+
+                return redirect()->route('classement')->with('success', 'Inscription enregistrée. Paiement en espèces attendu sur place.');
+            }
+
             return redirect()->route('paiement.create', [$tournament, $player]);
         }
 

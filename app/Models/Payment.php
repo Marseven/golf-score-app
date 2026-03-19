@@ -33,6 +33,7 @@ class Payment extends Model
         'currency',
         'status',
         'ebilling_reference',
+        'payment_method',
         'metadata',
     ];
 
