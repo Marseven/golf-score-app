@@ -35,7 +35,15 @@ class Group extends Model
         'marker_id',
         'marker_token',
         'marker_pin',
+        'tee_date',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'tee_date' => 'date',
+        ];
+    }
 
     protected static function booted(): void
     {

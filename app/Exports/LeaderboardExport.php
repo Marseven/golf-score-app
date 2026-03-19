@@ -9,11 +9,19 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 
 class LeaderboardExport implements FromCollection, WithHeadings, WithMapping
 {
+    private int $position = 0;
+
     public function __construct(protected Tournament $tournament) {}
 
     public function collection()
     {
-        return $this->tournament->players()->with('category', 'scores.hole')->get();
+        return $this->tournament->players()->with('category', 'scores.hole')->get()
+            ->sortBy(function ($player) {
+                $totalStrokes = $player->scores->sum('strokes');
+                $totalPar = $player->scores->sum(fn ($s) => $s->hole->par ?? 0);
+
+                return $totalStrokes - $totalPar;
+            })->values();
     }
 
     public function headings(): array
@@ -28,11 +36,10 @@ class LeaderboardExport implements FromCollection, WithHeadings, WithMapping
         $totalPar = $scores->sum(fn ($s) => $s->hole->par ?? 0);
         $stableford = $scores->sum(fn ($s) => max(0, ($s->hole->par ?? 0) - $s->strokes + 2));
 
-        static $position = 0;
-        $position++;
+        $this->position++;
 
         return [
-            $position,
+            $this->position,
             $player->name,
             $player->category?->name ?? '-',
             $player->handicap,

@@ -5,6 +5,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\HoleController;
+use App\Http\Controllers\HoleImportController;
 use App\Http\Controllers\LeaderboardController;
 use App\Http\Controllers\MarkerController;
 use App\Http\Controllers\PaymentController;
@@ -75,6 +76,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('holes', [HoleController::class, 'edit'])->name('holes.edit');
         Route::put('holes', [HoleController::class, 'update'])->name('holes.update');
         Route::post('holes/init', [HoleController::class, 'init'])->name('holes.init');
+        Route::post('holes/import', [HoleImportController::class, 'import'])->name('holes.import');
         Route::get('export/pdf', [ExportController::class, 'pdf'])->name('export.pdf');
         Route::get('export/excel', [ExportController::class, 'excel'])->name('export.excel');
     });

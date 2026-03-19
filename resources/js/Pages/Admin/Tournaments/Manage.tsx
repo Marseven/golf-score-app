@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
-import { ArrowLeft, Settings, BarChart3, Trophy, Users, Target, MapPin, Save, Plus, Trash2, Pencil, X, Check, RefreshCw, Clock, Copy, UserPlus, Send, FileText, FileSpreadsheet, QrCode, Flag, Tag, UserCheck, CreditCard, LinkIcon, Download, Hash } from 'lucide-react';
+import { ArrowLeft, Settings, BarChart3, Trophy, Users, Target, MapPin, Save, Plus, Trash2, Pencil, X, Check, RefreshCw, Clock, Copy, UserPlus, Send, FileText, FileSpreadsheet, QrCode, Flag, Tag, UserCheck, CreditCard, LinkIcon, Download, Hash, Upload } from 'lucide-react';
 import type { Tournament, Category, Player, Group, Hole, Score, Payment, PageProps } from '@/types';
 import { categoryColors, categoryDotColors } from '@/Lib/category-colors';
 import { QRCodeSVG } from 'qrcode.react';
@@ -43,7 +43,7 @@ const allTabs: TabDef[] = [
 ];
 
 // --- Dashboard Tab ---
-function DashboardTab({ players, groups, scores }: { players: Player[]; groups: Group[]; scores: Score[] }) {
+function DashboardTab({ tournament, players, groups, scores }: { tournament: Tournament; players: Player[]; groups: Group[]; scores: Score[] }) {
     const syncedCount = scores.filter((s) => s.synced).length;
     const totalHoles = players.length * 18;
     const progress = totalHoles > 0 ? Math.round((scores.length / totalHoles) * 100) : 0;
@@ -54,6 +54,23 @@ function DashboardTab({ players, groups, scores }: { players: Player[]; groups: 
         { label: 'Progression', value: `${progress}%`, icon: Flag, color: 'bg-amber-500/20 text-amber-400' },
         { label: 'Scores sync.', value: String(syncedCount), icon: RefreshCw, color: 'bg-violet-500/20 text-violet-400' },
     ];
+
+    const handleQuickAction = (label: string) => {
+        switch (label) {
+            case 'Export PDF':
+                window.location.href = route('export.pdf', tournament.id);
+                break;
+            case 'Export Excel':
+                window.location.href = route('export.excel', tournament.id);
+                break;
+            case 'WhatsApp': {
+                const classementUrl = route('classement', tournament.id);
+                const text = `${tournament.name}${tournament.club ? ` - ${tournament.club}` : ''}\n\nClassement en ligne :\n${classementUrl}`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                break;
+            }
+        }
+    };
 
     const quickActions = [
         { label: 'WhatsApp', desc: 'Diffuser résultats', icon: Send, color: 'text-emerald-400' },
@@ -81,7 +98,7 @@ function DashboardTab({ players, groups, scores }: { players: Player[]; groups: 
                 <h3 className="text-sm font-medium text-muted-foreground mb-3">Actions rapides</h3>
                 <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
                     {quickActions.map((action) => (
-                        <button key={action.label} className="glass-card hover:bg-surface-hover transition-colors cursor-pointer text-left">
+                        <button key={action.label} onClick={() => handleQuickAction(action.label)} className="glass-card hover:bg-surface-hover transition-colors cursor-pointer text-left">
                             <action.icon className={`w-6 h-6 ${action.color} mb-3`} />
                             <p className="text-sm font-semibold text-foreground">{action.label}</p>
                             <p className="text-xs text-muted-foreground mt-1">{action.desc}</p>
@@ -370,6 +387,8 @@ function CategoriesTab({ tournament, categories }: { tournament: Tournament; cat
 function PlayersTab({ tournament, players, categories, groups }: { tournament: Tournament; players: Player[]; categories: Category[]; groups: Group[] }) {
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [importing, setImporting] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const form = useForm({ name: '', handicap: 0, category_id: '', group_id: '', email: '', phone: '' });
 
     const resetForm = () => { form.reset(); setShowForm(false); setEditingId(null); };
@@ -392,6 +411,19 @@ function PlayersTab({ tournament, players, categories, groups }: { tournament: T
     const handleDelete = (id: string, name: string) => {
         if (!confirm(`Supprimer le joueur "${name}" ?`)) return;
         router.delete(route('players.destroy', [tournament.id, id]));
+    };
+
+    const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setImporting(true);
+        router.post(route('players.import', tournament.id), { file }, {
+            forceFormData: true,
+            onFinish: () => {
+                setImporting(false);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+            },
+        });
     };
 
     const formUI = (showForm || editingId) && (
@@ -433,6 +465,10 @@ function PlayersTab({ tournament, players, categories, groups }: { tournament: T
             <div className="flex flex-wrap gap-3">
                 <button onClick={() => { resetForm(); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 shadow-lg shadow-primary/25">
                     <UserPlus className="w-4 h-4" />Ajouter
+                </button>
+                <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleImport} className="hidden" />
+                <button onClick={() => fileInputRef.current?.click()} disabled={importing} className="flex items-center gap-2 px-4 py-2.5 bg-surface border border-border text-foreground rounded-xl text-sm font-medium hover:bg-surface-hover disabled:opacity-50">
+                    <Upload className="w-4 h-4" />{importing ? 'Import...' : 'Importer CSV'}
                 </button>
             </div>
             {formUI}
@@ -481,7 +517,7 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
     const [editingId, setEditingId] = useState<string | null>(null);
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
     const [showQR, setShowQR] = useState<string | null>(null);
-    const form = useForm({ tee_time: '08:00', marker_id: '', player_ids: [] as string[] });
+    const form = useForm({ tee_time: '08:00', tee_date: '', marker_id: '', player_ids: [] as string[] });
 
     const resetForm = () => { form.reset(); setShowForm(false); setEditingId(null); };
 
@@ -494,6 +530,7 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
         setEditingId(group.id);
         form.setData({
             tee_time: group.tee_time,
+            tee_date: group.tee_date ? group.tee_date.substring(0, 10) : '',
             marker_id: group.marker_id ?? '',
             player_ids: group.players?.map((p) => p.id) ?? [],
         });
@@ -610,11 +647,24 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
             {(showForm || editingId) && (
                 <form onSubmit={handleSave} className="glass-card space-y-4">
                     <h3 className="text-sm font-semibold text-foreground">{editingId ? 'Modifier le groupe' : 'Nouveau groupe'}</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className={`grid grid-cols-1 ${tournament.end_date ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-4`}>
                         <div>
                             <label className="text-xs text-muted-foreground block mb-1">Heure de depart</label>
                             <input type="time" value={form.data.tee_time} onChange={(e) => form.setData('tee_time', e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
                         </div>
+                        {tournament.end_date && (
+                            <div>
+                                <label className="text-xs text-muted-foreground block mb-1">Jour de depart</label>
+                                <input
+                                    type="date"
+                                    value={form.data.tee_date}
+                                    onChange={(e) => form.setData('tee_date', e.target.value)}
+                                    min={formatDateForInput(tournament.start_date)}
+                                    max={formatDateForInput(tournament.end_date)}
+                                    className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none"
+                                />
+                            </div>
+                        )}
                         <div>
                             <label className="text-xs text-muted-foreground block mb-1">Marqueur</label>
                             <select value={form.data.marker_id} onChange={(e) => form.setData('marker_id', e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none appearance-none">
@@ -659,7 +709,10 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
                                 <span className="text-lg font-bold text-foreground">{group.code}</span>
                                 <div className="flex items-center gap-1.5 text-muted-foreground">
                                     <Clock className="w-3.5 h-3.5" />
-                                    <span className="text-xs">Depart: {group.tee_time}</span>
+                                    <span className="text-xs">
+                                        {group.tee_date && `${new Date(group.tee_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} · `}
+                                        {group.tee_time}
+                                    </span>
                                 </div>
                                 {group.marker_pin && (
                                     <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 text-xs font-mono font-bold">
@@ -763,6 +816,8 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
 
 // --- Course Tab ---
 function CourseTab({ tournament, holes }: { tournament: Tournament; holes: Hole[] }) {
+    const [importingHoles, setImportingHoles] = useState(false);
+    const holeFileRef = useRef<HTMLInputElement>(null);
     const form = useForm({
         holes: holes.map((h) => ({ id: h.id, number: h.number, par: h.par, distance: h.distance, hole_index: h.hole_index })),
     });
@@ -776,6 +831,19 @@ function CourseTab({ tournament, holes }: { tournament: Tournament; holes: Hole[
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
         form.put(route('holes.update', tournament.id));
+    };
+
+    const handleHoleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setImportingHoles(true);
+        router.post(route('holes.import', tournament.id), { file }, {
+            forceFormData: true,
+            onFinish: () => {
+                setImportingHoles(false);
+                if (holeFileRef.current) holeFileRef.current.value = '';
+            },
+        });
     };
 
     const outHoles = form.data.holes.filter((h) => h.number <= 9);
@@ -835,7 +903,12 @@ function CourseTab({ tournament, holes }: { tournament: Tournament; holes: Hole[
                     </table>
                 </div>
             </div>
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-3">
+                <input ref={holeFileRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleHoleImport} className="hidden" />
+                <button type="button" onClick={() => holeFileRef.current?.click()} disabled={importingHoles} className="flex items-center gap-2 px-6 py-3 bg-surface border border-border text-foreground rounded-xl font-medium hover:bg-surface-hover disabled:opacity-50">
+                    <Upload className="w-4 h-4" />
+                    {importingHoles ? 'Import...' : 'Importer CSV'}
+                </button>
                 <button type="submit" disabled={form.processing} className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 shadow-lg shadow-primary/25 disabled:opacity-50">
                     <Save className="w-4 h-4" />
                     {form.processing ? 'Sauvegarde...' : 'Sauvegarder le parcours'}
@@ -1012,7 +1085,7 @@ export default function TournamentManage({ tournament, categories, players, grou
                 ))}
             </div>
 
-            {activeTab === 'dashboard' && <DashboardTab players={players} groups={groups} scores={scores} />}
+            {activeTab === 'dashboard' && <DashboardTab tournament={tournament} players={players} groups={groups} scores={scores} />}
             {activeTab === 'tournament' && <TournamentTab tournament={tournament} />}
             {activeTab === 'categories' && <CategoriesTab tournament={tournament} categories={categories} />}
             {activeTab === 'players' && <PlayersTab tournament={tournament} players={players} categories={categories} groups={groups} />}

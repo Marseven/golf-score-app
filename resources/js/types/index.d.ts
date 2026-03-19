@@ -62,6 +62,7 @@ export interface Group {
     tournament_id: string;
     code: string;
     tee_time: string;
+    tee_date: string | null;
     marker_id: string | null;
     marker_token: string | null;
     marker_pin: string | null;

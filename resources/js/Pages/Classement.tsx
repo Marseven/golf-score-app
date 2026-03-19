@@ -74,7 +74,19 @@ export default function Classement({ tournament, players, scores, holes, categor
                                     </a>
                                 </>
                             )}
-                            <button className="flex items-center gap-2 px-3 py-2 bg-surface border border-border rounded-xl text-sm text-foreground hover:bg-surface-hover">
+                            <button
+                                onClick={() => {
+                                    const top5 = leaderboard.slice(0, 5).map((entry, i) => {
+                                        const sign = entry.strokeToPar > 0 ? '+' : '';
+                                        const score = entry.strokeToPar === 0 ? 'E' : `${sign}${entry.strokeToPar}`;
+                                        return `${i + 1}. ${entry.player.name} (${score})`;
+                                    }).join('\n');
+                                    const classementUrl = route('classement', tournament!.id);
+                                    const text = `${tournament!.name}${tournament!.club ? ` - ${tournament!.club}` : ''}\n\n${top5}\n\nClassement complet :\n${classementUrl}`;
+                                    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                                }}
+                                className="flex items-center gap-2 px-3 py-2 bg-surface border border-border rounded-xl text-sm text-foreground hover:bg-surface-hover"
+                            >
                                 <Share2 className="w-4 h-4" />WhatsApp
                             </button>
                         </div>

@@ -23,8 +23,7 @@ class PlayersImport implements ToModel, WithHeadingRow, WithValidation
         $category = null;
         if ($categoryName) {
             $category = $this->tournament->categories()
-                ->where('name', $categoryName)
-                ->orWhere('short_name', $categoryName)
+                ->where(fn ($q) => $q->where('name', $categoryName)->orWhere('short_name', $categoryName))
                 ->first();
         }
 

@@ -37,10 +37,9 @@ class TournamentController extends Controller
         $payments = $tournament->payments()->with('player')->get();
 
         $registrations = $tournament->players()
-            ->whereIn('registration_status', ['pending', 'rejected'])
-            ->orWhere(function ($q) use ($tournament) {
-                $q->where('tournament_id', $tournament->id)
-                    ->whereNotNull('email');
+            ->where(function ($q) {
+                $q->whereIn('registration_status', ['pending', 'rejected'])
+                    ->orWhereNotNull('email');
             })
             ->with('category', 'payments')
             ->get();
