@@ -38,7 +38,7 @@ class EbillingService
 
     public function initiatePayment(Payment $payment, Player $player, ?string $payerMsisdn = null): array
     {
-        $msisdn = ltrim($payerMsisdn ?? $player->phone ?? '', '+');
+        $msisdn = preg_replace('/^\+?241/', '', $payerMsisdn ?? $player->phone ?? '');
 
         $response = Http::withBasicAuth($this->username, $this->sharedKey)
             ->accept('application/json')
