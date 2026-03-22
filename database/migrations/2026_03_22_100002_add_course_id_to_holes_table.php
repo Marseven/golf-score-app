@@ -49,17 +49,19 @@ return new class extends Migration
         // Update unique constraint: tournament_id+number → course_id+number
         $driver = DB::connection()->getDriverName();
         if ($driver === 'sqlite') {
-            // SQLite: rebuild table approach
-            // Drop old unique index
-            // SQLite doesn't support DROP INDEX in Schema, use raw
             DB::statement('DROP INDEX IF EXISTS holes_tournament_id_number_unique');
-
-            // Create new unique index
             DB::statement('CREATE UNIQUE INDEX holes_course_id_number_unique ON holes (course_id, number)');
         } else {
+            // MySQL: the unique index backs the tournament_id FK, so we must
+            // drop the FK first, then drop the unique, add the new unique,
+            // and re-add a plain index for the FK.
+            Schema::table('holes', function (Blueprint $table) {
+                $table->dropForeign(['tournament_id']);
+            });
             Schema::table('holes', function (Blueprint $table) {
                 $table->dropUnique(['tournament_id', 'number']);
                 $table->unique(['course_id', 'number']);
+                $table->foreign('tournament_id')->references('id')->on('tournaments')->onDelete('cascade');
             });
         }
     }
@@ -72,8 +74,12 @@ return new class extends Migration
             DB::statement('CREATE UNIQUE INDEX holes_tournament_id_number_unique ON holes (tournament_id, number)');
         } else {
             Schema::table('holes', function (Blueprint $table) {
+                $table->dropForeign(['tournament_id']);
+            });
+            Schema::table('holes', function (Blueprint $table) {
                 $table->dropUnique(['course_id', 'number']);
                 $table->unique(['tournament_id', 'number']);
+                $table->foreign('tournament_id')->references('id')->on('tournaments')->onDelete('cascade');
             });
         }
 
