@@ -38,9 +38,12 @@ class EbillingService
 
     public function initiatePayment(Payment $payment, Player $player, ?string $payerMsisdn = null): array
     {
+        $msisdn = ltrim($payerMsisdn ?? $player->phone ?? '', '+');
+
         $response = Http::withBasicAuth($this->username, $this->sharedKey)
+            ->accept('application/json')
             ->post($this->apiUrl.'/api/v1/merchant/e_bills', [
-                'payer_msisdn' => $payerMsisdn ?? $player->phone ?? '',
+                'payer_msisdn' => $msisdn,
                 'payer_email' => $player->email ?? '',
                 'payer_name' => $player->name,
                 'amount' => (int) $payment->amount,
@@ -53,7 +56,11 @@ class EbillingService
             Log::error('eBilling API error', [
                 'status' => $response->status(),
                 'body' => $response->body(),
+                'headers' => $response->headers(),
                 'payment_id' => $payment->id,
+                'api_url' => $this->apiUrl,
+                'payer_msisdn' => $msisdn,
+                'amount' => (int) $payment->amount,
             ]);
             throw new \RuntimeException('eBilling API error: '.$response->status());
         }
