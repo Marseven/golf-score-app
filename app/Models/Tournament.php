@@ -114,6 +114,11 @@ class Tournament extends Model
     /**
      * Get the categories for the tournament.
      */
+    public function courses(): HasMany
+    {
+        return $this->hasMany(Course::class);
+    }
+
     public function categories(): HasMany
     {
         return $this->hasMany(Category::class);

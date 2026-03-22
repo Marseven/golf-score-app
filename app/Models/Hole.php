@@ -29,6 +29,7 @@ class Hole extends Model
      */
     protected $fillable = [
         'tournament_id',
+        'course_id',
         'number',
         'par',
         'distance',
@@ -56,6 +57,11 @@ class Hole extends Model
     public function tournament(): BelongsTo
     {
         return $this->belongsTo(Tournament::class);
+    }
+
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(Course::class);
     }
 
     /**

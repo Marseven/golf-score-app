@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { ArrowLeft, Settings, BarChart3, Trophy, Users, Target, MapPin, Save, Plus, Trash2, Pencil, X, Check, RefreshCw, Clock, Copy, UserPlus, Send, FileText, FileSpreadsheet, QrCode, Flag, Tag, UserCheck, CreditCard, LinkIcon, Download, Hash, Upload } from 'lucide-react';
-import type { Tournament, Category, Player, Group, Hole, Score, Payment, PageProps } from '@/types';
+import type { Tournament, Category, Player, Group, Hole, Score, Payment, Course, PageProps } from '@/types';
 import { categoryColors, categoryDotColors } from '@/Lib/category-colors';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -25,6 +25,7 @@ interface MarkerUser {
 
 interface Props {
     tournament: Tournament;
+    courses: Course[];
     categories: Category[];
     players: Player[];
     groups: Group[];
@@ -277,10 +278,10 @@ function TournamentTab({ tournament }: { tournament: Tournament }) {
 }
 
 // --- Categories Tab ---
-function CategoriesTab({ tournament, categories }: { tournament: Tournament; categories: Category[] }) {
+function CategoriesTab({ tournament, categories, courses }: { tournament: Tournament; categories: Category[]; courses: Course[] }) {
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const form = useForm({ name: '', short_name: '', color: 'blue', registration_fee: 0 });
+    const form = useForm({ name: '', short_name: '', color: 'blue', registration_fee: 0, course_id: courses[0]?.id ?? '', handicap_coefficient: 1.0 });
 
     const colorOptions = ['blue', 'pink', 'emerald', 'violet', 'amber', 'red', 'cyan', 'orange'];
 
@@ -288,7 +289,7 @@ function CategoriesTab({ tournament, categories }: { tournament: Tournament; cat
 
     const startEdit = (cat: Category) => {
         setEditingId(cat.id);
-        form.setData({ name: cat.name, short_name: cat.short_name, color: cat.color, registration_fee: cat.registration_fee ?? 0 });
+        form.setData({ name: cat.name, short_name: cat.short_name, color: cat.color, registration_fee: cat.registration_fee ?? 0, course_id: cat.course_id ?? courses[0]?.id ?? '', handicap_coefficient: cat.handicap_coefficient ?? 1.0 });
         setShowForm(false);
     };
 
@@ -309,7 +310,7 @@ function CategoriesTab({ tournament, categories }: { tournament: Tournament; cat
     const formUI = (showForm || editingId) && (
         <form onSubmit={handleSave} className="glass-card space-y-4">
             <h3 className="text-sm font-semibold text-foreground">{editingId ? 'Modifier la catégorie' : 'Nouvelle catégorie'}</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                     <label className="text-xs text-muted-foreground block mb-1">Nom</label>
                     <input type="text" value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} placeholder="Ex: Pro H" className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
@@ -321,6 +322,17 @@ function CategoriesTab({ tournament, categories }: { tournament: Tournament; cat
                 <div>
                     <label className="text-xs text-muted-foreground block mb-1">Frais d'inscription</label>
                     <input type="number" value={form.data.registration_fee} onChange={(e) => form.setData('registration_fee', Number(e.target.value))} step={100} min={0} placeholder="0" className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
+                </div>
+                <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Parcours</label>
+                    <select value={form.data.course_id} onChange={(e) => form.setData('course_id', e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none appearance-none">
+                        {courses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Coefficient handicap</label>
+                    <input type="number" value={form.data.handicap_coefficient} onChange={(e) => form.setData('handicap_coefficient', Number(e.target.value))} step={0.01} min={0} max={2} placeholder="1.00" className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
+                    <p className="text-[10px] text-muted-foreground mt-1">Ex: 0.85 (Pro), 1.0 (Amateur)</p>
                 </div>
                 <div>
                     <label className="text-xs text-muted-foreground block mb-1">Couleur</label>
@@ -359,33 +371,40 @@ function CategoriesTab({ tournament, categories }: { tournament: Tournament; cat
                             <tr className="border-b border-border">
                                 <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Nom</th>
                                 <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Abréviation</th>
+                                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Parcours</th>
+                                <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Coeff. HC</th>
                                 <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Couleur</th>
                                 <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Frais</th>
                                 <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                            {categories.map((cat) => (
-                                <tr key={cat.id} className="hover:bg-surface transition-colors">
-                                    <td className="px-6 py-4"><span className="text-sm font-medium text-foreground">{cat.name}</span></td>
-                                    <td className="px-6 py-4"><span className="text-sm text-foreground">{cat.short_name}</span></td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-2">
-                                            <div className={`w-4 h-4 rounded-full ${categoryDotColors[cat.name] ?? 'bg-gray-500'}`} />
-                                            <span className="text-xs text-muted-foreground">{cat.color}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <span className="text-sm font-medium text-foreground">{cat.registration_fee > 0 ? `${cat.registration_fee} ${tournament.registration_currency}` : '—'}</span>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-1">
-                                            <button onClick={() => startEdit(cat)} className="p-2 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-foreground transition-colors"><Pencil className="w-4 h-4" /></button>
-                                            <button onClick={() => handleDelete(cat.id, cat.name)} className="p-2 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-4 h-4" /></button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                            {categories.map((cat) => {
+                                const courseName = courses.find((c) => c.id === cat.course_id)?.name ?? '—';
+                                return (
+                                    <tr key={cat.id} className="hover:bg-surface transition-colors">
+                                        <td className="px-6 py-4"><span className="text-sm font-medium text-foreground">{cat.name}</span></td>
+                                        <td className="px-6 py-4"><span className="text-sm text-foreground">{cat.short_name}</span></td>
+                                        <td className="px-6 py-4"><span className="text-xs text-muted-foreground">{courseName}</span></td>
+                                        <td className="px-6 py-4 text-center"><span className="text-sm font-mono text-foreground">{cat.handicap_coefficient ?? 1.0}</span></td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-4 h-4 rounded-full ${categoryDotColors[cat.name] ?? 'bg-gray-500'}`} />
+                                                <span className="text-xs text-muted-foreground">{cat.color}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <span className="text-sm font-medium text-foreground">{cat.registration_fee > 0 ? `${cat.registration_fee} ${tournament.registration_currency}` : '—'}</span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <button onClick={() => startEdit(cat)} className="p-2 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-foreground transition-colors"><Pencil className="w-4 h-4" /></button>
+                                                <button onClick={() => handleDelete(cat.id, cat.name)} className="p-2 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>
@@ -766,12 +785,6 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
                                         {group.tee_time}
                                     </span>
                                 </div>
-                                {group.marker_pin && (
-                                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 text-xs font-mono font-bold">
-                                        <Hash className="w-3 h-3" />
-                                        {group.marker_pin}
-                                    </span>
-                                )}
                             </div>
                             <div className="flex items-center gap-2">
                                 <button onClick={() => copyCode(group.code)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-hover transition-colors">
@@ -787,8 +800,8 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
                             </div>
                         </div>
 
-                        {/* Marker info */}
-                        <div className="px-5 py-3 border-b border-border">
+                        {/* Marker info + PIN + Link (always visible) */}
+                        <div className="px-5 py-3 border-b border-border space-y-3">
                             {group.marker ? (
                                 <div className="flex items-center gap-2">
                                     <UserCheck className="w-4 h-4 text-primary" />
@@ -801,11 +814,36 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
                                     <span className="text-xs text-muted-foreground italic">Aucun marqueur assigne</span>
                                 </div>
                             )}
+
+                            {group.marker_token && (
+                                <div className="flex flex-wrap items-center gap-3">
+                                    {group.marker_pin && (
+                                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                                            <Hash className="w-4 h-4 text-amber-400" />
+                                            <span className="text-lg font-mono font-black text-amber-400 tracking-widest">{group.marker_pin}</span>
+                                        </div>
+                                    )}
+                                    <button
+                                        onClick={() => copyMarkerLink(group.marker_token!)}
+                                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium transition-colors border border-primary/20"
+                                    >
+                                        <LinkIcon className="w-3.5 h-3.5" />
+                                        {copiedToken === group.marker_token ? 'Copie !' : 'Copier le lien marqueur'}
+                                    </button>
+                                    <button
+                                        onClick={() => setShowQR(showQR === group.id ? null : group.id)}
+                                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors border ${showQR === group.id ? 'bg-primary/20 text-primary border-primary/20' : 'bg-surface hover:bg-surface-hover text-muted-foreground hover:text-foreground border-border'}`}
+                                    >
+                                        <QrCode className="w-3.5 h-3.5" />
+                                        QR Code
+                                    </button>
+                                </div>
+                            )}
                         </div>
 
                         {/* QR Code inline */}
                         {showQR === group.id && group.marker_token && (
-                            <div className="px-5 py-4 border-b border-border flex flex-col items-center gap-3">
+                            <div className="px-5 py-4 border-b border-border flex flex-col items-center gap-3 bg-surface/30">
                                 <div className="bg-white p-3 rounded-xl" data-qr-group={group.id}>
                                     <QRCodeSVG
                                         value={getMarkerUrl(group.marker_token)}
@@ -839,26 +877,6 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
                                 <li className="px-5 py-4 text-xs text-muted-foreground italic">Aucun joueur</li>
                             )}
                         </ul>
-
-                        {/* Actions bar */}
-                        {group.marker_token && (
-                            <div className="flex items-center gap-2 px-5 py-3 border-t border-border bg-surface/50">
-                                <button
-                                    onClick={() => copyMarkerLink(group.marker_token!)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium transition-colors"
-                                >
-                                    <LinkIcon className="w-3.5 h-3.5" />
-                                    {copiedToken === group.marker_token ? 'Copie !' : 'Copier le lien'}
-                                </button>
-                                <button
-                                    onClick={() => setShowQR(showQR === group.id ? null : group.id)}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${showQR === group.id ? 'bg-primary/20 text-primary' : 'bg-surface hover:bg-surface-hover text-muted-foreground hover:text-foreground'}`}
-                                >
-                                    <QrCode className="w-3.5 h-3.5" />
-                                    QR Code
-                                </button>
-                            </div>
-                        )}
                     </div>
                 ))}
             </div>
@@ -867,12 +885,26 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
 }
 
 // --- Course Tab ---
-function CourseTab({ tournament, holes }: { tournament: Tournament; holes: Hole[] }) {
+function CourseTab({ tournament, courses, holes }: { tournament: Tournament; courses: Course[]; holes: Hole[] }) {
+    const [activeCourseId, setActiveCourseId] = useState<string>(courses[0]?.id ?? '');
     const [importingHoles, setImportingHoles] = useState(false);
+    const [showNewCourse, setShowNewCourse] = useState(false);
+    const [editingCourseName, setEditingCourseName] = useState<string | null>(null);
     const holeFileRef = useRef<HTMLInputElement>(null);
+    const newCourseForm = useForm({ name: '' });
+    const renameForm = useForm({ name: '' });
+
+    const courseHoles = holes.filter((h) => h.course_id === activeCourseId);
     const form = useForm({
-        holes: holes.map((h) => ({ id: h.id, number: h.number, par: h.par, distance: h.distance, hole_index: h.hole_index })),
+        holes: courseHoles.map((h) => ({ id: h.id, number: h.number, par: h.par, distance: h.distance, hole_index: h.hole_index })),
     });
+
+    // Reset form when switching courses
+    const switchCourse = (courseId: string) => {
+        setActiveCourseId(courseId);
+        const ch = holes.filter((h) => h.course_id === courseId);
+        form.setData('holes', ch.map((h) => ({ id: h.id, number: h.number, par: h.par, distance: h.distance, hole_index: h.hole_index })));
+    };
 
     const updateHole = (idx: number, field: string, value: number) => {
         const updated = [...form.data.holes];
@@ -898,6 +930,24 @@ function CourseTab({ tournament, holes }: { tournament: Tournament; holes: Hole[
         });
     };
 
+    const handleCreateCourse = (e: React.FormEvent) => {
+        e.preventDefault();
+        newCourseForm.post(route('courses.store', tournament.id), {
+            onSuccess: () => { newCourseForm.reset(); setShowNewCourse(false); },
+        });
+    };
+
+    const handleRenameCourse = (courseId: string) => {
+        renameForm.put(route('courses.update', [tournament.id, courseId]), {
+            onSuccess: () => { setEditingCourseName(null); renameForm.reset(); },
+        });
+    };
+
+    const handleDeleteCourse = (courseId: string, name: string) => {
+        if (!confirm(`Supprimer le parcours "${name}" et tous ses trous ?`)) return;
+        router.delete(route('courses.destroy', [tournament.id, courseId]));
+    };
+
     const outHoles = form.data.holes.filter((h) => h.number <= 9);
     const inHoles = form.data.holes.filter((h) => h.number > 9);
     const outPar = outHoles.reduce((s, h) => s + h.par, 0);
@@ -918,58 +968,120 @@ function CourseTab({ tournament, holes }: { tournament: Tournament; holes: Hole[
     };
 
     return (
-        <form onSubmit={handleSave} className="space-y-6">
-            <div className="glass-card p-0 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b border-border">
-                                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Trou</th>
-                                <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Par</th>
-                                <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Distance</th>
-                                <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Index</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {outHoles.map((h) => renderHoleRow(h, 'bg-emerald-500/20 text-emerald-400'))}
-                            <tr className="bg-emerald-500/10 border-y border-border">
-                                <td className="px-4 py-3 text-sm font-bold text-emerald-400">ALLER</td>
-                                <td className="px-4 py-3 text-center text-sm font-bold text-emerald-400">{outPar}</td>
-                                <td className="px-4 py-3 text-center text-sm font-bold text-emerald-400">{outDist}m</td>
-                                <td className="px-4 py-3 text-center text-sm text-muted-foreground">—</td>
-                            </tr>
-                            {inHoles.map((h) => renderHoleRow(h, 'bg-blue-500/20 text-blue-400'))}
-                            <tr className="bg-blue-500/10 border-y border-border">
-                                <td className="px-4 py-3 text-sm font-bold text-blue-400">RETOUR</td>
-                                <td className="px-4 py-3 text-center text-sm font-bold text-blue-400">{inPar}</td>
-                                <td className="px-4 py-3 text-center text-sm font-bold text-blue-400">{inDist}m</td>
-                                <td className="px-4 py-3 text-center text-sm text-muted-foreground">—</td>
-                            </tr>
-                            <tr className="bg-amber-500/10 border-t border-border">
-                                <td className="px-4 py-3 text-sm font-black text-foreground">TOTAL</td>
-                                <td className="px-4 py-3 text-center text-sm font-black text-foreground">{outPar + inPar}</td>
-                                <td className="px-4 py-3 text-center text-sm font-black text-foreground">{outDist + inDist}m</td>
-                                <td className="px-4 py-3 text-center text-sm text-muted-foreground">—</td>
-                            </tr>
-                        </tbody>
-                    </table>
+        <div className="space-y-6">
+            {/* Course selector */}
+            <div className="flex flex-wrap items-center gap-2">
+                {courses.map((c) => (
+                    <div key={c.id} className="flex items-center gap-1">
+                        {editingCourseName === c.id ? (
+                            <div className="flex items-center gap-1">
+                                <input
+                                    type="text"
+                                    value={renameForm.data.name}
+                                    onChange={(e) => renameForm.setData('name', e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleRenameCourse(c.id); } if (e.key === 'Escape') setEditingCourseName(null); }}
+                                    className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+                                    autoFocus
+                                />
+                                <button onClick={() => handleRenameCourse(c.id)} className="p-1.5 rounded-lg hover:bg-surface-hover text-primary"><Check className="w-4 h-4" /></button>
+                                <button onClick={() => setEditingCourseName(null)} className="p-1.5 rounded-lg hover:bg-surface-hover text-muted-foreground"><X className="w-4 h-4" /></button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => switchCourse(c.id)}
+                                className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${activeCourseId === c.id ? 'bg-primary/10 text-primary' : 'bg-surface text-muted-foreground hover:text-foreground hover:bg-surface-hover'}`}
+                            >
+                                {c.name}
+                            </button>
+                        )}
+                        {activeCourseId === c.id && editingCourseName !== c.id && (
+                            <>
+                                <button onClick={() => { setEditingCourseName(c.id); renameForm.setData('name', c.name); }} className="p-1 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-foreground">
+                                    <Pencil className="w-3 h-3" />
+                                </button>
+                                {courses.length > 1 && (
+                                    <button onClick={() => handleDeleteCourse(c.id, c.name)} className="p-1 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-destructive">
+                                        <Trash2 className="w-3 h-3" />
+                                    </button>
+                                )}
+                            </>
+                        )}
+                    </div>
+                ))}
+                {showNewCourse ? (
+                    <form onSubmit={handleCreateCourse} className="flex items-center gap-2">
+                        <input
+                            type="text"
+                            value={newCourseForm.data.name}
+                            onChange={(e) => newCourseForm.setData('name', e.target.value)}
+                            placeholder="Nom du parcours"
+                            className="bg-surface border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+                            autoFocus
+                        />
+                        <button type="submit" disabled={newCourseForm.processing || !newCourseForm.data.name.trim()} className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"><Check className="w-4 h-4" /></button>
+                        <button type="button" onClick={() => { setShowNewCourse(false); newCourseForm.reset(); }} className="p-2 rounded-lg bg-surface hover:bg-surface-hover text-muted-foreground"><X className="w-4 h-4" /></button>
+                    </form>
+                ) : (
+                    <button onClick={() => setShowNewCourse(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface border border-dashed border-border text-sm text-muted-foreground hover:text-foreground hover:bg-surface-hover">
+                        <Plus className="w-3.5 h-3.5" />Nouveau parcours
+                    </button>
+                )}
+            </div>
+
+            {/* Holes table */}
+            <form onSubmit={handleSave} className="space-y-6">
+                <div className="glass-card p-0 overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="border-b border-border">
+                                    <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Trou</th>
+                                    <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Par</th>
+                                    <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Distance</th>
+                                    <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Index</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                                {outHoles.map((h) => renderHoleRow(h, 'bg-emerald-500/20 text-emerald-400'))}
+                                <tr className="bg-emerald-500/10 border-y border-border">
+                                    <td className="px-4 py-3 text-sm font-bold text-emerald-400">ALLER</td>
+                                    <td className="px-4 py-3 text-center text-sm font-bold text-emerald-400">{outPar}</td>
+                                    <td className="px-4 py-3 text-center text-sm font-bold text-emerald-400">{outDist}m</td>
+                                    <td className="px-4 py-3 text-center text-sm text-muted-foreground">—</td>
+                                </tr>
+                                {inHoles.map((h) => renderHoleRow(h, 'bg-blue-500/20 text-blue-400'))}
+                                <tr className="bg-blue-500/10 border-y border-border">
+                                    <td className="px-4 py-3 text-sm font-bold text-blue-400">RETOUR</td>
+                                    <td className="px-4 py-3 text-center text-sm font-bold text-blue-400">{inPar}</td>
+                                    <td className="px-4 py-3 text-center text-sm font-bold text-blue-400">{inDist}m</td>
+                                    <td className="px-4 py-3 text-center text-sm text-muted-foreground">—</td>
+                                </tr>
+                                <tr className="bg-amber-500/10 border-t border-border">
+                                    <td className="px-4 py-3 text-sm font-black text-foreground">TOTAL</td>
+                                    <td className="px-4 py-3 text-center text-sm font-black text-foreground">{outPar + inPar}</td>
+                                    <td className="px-4 py-3 text-center text-sm font-black text-foreground">{outDist + inDist}m</td>
+                                    <td className="px-4 py-3 text-center text-sm text-muted-foreground">—</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
-            <div className="flex justify-end gap-3">
-                <input ref={holeFileRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleHoleImport} className="hidden" />
-                <button type="button" onClick={() => downloadCsvTemplate('template-parcours.csv', ['number', 'par', 'distance', 'index'], [['1', '4', '350', '7'], ['2', '3', '165', '15']])} className="flex items-center gap-2 px-6 py-3 bg-surface border border-border text-foreground rounded-xl font-medium hover:bg-surface-hover">
-                    <Download className="w-4 h-4" />Template
-                </button>
-                <button type="button" onClick={() => holeFileRef.current?.click()} disabled={importingHoles} className="flex items-center gap-2 px-6 py-3 bg-surface border border-border text-foreground rounded-xl font-medium hover:bg-surface-hover disabled:opacity-50">
-                    <Upload className="w-4 h-4" />
-                    {importingHoles ? 'Import...' : 'Importer CSV'}
-                </button>
-                <button type="submit" disabled={form.processing} className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 shadow-lg shadow-primary/25 disabled:opacity-50">
-                    <Save className="w-4 h-4" />
-                    {form.processing ? 'Sauvegarde...' : 'Sauvegarder le parcours'}
-                </button>
-            </div>
-        </form>
+                <div className="flex justify-end gap-3">
+                    <input ref={holeFileRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleHoleImport} className="hidden" />
+                    <button type="button" onClick={() => downloadCsvTemplate('template-parcours.csv', ['number', 'par', 'distance', 'index'], [['1', '4', '350', '7'], ['2', '3', '165', '15']])} className="flex items-center gap-2 px-6 py-3 bg-surface border border-border text-foreground rounded-xl font-medium hover:bg-surface-hover">
+                        <Download className="w-4 h-4" />Template
+                    </button>
+                    <button type="button" onClick={() => holeFileRef.current?.click()} disabled={importingHoles} className="flex items-center gap-2 px-6 py-3 bg-surface border border-border text-foreground rounded-xl font-medium hover:bg-surface-hover disabled:opacity-50">
+                        <Upload className="w-4 h-4" />
+                        {importingHoles ? 'Import...' : 'Importer CSV'}
+                    </button>
+                    <button type="submit" disabled={form.processing} className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 shadow-lg shadow-primary/25 disabled:opacity-50">
+                        <Save className="w-4 h-4" />
+                        {form.processing ? 'Sauvegarde...' : 'Sauvegarder le parcours'}
+                    </button>
+                </div>
+            </form>
+        </div>
     );
 }
 
@@ -1169,7 +1281,7 @@ function FlashMessages() {
 }
 
 // --- Main Page ---
-export default function TournamentManage({ tournament, categories, players, groups, holes, scores, registrations, payments, markers }: Props) {
+export default function TournamentManage({ tournament, courses, categories, players, groups, holes, scores, registrations, payments, markers }: Props) {
     const [activeTab, setActiveTab] = useState('dashboard');
     const { auth } = usePage<PageProps>().props;
     const roles = auth?.roles ?? [];
@@ -1204,10 +1316,10 @@ export default function TournamentManage({ tournament, categories, players, grou
 
             {activeTab === 'dashboard' && <DashboardTab tournament={tournament} players={players} groups={groups} scores={scores} />}
             {activeTab === 'tournament' && <TournamentTab tournament={tournament} />}
-            {activeTab === 'categories' && <CategoriesTab tournament={tournament} categories={categories} />}
+            {activeTab === 'categories' && <CategoriesTab tournament={tournament} categories={categories} courses={courses} />}
             {activeTab === 'players' && <PlayersTab tournament={tournament} players={players} categories={categories} groups={groups} />}
             {activeTab === 'groups' && <GroupsTab tournament={tournament} groups={groups} markers={markers} players={players} />}
-            {activeTab === 'course' && <CourseTab tournament={tournament} holes={holes} />}
+            {activeTab === 'course' && <CourseTab tournament={tournament} courses={courses} holes={holes} />}
             {activeTab === 'registrations' && <RegistrationsTab tournament={tournament} registrations={registrations} />}
             {activeTab === 'payments' && <PaymentsTab tournament={tournament} payments={payments} />}
         </AppLayout>

@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\UserRole;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 
 class GroupController extends Controller
@@ -23,8 +24,7 @@ class GroupController extends Controller
             'player_ids.*' => 'uuid|exists:players,id',
         ]);
 
-        $count = $tournament->groups()->count() + 1;
-        $code = 'GOLF-'.date('Y').'-G'.$count;
+        $code = $this->generateUniqueGroupCode();
 
         $groupData = [
             'code' => $code,
@@ -124,5 +124,18 @@ class GroupController extends Controller
         $group->delete();
 
         return back()->with('success', 'Groupe supprimé.');
+    }
+
+    private function generateUniqueGroupCode(): string
+    {
+        $maxAttempts = 10;
+        for ($i = 0; $i < $maxAttempts; $i++) {
+            $code = 'G-'.date('Y').'-'.strtoupper(Str::random(5));
+            if (! Group::where('code', $code)->exists()) {
+                return $code;
+            }
+        }
+
+        return 'G-'.date('Y').'-'.strtoupper(Str::random(8));
     }
 }

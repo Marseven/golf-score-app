@@ -15,6 +15,8 @@ class CategoryController extends Controller
             'short_name' => 'required|string|max:10',
             'color' => 'required|string|max:50',
             'registration_fee' => 'numeric|min:0',
+            'course_id' => 'nullable|uuid|exists:courses,id',
+            'handicap_coefficient' => 'numeric|min:0|max:2',
         ]);
 
         $tournament->categories()->create($validated);
@@ -29,6 +31,8 @@ class CategoryController extends Controller
             'short_name' => 'required|string|max:10',
             'color' => 'required|string|max:50',
             'registration_fee' => 'numeric|min:0',
+            'course_id' => 'nullable|uuid|exists:courses,id',
+            'handicap_coefficient' => 'numeric|min:0|max:2',
         ]);
 
         $category->update($validated);

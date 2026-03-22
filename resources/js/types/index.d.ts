@@ -35,24 +35,36 @@ export interface Tournament {
     updated_at: string;
     players_count?: number;
     groups_count?: number;
+    courses?: Course[];
     categories?: Category[];
     players?: Player[];
     groups?: Group[];
     holes?: Hole[];
 }
 
+export interface Course {
+    id: string;
+    tournament_id: string;
+    name: string;
+}
+
 export interface Category {
     id: string;
     tournament_id: string;
+    course_id?: string | null;
+    course?: Course | null;
     name: string;
     short_name: string;
     color: string;
     registration_fee: number;
+    handicap_coefficient?: number;
 }
 
 export interface Hole {
     id: string;
     tournament_id: string;
+    course_id?: string | null;
+    course?: Course | null;
     number: number;
     par: number;
     distance: number;

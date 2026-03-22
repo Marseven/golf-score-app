@@ -29,16 +29,19 @@ class Category extends Model
      */
     protected $fillable = [
         'tournament_id',
+        'course_id',
         'name',
         'short_name',
         'color',
         'registration_fee',
+        'handicap_coefficient',
     ];
 
     protected function casts(): array
     {
         return [
             'registration_fee' => 'decimal:2',
+            'handicap_coefficient' => 'decimal:2',
         ];
     }
 
@@ -48,6 +51,11 @@ class Category extends Model
     public function tournament(): BelongsTo
     {
         return $this->belongsTo(Tournament::class);
+    }
+
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(Course::class);
     }
 
     /**

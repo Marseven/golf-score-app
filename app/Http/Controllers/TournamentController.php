@@ -24,6 +24,7 @@ class TournamentController extends Controller
     public function show(Tournament $tournament)
     {
         $tournament->load([
+            'courses',
             'categories',
             'groups.players.category',
             'groups.marker',
@@ -48,6 +49,7 @@ class TournamentController extends Controller
 
         return Inertia::render('Admin/Tournaments/Manage', [
             'tournament' => $tournament,
+            'courses' => $tournament->courses,
             'categories' => $tournament->categories,
             'players' => $tournament->players,
             'groups' => $tournament->groups,
@@ -77,21 +79,27 @@ class TournamentController extends Controller
 
         $tournament->syncStatus();
 
-        // Create default categories
+        // Create default course
+        $defaultCourse = $tournament->courses()->create([
+            'name' => 'Parcours principal',
+        ]);
+
+        // Create default categories (linked to default course)
         $defaultCategories = [
-            ['name' => 'Pro H', 'short_name' => 'PH', 'color' => 'blue'],
-            ['name' => 'Pro F', 'short_name' => 'PF', 'color' => 'pink'],
-            ['name' => 'Amateur H', 'short_name' => 'AH', 'color' => 'emerald'],
-            ['name' => 'Amateur F', 'short_name' => 'AF', 'color' => 'violet'],
+            ['name' => 'Pro H', 'short_name' => 'PH', 'color' => 'blue', 'course_id' => $defaultCourse->id],
+            ['name' => 'Pro F', 'short_name' => 'PF', 'color' => 'pink', 'course_id' => $defaultCourse->id],
+            ['name' => 'Amateur H', 'short_name' => 'AH', 'color' => 'emerald', 'course_id' => $defaultCourse->id],
+            ['name' => 'Amateur F', 'short_name' => 'AF', 'color' => 'violet', 'course_id' => $defaultCourse->id],
         ];
 
         foreach ($defaultCategories as $cat) {
             $tournament->categories()->create($cat);
         }
 
-        // Create default 18 holes
+        // Create default 18 holes (on default course)
         for ($i = 1; $i <= 18; $i++) {
             $tournament->holes()->create([
+                'course_id' => $defaultCourse->id,
                 'number' => $i,
                 'par' => 4,
                 'distance' => 0,

@@ -39,8 +39,17 @@ class HoleController extends Controller
     public function init(Tournament $tournament)
     {
         if ($tournament->holes()->count() === 0) {
+            // Use first course or create a default one
+            $course = $tournament->courses()->first();
+            if (! $course) {
+                $course = $tournament->courses()->create([
+                    'name' => 'Parcours principal',
+                ]);
+            }
+
             for ($i = 1; $i <= 18; $i++) {
                 $tournament->holes()->create([
+                    'course_id' => $course->id,
                     'number' => $i,
                     'par' => 4,
                     'distance' => 0,

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\CourseController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\HoleController;
@@ -70,6 +71,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Nested tournament resources
     Route::prefix('tournaments/{tournament}')->middleware('role:admin,captain')->group(function () {
+        Route::resource('courses', CourseController::class)->only(['store', 'update', 'destroy']);
         Route::resource('categories', CategoryController::class)->except(['show']);
         Route::resource('players', PlayerController::class)->except(['show']);
         Route::post('players/import', [PlayerImportController::class, 'import'])->name('players.import');

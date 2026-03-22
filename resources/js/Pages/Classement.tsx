@@ -43,8 +43,26 @@ export default function Classement({ tournament, players, scores, holes, categor
         scores,
         holes,
         activeCategoryId ?? undefined,
-        scoringMode
+        scoringMode,
+        categories
     );
+
+    const buildWhatsAppText = () => {
+        if (!tournament) return '';
+        const header = `🏆 ${tournament.name}${tournament.club ? ` - ${tournament.club}` : ''}`;
+        const sections = categories.map((cat) => {
+            const catLeaderboard = buildLeaderboard(playersWithCategory, scores, holes, cat.id, 'stroke', categories);
+            const top3 = catLeaderboard.slice(0, 3).map((entry, i) => {
+                const sign = entry.strokeToPar > 0 ? '+' : '';
+                const score = entry.strokeToPar === 0 ? 'E' : `${sign}${entry.strokeToPar}`;
+                return `${i + 1}. ${entry.player.name} (${score})`;
+            }).join('\n');
+            if (!top3) return '';
+            return `📊 ${cat.name}\n${top3}`;
+        }).filter(Boolean).join('\n\n');
+        const classementUrl = route('classement', tournament.id);
+        return `${header}\n\n${sections}\n\nClassement complet :\n${classementUrl}`;
+    };
 
     const handleShareImage = async () => {
         if (!leaderboardRef.current || !tournament) return;
@@ -78,14 +96,7 @@ export default function Classement({ tournament, players, scores, holes, categor
             }
         } catch {
             // Fallback to text share
-            const top5 = leaderboard.slice(0, 5).map((entry, i) => {
-                const sign = entry.strokeToPar > 0 ? '+' : '';
-                const score = entry.strokeToPar === 0 ? 'E' : `${sign}${entry.strokeToPar}`;
-                return `${i + 1}. ${entry.player.name} (${score})`;
-            }).join('\n');
-            const classementUrl = route('classement', tournament!.id);
-            const text = `${tournament!.name}${tournament!.club ? ` - ${tournament!.club}` : ''}\n\n${top5}\n\nClassement complet :\n${classementUrl}`;
-            window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+            window.open(`https://wa.me/?text=${encodeURIComponent(buildWhatsAppText())}`, '_blank');
         } finally {
             setCapturing(false);
         }
@@ -142,14 +153,7 @@ export default function Classement({ tournament, players, scores, holes, categor
                             </button>
                             <button
                                 onClick={() => {
-                                    const top5 = leaderboard.slice(0, 5).map((entry, i) => {
-                                        const sign = entry.strokeToPar > 0 ? '+' : '';
-                                        const score = entry.strokeToPar === 0 ? 'E' : `${sign}${entry.strokeToPar}`;
-                                        return `${i + 1}. ${entry.player.name} (${score})`;
-                                    }).join('\n');
-                                    const classementUrl = route('classement', tournament!.id);
-                                    const text = `${tournament!.name}${tournament!.club ? ` - ${tournament!.club}` : ''}\n\n${top5}\n\nClassement complet :\n${classementUrl}`;
-                                    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                                    window.open(`https://wa.me/?text=${encodeURIComponent(buildWhatsAppText())}`, '_blank');
                                 }}
                                 className="flex items-center gap-2 px-3 py-2 bg-surface border border-border rounded-xl text-sm text-foreground hover:bg-surface-hover"
                             >
@@ -198,6 +202,9 @@ export default function Classement({ tournament, players, scores, holes, categor
                                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${categoryColors[entry.categoryName] ?? 'bg-surface-hover text-foreground'}`}>
                                                 {entry.categoryName}
                                             </span>
+                                            {entry.playingHandicap > 0 && (
+                                                <span className="text-xs text-muted-foreground font-mono">HC {entry.playingHandicap}</span>
+                                            )}
                                             <span className="text-xs text-muted-foreground">{entry.holesPlayed}/18 trous</span>
                                         </div>
                                     </div>
@@ -205,8 +212,8 @@ export default function Classement({ tournament, players, scores, holes, categor
                                 <div className="text-right">
                                     {scoringMode === 'stableford' ? (
                                         <>
-                                            <p className="text-lg font-bold text-amber-400">{entry.stablefordPoints}</p>
-                                            <p className="text-xs text-muted-foreground">points</p>
+                                            <p className="text-lg font-bold text-amber-400">{entry.netStablefordPoints}</p>
+                                            <p className="text-xs text-muted-foreground">{entry.netStablefordPoints !== entry.stablefordPoints ? `brut ${entry.stablefordPoints}` : 'points'}</p>
                                         </>
                                     ) : (
                                         <>
