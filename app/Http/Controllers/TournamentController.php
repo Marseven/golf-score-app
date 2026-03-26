@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Player;
 use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -148,6 +149,50 @@ class TournamentController extends Controller
         $message = $isPublished ? 'Tournoi dépublié.' : 'Tournoi publié.';
 
         return back()->with('success', $message);
+    }
+
+    public function applyCut(Request $request, Tournament $tournament)
+    {
+        $validated = $request->validate([
+            'cut_count' => 'required|integer|min:1',
+        ]);
+
+        $cutCount = $validated['cut_count'];
+
+        // Build stroke play leaderboard
+        $players = $tournament->players()->with('scores.hole')->get();
+
+        $ranked = $players->sortBy(function ($player) {
+            $totalStrokes = $player->scores->sum('strokes');
+            $totalPar = $player->scores->sum(fn ($s) => $s->hole->par ?? 0);
+
+            return $totalStrokes - $totalPar;
+        })->values();
+
+        // Top N are active, rest are cut
+        foreach ($ranked as $index => $player) {
+            $player->update([
+                'cut_status' => $index < $cutCount ? 'active' : 'cut',
+            ]);
+        }
+
+        $tournament->update([
+            'cut_count' => $cutCount,
+            'cut_applied' => true,
+        ]);
+
+        return back()->with('success', "Cut appliqué : {$cutCount} joueurs qualifiés.");
+    }
+
+    public function resetCut(Tournament $tournament)
+    {
+        $tournament->players()->update(['cut_status' => 'active']);
+        $tournament->update([
+            'cut_count' => null,
+            'cut_applied' => false,
+        ]);
+
+        return back()->with('success', 'Cut réinitialisé.');
     }
 
     public function destroy(Tournament $tournament)

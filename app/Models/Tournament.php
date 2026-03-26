@@ -40,6 +40,8 @@ class Tournament extends Model
         'registration_open',
         'registration_fee',
         'registration_currency',
+        'cut_count',
+        'cut_applied',
         'created_by',
     ];
 
@@ -55,6 +57,8 @@ class Tournament extends Model
             'end_date' => 'date',
             'registration_open' => 'boolean',
             'registration_fee' => 'decimal:2',
+            'cut_count' => 'integer',
+            'cut_applied' => 'boolean',
         ];
     }
 

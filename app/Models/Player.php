@@ -37,6 +37,7 @@ class Player extends Model
         'phone',
         'handicap',
         'registration_status',
+        'cut_status',
     ];
 
     /**

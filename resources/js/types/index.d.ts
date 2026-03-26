@@ -30,6 +30,8 @@ export interface Tournament {
     registration_open: boolean;
     registration_fee: number;
     registration_currency: string;
+    cut_count: number | null;
+    cut_applied: boolean;
     created_by: string | null;
     created_at: string;
     updated_at: string;
@@ -78,8 +80,11 @@ export interface Group {
     tee_time: string;
     tee_date: string | null;
     marker_id: string | null;
+    marker_phone: string | null;
     marker_token: string | null;
     marker_pin: string | null;
+    scores_confirmed_at: string | null;
+    confirmed_by_name: string | null;
     marker?: User | null;
     players?: Player[];
 }
@@ -102,6 +107,7 @@ export interface Player {
     phone: string | null;
     handicap: number;
     registration_status: 'pending' | 'approved' | 'rejected';
+    cut_status: 'active' | 'cut';
     category?: Category | null;
     group?: Group | null;
     scores?: Score[];

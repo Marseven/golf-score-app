@@ -97,6 +97,24 @@ class MarkerController extends Controller
         return back()->with('success', 'Scores enregistrés.');
     }
 
+    public function confirmScores(Request $request, Group $group)
+    {
+        $validated = $request->validate([
+            'confirmed_by_name' => 'required|string|max:255',
+        ]);
+
+        $group->update([
+            'scores_confirmed_at' => now(),
+            'confirmed_by_name' => $validated['confirmed_by_name'],
+        ]);
+
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true]);
+        }
+
+        return back()->with('success', 'Scores confirmés.');
+    }
+
     public function scoringByToken(Request $request, string $token)
     {
         $group = Group::where('marker_token', $token)->firstOrFail();

@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import PublicLayout from '@/Layouts/PublicLayout';
-import { Trophy, Download, Share2, FileText, Tv, Image, Loader2 } from 'lucide-react';
+import { Trophy, Download, Share2, FileText, Tv, Image, Loader2, ChevronDown } from 'lucide-react';
 import { buildLeaderboard } from '@/Lib/scoring';
 import { categoryColors } from '@/Lib/category-colors';
 import { useRealtimeScores } from '@/Hooks/useRealtimeScores';
@@ -31,6 +31,7 @@ export default function Classement({ tournament, players, scores, holes, categor
     const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
     const [scoringMode, setScoringMode] = useState<ScoringMode>('stroke');
     const [capturing, setCapturing] = useState(false);
+    const [showExportMenu, setShowExportMenu] = useState(false);
     const leaderboardRef = useRef<HTMLDivElement>(null);
 
     const playersWithCategory = players.map((p) => ({
@@ -130,14 +131,37 @@ export default function Classement({ tournament, players, scores, holes, categor
                                 <Tv className="w-4 h-4" />Ecran TV
                             </a>
                             {user && (
-                                <>
-                                    <a href={route('export.pdf', tournament.id)} className="flex items-center gap-2 px-3 py-2 bg-surface border border-border rounded-xl text-sm text-foreground hover:bg-surface-hover">
-                                        <FileText className="w-4 h-4" />PDF
-                                    </a>
-                                    <a href={route('export.excel', tournament.id)} className="flex items-center gap-2 px-3 py-2 bg-surface border border-border rounded-xl text-sm text-foreground hover:bg-surface-hover">
-                                        <Download className="w-4 h-4" />Excel
-                                    </a>
-                                </>
+                                <div className="relative">
+                                    <button
+                                        onClick={() => setShowExportMenu(!showExportMenu)}
+                                        className="flex items-center gap-2 px-3 py-2 bg-surface border border-border rounded-xl text-sm text-foreground hover:bg-surface-hover"
+                                    >
+                                        <Download className="w-4 h-4" />Export
+                                        <ChevronDown className="w-3 h-3" />
+                                    </button>
+                                    {showExportMenu && (
+                                        <div className="absolute right-0 top-full mt-1 z-50 w-56 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+                                            <p className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider border-b border-border">PDF</p>
+                                            <a href={route('export.pdf', tournament.id)} onClick={() => setShowExportMenu(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover">
+                                                <FileText className="w-4 h-4" />Toutes les catégories
+                                            </a>
+                                            {categories.map((cat) => (
+                                                <a key={`pdf-${cat.id}`} href={`${route('export.pdf', tournament.id)}?category_id=${cat.id}`} onClick={() => setShowExportMenu(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover">
+                                                    <FileText className="w-4 h-4 opacity-40" />{cat.name}
+                                                </a>
+                                            ))}
+                                            <p className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider border-y border-border">Excel</p>
+                                            <a href={route('export.excel', tournament.id)} onClick={() => setShowExportMenu(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover">
+                                                <Download className="w-4 h-4" />Toutes les catégories
+                                            </a>
+                                            {categories.map((cat) => (
+                                                <a key={`xls-${cat.id}`} href={`${route('export.excel', tournament.id)}?category_id=${cat.id}`} onClick={() => setShowExportMenu(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover">
+                                                    <Download className="w-4 h-4 opacity-40" />{cat.name}
+                                                </a>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             )}
                             <button
                                 onClick={handleShareImage}
@@ -189,15 +213,19 @@ export default function Classement({ tournament, players, scores, holes, categor
                     {leaderboard.map((entry, idx) => {
                         const position = idx + 1;
                         const isTop3 = position <= 3;
+                        const isCut = entry.player.cut_status === 'cut';
                         const scoreColor = entry.strokeToPar < 0 ? 'text-emerald-400' : entry.strokeToPar === 0 ? 'text-foreground' : 'text-red-400';
                         const sign = entry.strokeToPar > 0 ? '+' : '';
 
                         return (
-                            <div key={entry.player.id} className={`glass-card flex items-center justify-between ${isTop3 ? 'bg-gradient-to-r from-amber-500/10 to-transparent' : ''}`}>
+                            <div key={entry.player.id} className={`glass-card flex items-center justify-between ${isCut ? 'opacity-50' : ''} ${isTop3 && !isCut ? 'bg-gradient-to-r from-amber-500/10 to-transparent' : ''}`}>
                                 <div className="flex items-center gap-3 min-w-0">
                                     <PositionBadge position={position} />
                                     <div className="min-w-0">
-                                        <p className="text-sm font-semibold text-foreground truncate">{entry.player.name}</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-sm font-semibold text-foreground truncate">{entry.player.name}</p>
+                                            {isCut && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">CUT</span>}
+                                        </div>
                                         <div className="flex items-center gap-2 mt-0.5">
                                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${categoryColors[entry.categoryName] ?? 'bg-surface-hover text-foreground'}`}>
                                                 {entry.categoryName}

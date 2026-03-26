@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Head, Link } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, Wifi, WifiOff, Minus, Plus, LogOut, Menu, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Head, Link, router } from '@inertiajs/react';
+import { ChevronLeft, ChevronRight, Wifi, WifiOff, Minus, Plus, LogOut, Menu, RefreshCw, AlertTriangle, CheckCircle2, Shield } from 'lucide-react';
 import { categoryDotColors } from '@/Lib/category-colors';
 import { useOfflineScores } from '@/Hooks/useOfflineScores';
 import type { Player, Hole, Group, Score } from '@/types';
@@ -23,8 +23,8 @@ function getScoreLabel(score: number, par: number) {
     return { label: 'Dbl+', bg: 'bg-red-500', text: 'text-red-950' };
 }
 
-function PlayerScoreCard({ player, score, par, onIncrement, onDecrement }: {
-    player: Player; score: number; par: number; onIncrement: () => void; onDecrement: () => void;
+function PlayerScoreCard({ player, score, par, onIncrement, onDecrement, disabled }: {
+    player: Player; score: number; par: number; onIncrement: () => void; onDecrement: () => void; disabled?: boolean;
 }) {
     const scoreInfo = getScoreLabel(score, par);
     return (
@@ -37,7 +37,7 @@ function PlayerScoreCard({ player, score, par, onIncrement, onDecrement }: {
                 </div>
             </div>
             <div className="flex items-center justify-center gap-4">
-                <button onClick={onDecrement} className="w-14 h-14 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors active:scale-95">
+                <button onClick={onDecrement} disabled={disabled} className="w-14 h-14 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed">
                     <Minus className="w-6 h-6 text-foreground" />
                 </button>
                 <div className="flex flex-col items-center">
@@ -46,7 +46,7 @@ function PlayerScoreCard({ player, score, par, onIncrement, onDecrement }: {
                     </div>
                     <span className="text-xs text-muted-foreground mt-1.5">{scoreInfo.label}</span>
                 </div>
-                <button onClick={onIncrement} className="w-14 h-14 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors active:scale-95">
+                <button onClick={onIncrement} disabled={disabled} className="w-14 h-14 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed">
                     <Plus className="w-6 h-6 text-foreground" />
                 </button>
             </div>
@@ -56,6 +56,10 @@ function PlayerScoreCard({ player, score, par, onIncrement, onDecrement }: {
 
 export default function MarkerScoring({ group, groupCode, players, holes, existingScores, tournamentId }: Props) {
     const [currentHole, setCurrentHole] = useState(0);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [confirmedName, setConfirmedName] = useState('');
+    const [confirming, setConfirming] = useState(false);
+    const isConfirmed = !!group.scores_confirmed_at;
 
     const {
         scores,
@@ -87,6 +91,16 @@ export default function MarkerScoring({ group, groupCode, players, holes, existi
 
     const handleFinish = () => {
         saveHole(currentHole);
+        setShowConfirmModal(true);
+    };
+
+    const handleConfirmScores = () => {
+        if (!confirmedName.trim()) return;
+        setConfirming(true);
+        router.post(route('marqueur.confirm', group.id), { confirmed_by_name: confirmedName }, {
+            onSuccess: () => { setShowConfirmModal(false); setConfirming(false); },
+            onError: () => setConfirming(false),
+        });
     };
 
     // Status bar config
@@ -134,6 +148,16 @@ export default function MarkerScoring({ group, groupCode, players, holes, existi
                     )}
                 </div>
 
+                {/* Confirmed banner */}
+                {isConfirmed && (
+                    <div className="px-4 py-3 flex items-center gap-2 bg-emerald-500/10 border-b border-emerald-500/20">
+                        <Shield className="w-4 h-4 text-emerald-400" />
+                        <span className="text-xs font-medium text-emerald-400">
+                            Scores confirmés par {group.confirmed_by_name}
+                        </span>
+                    </div>
+                )}
+
                 {/* Hole header */}
                 <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 px-4 py-6">
                     <div className="flex items-center justify-between mb-4">
@@ -166,19 +190,85 @@ export default function MarkerScoring({ group, groupCode, players, holes, existi
                             par={hole.par}
                             onIncrement={() => updateScore(idx, currentHole, 1)}
                             onDecrement={() => updateScore(idx, currentHole, -1)}
+                            disabled={isConfirmed}
                         />
                     ))}
                 </div>
 
                 {/* Bottom button */}
                 <div className="sticky bottom-0 p-4 bg-gradient-to-t from-background via-background to-transparent pt-8">
-                    <button
-                        onClick={currentHole < holes.length - 1 ? goNext : handleFinish}
-                        className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/25 h-14 text-base font-semibold rounded-xl flex items-center justify-center gap-2"
-                    >
-                        {currentHole < holes.length - 1 ? (<>Trou suivant<ChevronRight className="w-5 h-5" /></>) : 'Terminer le parcours'}
-                    </button>
+                    {isConfirmed ? (
+                        <div className="w-full h-14 rounded-xl bg-emerald-500/20 flex items-center justify-center gap-2 text-emerald-400 font-semibold">
+                            <CheckCircle2 className="w-5 h-5" />
+                            Scores confirmés
+                        </div>
+                    ) : (
+                        <button
+                            onClick={currentHole < holes.length - 1 ? goNext : handleFinish}
+                            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/25 h-14 text-base font-semibold rounded-xl flex items-center justify-center gap-2"
+                        >
+                            {currentHole < holes.length - 1 ? (<>Trou suivant<ChevronRight className="w-5 h-5" /></>) : 'Terminer le parcours'}
+                        </button>
+                    )}
                 </div>
+
+                {/* Confirmation modal */}
+                {showConfirmModal && !isConfirmed && (
+                    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                        <div className="bg-card border border-border rounded-2xl w-full max-w-md overflow-hidden">
+                            <div className="px-6 py-5 border-b border-border">
+                                <h3 className="text-lg font-bold text-foreground">Confirmer les scores</h3>
+                                <p className="text-xs text-muted-foreground mt-1">Récapitulatif des scores pour le groupe {groupCode}</p>
+                            </div>
+                            <div className="px-6 py-4 max-h-60 overflow-y-auto space-y-2">
+                                {players.map((player, pIdx) => {
+                                    const total = scores[pIdx].reduce((sum: number, s: number) => sum + s, 0);
+                                    const totalPar = holes.reduce((sum, h) => sum + h.par, 0);
+                                    const diff = total - totalPar;
+                                    const diffStr = diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`;
+                                    return (
+                                        <div key={player.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                                            <span className="text-sm font-medium text-foreground">{player.name}</span>
+                                            <div className="text-right">
+                                                <span className="text-sm font-bold text-foreground">{total}</span>
+                                                <span className={`ml-2 text-xs font-medium ${diff < 0 ? 'text-emerald-400' : diff === 0 ? 'text-muted-foreground' : 'text-red-400'}`}>({diffStr})</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <div className="px-6 py-4 border-t border-border space-y-3">
+                                <div>
+                                    <label className="text-xs text-muted-foreground block mb-1">Votre nom (confirmation)</label>
+                                    <input
+                                        type="text"
+                                        value={confirmedName}
+                                        onChange={(e) => setConfirmedName(e.target.value)}
+                                        placeholder="Nom du marqueur"
+                                        className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:border-primary focus:outline-none"
+                                        autoFocus
+                                    />
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setShowConfirmModal(false)}
+                                        className="flex-1 py-3 rounded-xl bg-surface border border-border text-foreground text-sm font-medium hover:bg-surface-hover"
+                                    >
+                                        Annuler
+                                    </button>
+                                    <button
+                                        onClick={handleConfirmScores}
+                                        disabled={!confirmedName.trim() || confirming}
+                                        className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2"
+                                    >
+                                        <CheckCircle2 className="w-4 h-4" />
+                                        {confirming ? 'Confirmation...' : 'Confirmer'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );

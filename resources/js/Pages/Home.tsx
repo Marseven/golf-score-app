@@ -86,12 +86,6 @@ export default function Home() {
                             Voir les tournois
                             <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                         </Link>
-                        <Link
-                            href={route('login')}
-                            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-2xl text-sm font-semibold text-foreground/80 bg-surface border border-border hover:bg-surface-hover hover:border-border transition-all duration-300"
-                        >
-                            Espace organisateur
-                        </Link>
                     </div>
                 </div>
 

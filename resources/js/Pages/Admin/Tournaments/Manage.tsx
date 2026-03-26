@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
-import { ArrowLeft, Settings, BarChart3, Trophy, Users, Target, MapPin, Save, Plus, Trash2, Pencil, X, Check, RefreshCw, Clock, Copy, UserPlus, Send, FileText, FileSpreadsheet, QrCode, Flag, Tag, UserCheck, CreditCard, LinkIcon, Download, Hash, Upload } from 'lucide-react';
+import { ArrowLeft, Settings, BarChart3, Trophy, Users, Target, MapPin, Save, Plus, Trash2, Pencil, X, Check, RefreshCw, Clock, Copy, UserPlus, Send, FileText, FileSpreadsheet, QrCode, Flag, Tag, UserCheck, CreditCard, LinkIcon, Download, Hash, Upload, Scissors } from 'lucide-react';
 import type { Tournament, Category, Player, Group, Hole, Score, Payment, Course, PageProps } from '@/types';
 import { categoryColors, categoryDotColors } from '@/Lib/category-colors';
 import { QRCodeSVG } from 'qrcode.react';
@@ -128,8 +128,9 @@ function formatDateForInput(dateStr: string | null | undefined): string {
     return dateStr.substring(0, 10);
 }
 
-function TournamentTab({ tournament }: { tournament: Tournament }) {
+function TournamentTab({ tournament, players }: { tournament: Tournament; players: Player[] }) {
     const [copied, setCopied] = useState(false);
+    const [cutCount, setCutCount] = useState<number>(tournament.cut_count ?? Math.ceil(players.length / 2));
     const form = useForm({
         name: tournament.name,
         start_date: formatDateForInput(tournament.start_date),
@@ -162,6 +163,30 @@ function TournamentTab({ tournament }: { tournament: Tournament }) {
 
     return (
         <form onSubmit={handleSave} className="space-y-6">
+            {/* Registration toggle banner */}
+            <div className={`glass-card flex items-center justify-between ${form.data.registration_open ? 'border-emerald-500/20' : 'border-amber-500/20'}`}>
+                <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${form.data.registration_open ? 'bg-emerald-500/20' : 'bg-amber-500/20'}`}>
+                        <UserPlus className={`w-5 h-5 ${form.data.registration_open ? 'text-emerald-400' : 'text-amber-400'}`} />
+                    </div>
+                    <div>
+                        <p className="text-sm font-semibold text-foreground">
+                            {form.data.registration_open ? 'Inscriptions ouvertes' : 'Inscriptions fermées'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                            {form.data.registration_open ? 'Les joueurs peuvent s\'inscrire en ligne' : 'Les inscriptions en ligne sont désactivées'}
+                        </p>
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => form.setData('registration_open', !form.data.registration_open)}
+                    className={`relative w-12 h-7 rounded-full transition-colors ${form.data.registration_open ? 'bg-primary' : 'bg-surface-hover border border-border'}`}
+                >
+                    <span className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${form.data.registration_open ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="glass-card">
                     <h3 className="text-lg font-semibold text-foreground mb-4">Informations</h3>
@@ -219,16 +244,6 @@ function TournamentTab({ tournament }: { tournament: Tournament }) {
                     </div>
                 </div>
                 <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <label className="text-sm text-foreground">Inscription ouverte</label>
-                        <button
-                            type="button"
-                            onClick={() => form.setData('registration_open', !form.data.registration_open)}
-                            className={`relative w-12 h-7 rounded-full transition-colors ${form.data.registration_open ? 'bg-primary' : 'bg-surface-hover border border-border'}`}
-                        >
-                            <span className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${form.data.registration_open ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                        </button>
-                    </div>
                     <div>
                         <label className="text-sm text-muted-foreground block mb-1.5">Devise</label>
                         <select
@@ -265,6 +280,64 @@ function TournamentTab({ tournament }: { tournament: Tournament }) {
                         </div>
                     )}
                 </div>
+            </div>
+
+            {/* Cut section */}
+            <div className="glass-card">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
+                        <Scissors className="w-5 h-5 text-red-400" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-semibold text-foreground">Cut</h3>
+                        <p className="text-xs text-muted-foreground">Éliminer les joueurs en dehors du top N</p>
+                    </div>
+                </div>
+                {tournament.cut_applied ? (
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <span className="px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-medium">Cut appliqué</span>
+                            <span className="text-sm text-muted-foreground">Top {tournament.cut_count} qualifiés</span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (confirm('Réinitialiser le cut ? Tous les joueurs redeviendront actifs.')) {
+                                    router.delete(route('tournaments.resetCut', tournament.id));
+                                }
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-sm font-medium transition-colors"
+                        >
+                            <RefreshCw className="w-4 h-4" />Réinitialiser
+                        </button>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-3">
+                        <div>
+                            <label className="text-xs text-muted-foreground block mb-1">Nombre de qualifiés</label>
+                            <input
+                                type="number"
+                                value={cutCount}
+                                onChange={(e) => setCutCount(Number(e.target.value))}
+                                min={1}
+                                max={players.length}
+                                className="w-24 bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none"
+                            />
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (confirm(`Appliquer le cut ? Les ${cutCount} premiers seront qualifiés.`)) {
+                                    router.post(route('tournaments.applyCut', tournament.id), { cut_count: cutCount });
+                                }
+                            }}
+                            disabled={players.length === 0}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 mt-auto"
+                        >
+                            <Scissors className="w-4 h-4" />Appliquer le cut
+                        </button>
+                    </div>
+                )}
             </div>
 
             <div className="flex justify-end">
@@ -551,7 +624,7 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
     const [showQR, setShowQR] = useState<string | null>(null);
     const [showMarkerForm, setShowMarkerForm] = useState(false);
-    const form = useForm({ tee_time: '08:00', tee_date: '', marker_id: '', player_ids: [] as string[] });
+    const form = useForm({ tee_time: '08:00', tee_date: '', marker_id: '', marker_phone: '', player_ids: [] as string[] });
     const markerForm = useForm({ name: '', email: '', password: '' });
 
     const resetForm = () => { form.reset(); setShowForm(false); setEditingId(null); };
@@ -568,12 +641,19 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
         !p.group_id || p.group_id === editingId
     );
 
+    // Markers not assigned to any other group
+    const assignedMarkerIds = groups
+        .filter((g) => g.marker_id && g.id !== editingId)
+        .map((g) => g.marker_id);
+    const availableMarkers = markers.filter((m) => !assignedMarkerIds.includes(m.id));
+
     const startEdit = (group: Group) => {
         setEditingId(group.id);
         form.setData({
             tee_time: group.tee_time,
             tee_date: group.tee_date ? group.tee_date.substring(0, 10) : '',
             marker_id: group.marker_id ?? '',
+            marker_phone: group.marker_phone ?? '',
             player_ids: group.players?.map((p) => p.id) ?? [],
         });
         setShowForm(false);
@@ -740,8 +820,12 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
                             <label className="text-xs text-muted-foreground block mb-1">Marqueur</label>
                             <select value={form.data.marker_id} onChange={(e) => form.setData('marker_id', e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none appearance-none">
                                 <option value="">-- Aucun marqueur --</option>
-                                {markers.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.email})</option>)}
+                                {availableMarkers.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.email})</option>)}
                             </select>
+                        </div>
+                        <div>
+                            <label className="text-xs text-muted-foreground block mb-1">Téléphone marqueur</label>
+                            <input type="tel" value={form.data.marker_phone} onChange={(e) => form.setData('marker_phone', e.target.value)} placeholder="Ex: 241077123456" className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
                         </div>
                     </div>
                     {availablePlayers.length > 0 && (
@@ -839,6 +923,18 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
                                     </button>
                                 </div>
                             )}
+
+                            {group.marker_phone && group.marker_token && (
+                                <a
+                                    href={`https://wa.me/${group.marker_phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Bonjour, votre PIN marqueur: ${group.marker_pin}. Accès scoring: ${getMarkerUrl(group.marker_token)}`)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-medium transition-colors border border-emerald-500/20"
+                                >
+                                    <Send className="w-3.5 h-3.5" />
+                                    WhatsApp
+                                </a>
+                            )}
                         </div>
 
                         {/* QR Code inline */}
@@ -885,7 +981,7 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
 }
 
 // --- Course Tab ---
-function CourseTab({ tournament, courses, holes }: { tournament: Tournament; courses: Course[]; holes: Hole[] }) {
+function CourseTab({ tournament, courses, holes, categories }: { tournament: Tournament; courses: Course[]; holes: Hole[]; categories: Category[] }) {
     const [activeCourseId, setActiveCourseId] = useState<string>(courses[0]?.id ?? '');
     const [importingHoles, setImportingHoles] = useState(false);
     const [showNewCourse, setShowNewCourse] = useState(false);
@@ -1028,6 +1124,35 @@ function CourseTab({ tournament, courses, holes }: { tournament: Tournament; cou
                 )}
             </div>
 
+            {/* Categories linked to this course */}
+            {(() => {
+                const courseCategories = categories.filter(c => c.course_id === activeCourseId);
+                return courseCategories.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Catégories sur ce parcours :</span>
+                        {courseCategories.map((cat) => (
+                            <span key={cat.id} className={`px-2.5 py-1 rounded-lg text-xs font-medium ${categoryColors[cat.name] ?? 'bg-surface-hover text-foreground'}`}>
+                                {cat.name}
+                            </span>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-xs text-muted-foreground italic">Aucune catégorie associée à ce parcours.</p>
+                );
+            })()}
+
+            {/* Import buttons */}
+            <div className="flex flex-wrap gap-3">
+                <input ref={holeFileRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleHoleImport} className="hidden" />
+                <button type="button" onClick={() => downloadCsvTemplate('template-parcours.csv', ['number', 'par', 'distance', 'index'], [['1', '4', '350', '7'], ['2', '3', '165', '15']])} className="flex items-center gap-2 px-4 py-2.5 bg-surface border border-border text-foreground rounded-xl text-sm font-medium hover:bg-surface-hover">
+                    <Download className="w-4 h-4" />Template CSV
+                </button>
+                <button type="button" onClick={() => holeFileRef.current?.click()} disabled={importingHoles} className="flex items-center gap-2 px-4 py-2.5 bg-surface border border-border text-foreground rounded-xl text-sm font-medium hover:bg-surface-hover disabled:opacity-50">
+                    <Upload className="w-4 h-4" />
+                    {importingHoles ? 'Import...' : 'Importer CSV'}
+                </button>
+            </div>
+
             {/* Holes table */}
             <form onSubmit={handleSave} className="space-y-6">
                 <div className="glass-card p-0 overflow-hidden">
@@ -1066,15 +1191,7 @@ function CourseTab({ tournament, courses, holes }: { tournament: Tournament; cou
                         </table>
                     </div>
                 </div>
-                <div className="flex justify-end gap-3">
-                    <input ref={holeFileRef} type="file" accept=".csv,.xlsx,.xls" onChange={handleHoleImport} className="hidden" />
-                    <button type="button" onClick={() => downloadCsvTemplate('template-parcours.csv', ['number', 'par', 'distance', 'index'], [['1', '4', '350', '7'], ['2', '3', '165', '15']])} className="flex items-center gap-2 px-6 py-3 bg-surface border border-border text-foreground rounded-xl font-medium hover:bg-surface-hover">
-                        <Download className="w-4 h-4" />Template
-                    </button>
-                    <button type="button" onClick={() => holeFileRef.current?.click()} disabled={importingHoles} className="flex items-center gap-2 px-6 py-3 bg-surface border border-border text-foreground rounded-xl font-medium hover:bg-surface-hover disabled:opacity-50">
-                        <Upload className="w-4 h-4" />
-                        {importingHoles ? 'Import...' : 'Importer CSV'}
-                    </button>
+                <div className="flex justify-end">
                     <button type="submit" disabled={form.processing} className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 shadow-lg shadow-primary/25 disabled:opacity-50">
                         <Save className="w-4 h-4" />
                         {form.processing ? 'Sauvegarde...' : 'Sauvegarder le parcours'}
@@ -1315,11 +1432,11 @@ export default function TournamentManage({ tournament, courses, categories, play
             <FlashMessages />
 
             {activeTab === 'dashboard' && <DashboardTab tournament={tournament} players={players} groups={groups} scores={scores} />}
-            {activeTab === 'tournament' && <TournamentTab tournament={tournament} />}
+            {activeTab === 'tournament' && <TournamentTab tournament={tournament} players={players} />}
             {activeTab === 'categories' && <CategoriesTab tournament={tournament} categories={categories} courses={courses} />}
             {activeTab === 'players' && <PlayersTab tournament={tournament} players={players} categories={categories} groups={groups} />}
             {activeTab === 'groups' && <GroupsTab tournament={tournament} groups={groups} markers={markers} players={players} />}
-            {activeTab === 'course' && <CourseTab tournament={tournament} courses={courses} holes={holes} />}
+            {activeTab === 'course' && <CourseTab tournament={tournament} courses={courses} holes={holes} categories={categories} />}
             {activeTab === 'registrations' && <RegistrationsTab tournament={tournament} registrations={registrations} />}
             {activeTab === 'payments' && <PaymentsTab tournament={tournament} payments={payments} />}
         </AppLayout>

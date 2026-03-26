@@ -11,6 +11,7 @@ interface SettingsData {
     club_email: string;
     club_phone: string;
     logo_url: string | null;
+    sponsor_logo_url: string | null;
     // Email
     mail_from_address: string;
     mail_from_name: string;
@@ -128,8 +129,11 @@ function GeneralTab({ settings }: { settings: SettingsData }) {
     });
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const sponsorFileInputRef = useRef<HTMLInputElement>(null);
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
+    const [sponsorLogoPreview, setSponsorLogoPreview] = useState<string | null>(null);
     const [uploading, setUploading] = useState(false);
+    const [uploadingSponsor, setUploadingSponsor] = useState(false);
 
     const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -146,7 +150,23 @@ function GeneralTab({ settings }: { settings: SettingsData }) {
         });
     };
 
+    const handleSponsorLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = () => setSponsorLogoPreview(reader.result as string);
+        reader.readAsDataURL(file);
+
+        setUploadingSponsor(true);
+        router.post(route('admin.settings.upload-sponsor-logo'), { sponsor_logo: file }, {
+            forceFormData: true,
+            onFinish: () => setUploadingSponsor(false),
+        });
+    };
+
     const displayLogo = logoPreview || settings.logo_url;
+    const displaySponsorLogo = sponsorLogoPreview || settings.sponsor_logo_url;
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -182,6 +202,39 @@ function GeneralTab({ settings }: { settings: SettingsData }) {
                             type="file"
                             accept="image/*"
                             onChange={handleLogoChange}
+                            hidden
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Sponsor logo upload */}
+            <div>
+                <label className="text-sm text-muted-foreground block mb-2">Logo sponsor (écran TV)</label>
+                <div className="flex items-center gap-4">
+                    <div className="w-20 h-20 rounded-xl bg-surface border border-border flex items-center justify-center overflow-hidden">
+                        {displaySponsorLogo ? (
+                            <img src={displaySponsorLogo} alt="Sponsor" className="w-full h-full object-contain" />
+                        ) : (
+                            <ImageIcon className="w-8 h-8 text-muted-foreground/40" />
+                        )}
+                    </div>
+                    <div>
+                        <button
+                            type="button"
+                            onClick={() => sponsorFileInputRef.current?.click()}
+                            disabled={uploadingSponsor}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 bg-surface border border-border rounded-xl text-sm font-medium text-foreground hover:bg-surface-hover transition-colors disabled:opacity-50"
+                        >
+                            <Upload className="w-4 h-4" />
+                            {uploadingSponsor ? 'Envoi...' : 'Logo sponsor'}
+                        </button>
+                        <p className="text-xs text-muted-foreground mt-1.5">Affiché en haut à droite de l'écran TV.</p>
+                        <input
+                            ref={sponsorFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleSponsorLogoChange}
                             hidden
                         />
                     </div>

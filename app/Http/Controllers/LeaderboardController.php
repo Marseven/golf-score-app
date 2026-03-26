@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Setting;
 use App\Models\Tournament;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class LeaderboardController extends Controller
@@ -51,6 +53,11 @@ class LeaderboardController extends Controller
     {
         $tournament = $tournament ?? Tournament::where('status', 'active')->latest()->first();
 
+        $logoPath = Setting::getValue('logo_path');
+        $sponsorLogoPath = Setting::getValue('sponsor_logo_path');
+        $logoUrl = $logoPath ? Storage::disk('public')->url($logoPath) : null;
+        $sponsorLogoUrl = $sponsorLogoPath ? Storage::disk('public')->url($sponsorLogoPath) : null;
+
         if (! $tournament) {
             return Inertia::render('TvScreen', [
                 'tournament' => null,
@@ -58,6 +65,8 @@ class LeaderboardController extends Controller
                 'scores' => [],
                 'holes' => [],
                 'categories' => [],
+                'logoUrl' => $logoUrl,
+                'sponsorLogoUrl' => $sponsorLogoUrl,
             ]);
         }
 
@@ -67,6 +76,8 @@ class LeaderboardController extends Controller
             'scores' => $tournament->scores()->get(),
             'holes' => $tournament->holes()->orderBy('number')->get(),
             'categories' => $tournament->categories,
+            'logoUrl' => $logoUrl,
+            'sponsorLogoUrl' => $sponsorLogoUrl,
         ]);
     }
 }

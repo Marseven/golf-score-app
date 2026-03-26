@@ -20,6 +20,7 @@ class GroupController extends Controller
             'tee_time' => 'required|string',
             'tee_date' => 'nullable|date',
             'marker_id' => 'nullable|uuid|exists:users,id',
+            'marker_phone' => 'nullable|string|max:50',
             'player_ids' => 'nullable|array',
             'player_ids.*' => 'uuid|exists:players,id',
         ]);
@@ -30,6 +31,7 @@ class GroupController extends Controller
             'code' => $code,
             'tee_time' => $validated['tee_time'],
             'tee_date' => $validated['tee_date'] ?? null,
+            'marker_phone' => $validated['marker_phone'] ?? null,
         ];
 
         if (! empty($validated['marker_id'])) {
@@ -59,6 +61,7 @@ class GroupController extends Controller
             'tee_time' => 'required|string',
             'tee_date' => 'nullable|date',
             'marker_id' => 'nullable|uuid|exists:users,id',
+            'marker_phone' => 'nullable|string|max:50',
             'player_ids' => 'nullable|array',
             'player_ids.*' => 'uuid|exists:players,id',
         ]);
@@ -66,6 +69,7 @@ class GroupController extends Controller
         $groupData = [
             'tee_time' => $validated['tee_time'],
             'tee_date' => $validated['tee_date'] ?? null,
+            'marker_phone' => $validated['marker_phone'] ?? null,
         ];
 
         if (! empty($validated['marker_id'])) {

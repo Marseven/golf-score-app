@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Group;
 use App\Models\Payment;
 use App\Models\Player;
+use App\Models\Score;
+use App\Models\Setting;
 use App\Models\Tournament;
 use Inertia\Inertia;
 
@@ -37,6 +39,9 @@ class AdminController extends Controller
             'active_tournaments' => $tournaments->where('status', 'active')->count(),
             'total_players' => Player::whereIn('tournament_id', $tournamentIds)->count(),
             'total_groups' => Group::whereIn('tournament_id', $tournamentIds)->count(),
+            'total_revenue' => Payment::whereIn('tournament_id', $tournamentIds)->where('status', 'completed')->sum('amount'),
+            'scores_today' => Score::whereHas('player', fn ($q) => $q->whereIn('tournament_id', $tournamentIds))->whereDate('created_at', today())->count(),
+            'default_currency' => Setting::getValue('default_currency', 'XAF'),
         ];
 
         if ($isAdmin) {

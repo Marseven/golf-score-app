@@ -33,15 +33,19 @@ class Group extends Model
         'code',
         'tee_time',
         'marker_id',
+        'marker_phone',
         'marker_token',
         'marker_pin',
         'tee_date',
+        'scores_confirmed_at',
+        'confirmed_by_name',
     ];
 
     protected function casts(): array
     {
         return [
             'tee_date' => 'date',
+            'scores_confirmed_at' => 'datetime',
         ];
     }
 

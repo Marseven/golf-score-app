@@ -12,6 +12,8 @@ interface Props {
     scores: Score[];
     holes: Hole[];
     categories: Category[];
+    logoUrl?: string | null;
+    sponsorLogoUrl?: string | null;
 }
 
 function PositionCell({ position }: { position: number }) {
@@ -21,7 +23,7 @@ function PositionCell({ position }: { position: number }) {
     return <span className="w-10 h-10 rounded-xl bg-white/10 text-muted-foreground flex items-center justify-center text-lg font-bold">{position}</span>;
 }
 
-export default function TvScreen({ tournament, players, scores, holes, categories }: Props) {
+export default function TvScreen({ tournament, players, scores, holes, categories, logoUrl, sponsorLogoUrl }: Props) {
     useRealtimeScores(tournament?.id);
     const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
     const [isPaused, setIsPaused] = useState(false);
@@ -75,15 +77,19 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
         <>
             <Head title="Écran TV" />
             <div ref={containerRef} className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 flex flex-col overflow-hidden">
-                <img src="/images/logo.png" alt="" className="absolute inset-0 m-auto w-[500px] h-[500px] object-contain opacity-[0.04] pointer-events-none select-none" />
+                <img src={logoUrl || '/images/logo.png'} alt="" className="absolute inset-0 m-auto w-[500px] h-[500px] object-contain opacity-[0.04] pointer-events-none select-none" />
                 <Link href={route('classement')} className="fixed top-4 left-4 z-50 w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
                     <X className="w-5 h-5 text-white/60" />
                 </Link>
 
                 <header className="flex items-center justify-between px-16 py-8">
                     <div className="flex items-center gap-5">
-                        <div className="w-14 h-14 rounded-2xl bg-amber-500/20 flex items-center justify-center">
-                            <Trophy className="w-8 h-8 text-amber-400" />
+                        <div className="w-14 h-14 rounded-2xl bg-amber-500/20 flex items-center justify-center overflow-hidden">
+                            {logoUrl ? (
+                                <img src={logoUrl} alt="" className="w-10 h-10 object-contain" />
+                            ) : (
+                                <Trophy className="w-8 h-8 text-amber-400" />
+                            )}
                         </div>
                         <div>
                             <h1 className="text-3xl font-black text-white tracking-tight">{tournament?.name ?? ''}</h1>
@@ -96,6 +102,9 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
+                        {sponsorLogoUrl && (
+                            <img src={sponsorLogoUrl} alt="Sponsor" className="w-16 h-16 object-contain" />
+                        )}
                         <span className="text-lg font-semibold text-white/80">{activeCatName}</span>
                         <button onClick={() => setIsPaused(!isPaused)} className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
                             {isPaused ? <Play className="w-5 h-5 text-white/60" /> : <Pause className="w-5 h-5 text-white/60" />}
@@ -140,15 +149,17 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                             )}
                             {leaderboard.map((entry, idx) => {
                                 const position = idx + 1;
+                                const isCut = entry.player.cut_status === 'cut';
                                 const scoreColor = entry.strokeToPar < 0 ? 'text-emerald-400' : entry.strokeToPar === 0 ? 'text-white' : 'text-red-400';
                                 const sign = entry.strokeToPar > 0 ? '+' : '';
                                 return (
-                                    <div key={entry.player.id} className={`grid grid-cols-[80px_1fr_80px_100px_100px_100px] items-center px-8 py-4 border-b border-white/5 ${position === 1 ? 'bg-gradient-to-r from-amber-500/15 to-transparent' : ''}`} style={{ animation: `fadeSlideIn 0.4s ease-out ${idx * 0.08}s both` }}>
+                                    <div key={entry.player.id} className={`grid grid-cols-[80px_1fr_80px_100px_100px_100px] items-center px-8 py-4 border-b border-white/5 ${isCut ? 'opacity-40' : ''} ${position === 1 && !isCut ? 'bg-gradient-to-r from-amber-500/15 to-transparent' : ''}`} style={{ animation: `fadeSlideIn 0.4s ease-out ${idx * 0.08}s both` }}>
                                         <div><PositionCell position={position} /></div>
                                         <div className="flex items-center gap-3">
                                             <div className={`w-3 h-3 rounded-full ${categoryDotColors[entry.categoryName] ?? 'bg-gray-500'}`} />
                                             <span className="text-lg font-semibold text-white">{entry.player.name}</span>
                                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${categoryColors[entry.categoryName] ?? 'bg-white/10 text-white'}`}>{entry.categoryName}</span>
+                                            {isCut && <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-500/30 text-red-400">CUT</span>}
                                         </div>
                                         <span className="text-base text-white/40 text-center font-mono">{entry.playingHandicap || '—'}</span>
                                         <span className="text-base text-white/60 text-center">{entry.holesPlayed}/18</span>

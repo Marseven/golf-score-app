@@ -14,6 +14,7 @@ class SettingController extends Controller
         $sharedKey = Setting::getValue('ebilling_shared_key', '');
         $mailPassword = Setting::getValue('mail_password', '');
         $logoPath = Setting::getValue('logo_path');
+        $sponsorLogoPath = Setting::getValue('sponsor_logo_path');
 
         return Inertia::render('Admin/Settings', [
             'settings' => [
@@ -23,6 +24,7 @@ class SettingController extends Controller
                 'club_email' => Setting::getValue('club_email', ''),
                 'club_phone' => Setting::getValue('club_phone', ''),
                 'logo_url' => $logoPath ? Storage::disk('public')->url($logoPath) : null,
+                'sponsor_logo_url' => $sponsorLogoPath ? Storage::disk('public')->url($sponsorLogoPath) : null,
 
                 // Email SMTP
                 'mail_from_address' => Setting::getValue('mail_from_address', ''),
@@ -134,5 +136,22 @@ class SettingController extends Controller
         Setting::setValue('logo_path', $path);
 
         return redirect()->route('admin.settings')->with('success', 'Logo mis à jour.');
+    }
+
+    public function uploadSponsorLogo(Request $request)
+    {
+        $request->validate([
+            'sponsor_logo' => 'required|image|mimes:jpg,jpeg,png,webp,svg|max:2048',
+        ]);
+
+        $oldPath = Setting::getValue('sponsor_logo_path');
+        if ($oldPath && Storage::disk('public')->exists($oldPath)) {
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        $path = $request->file('sponsor_logo')->store('logos', 'public');
+        Setting::setValue('sponsor_logo_path', $path);
+
+        return redirect()->route('admin.settings')->with('success', 'Logo sponsor mis à jour.');
     }
 }

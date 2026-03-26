@@ -3,6 +3,7 @@ export interface PlayerData {
   name: string;
   handicap: number;
   category_id: string | null;
+  cut_status?: 'active' | 'cut';
   category?: {
     name: string;
     color: string;

@@ -48,6 +48,7 @@ Route::post('/marqueur', [MarkerController::class, 'authenticate'])->name('marqu
 Route::get('/marqueur/s/{token}', [MarkerController::class, 'scoringByToken'])->name('marqueur.token');
 Route::get('/marqueur/scoring/{group}', [MarkerController::class, 'scoring'])->name('marqueur.scoring')->middleware('marker');
 Route::post('/marqueur/scoring/{group}/save', [MarkerController::class, 'saveScores'])->name('marqueur.save')->middleware('marker');
+Route::post('/marqueur/scoring/{group}/confirm', [MarkerController::class, 'confirmScores'])->name('marqueur.confirm')->middleware('marker');
 Route::post('/marqueur/logout', [MarkerController::class, 'logout'])->name('marqueur.logout');
 
 // Authenticated routes
@@ -67,6 +68,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Quick publish/unpublish toggle
     Route::patch('tournaments/{tournament}/toggle-publish', [TournamentController::class, 'togglePublish'])
         ->name('tournaments.togglePublish')
+        ->middleware('role:admin,captain');
+
+    // Cut system
+    Route::post('tournaments/{tournament}/cut', [TournamentController::class, 'applyCut'])
+        ->name('tournaments.applyCut')
+        ->middleware('role:admin,captain');
+    Route::delete('tournaments/{tournament}/cut', [TournamentController::class, 'resetCut'])
+        ->name('tournaments.resetCut')
         ->middleware('role:admin,captain');
 
     // Nested tournament resources
@@ -99,6 +108,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/admin/settings', [SettingController::class, 'index'])->name('admin.settings');
         Route::put('/admin/settings', [SettingController::class, 'update'])->name('admin.settings.update');
         Route::post('/admin/settings/logo', [SettingController::class, 'uploadLogo'])->name('admin.settings.upload-logo');
+        Route::post('/admin/settings/sponsor-logo', [SettingController::class, 'uploadSponsorLogo'])->name('admin.settings.upload-sponsor-logo');
 
         Route::get('/admin/users', [UserController::class, 'index'])->name('admin.users');
         Route::post('/admin/users', [UserController::class, 'store'])->name('admin.users.store');

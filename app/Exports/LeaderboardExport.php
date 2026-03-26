@@ -11,11 +11,20 @@ class LeaderboardExport implements FromCollection, WithHeadings, WithMapping
 {
     private int $position = 0;
 
-    public function __construct(protected Tournament $tournament) {}
+    public function __construct(
+        protected Tournament $tournament,
+        protected ?string $categoryId = null,
+    ) {}
 
     public function collection()
     {
-        return $this->tournament->players()->with('category', 'scores.hole')->get()
+        $query = $this->tournament->players()->with('category', 'scores.hole');
+
+        if ($this->categoryId) {
+            $query->where('category_id', $this->categoryId);
+        }
+
+        return $query->get()
             ->sortBy(function ($player) {
                 $totalStrokes = $player->scores->sum('strokes');
                 $totalPar = $player->scores->sum(fn ($s) => $s->hole->par ?? 0);

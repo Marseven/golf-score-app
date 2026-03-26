@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
-import { Plus, Trash2, Users, Calendar, MapPin, Trophy, CreditCard, UserCheck, Layers, ArrowRight, Clock, Globe, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Users, Calendar, MapPin, Trophy, CreditCard, UserCheck, Layers, ArrowRight, Clock, Globe, EyeOff, BarChart3 } from 'lucide-react';
 import type { Tournament } from '@/types';
 
 interface Stats {
     active_tournaments: number;
     total_players: number;
     total_groups: number;
+    total_revenue: number;
+    scores_today: number;
+    default_currency: string;
     pending_registrations?: number;
     pending_payments?: number;
 }
@@ -73,7 +76,7 @@ export default function AdminDashboard({ tournaments, stats, isAdmin }: Props) {
             </div>
 
             {/* Stats grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-8">
                 <div className="glass-card group">
                     <div className="flex items-center justify-between mb-3">
                         <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
@@ -96,12 +99,12 @@ export default function AdminDashboard({ tournaments, stats, isAdmin }: Props) {
 
                 <div className="glass-card group">
                     <div className="flex items-center justify-between mb-3">
-                        <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center">
-                            <Layers className="w-4.5 h-4.5 text-violet-500 dark:text-violet-400" />
+                        <div className="w-9 h-9 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+                            <CreditCard className="w-4.5 h-4.5 text-cyan-500 dark:text-cyan-400" />
                         </div>
                     </div>
-                    <p className="text-2xl font-bold text-foreground tracking-tight">{stats.total_groups}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Groupes</p>
+                    <p className="text-2xl font-bold text-foreground tracking-tight">{Number(stats.total_revenue).toLocaleString('fr-FR')} {stats.default_currency}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Recettes totales</p>
                 </div>
 
                 {isAdmin && stats.pending_registrations !== undefined ? (
@@ -128,6 +131,26 @@ export default function AdminDashboard({ tournaments, stats, isAdmin }: Props) {
                         <p className="text-xs text-muted-foreground mt-0.5">Total tournois</p>
                     </div>
                 )}
+
+                <div className="glass-card group">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="w-9 h-9 rounded-xl bg-orange-500/10 flex items-center justify-center">
+                            <BarChart3 className="w-4.5 h-4.5 text-orange-500 dark:text-orange-400" />
+                        </div>
+                    </div>
+                    <p className="text-2xl font-bold text-foreground tracking-tight">{stats.scores_today}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Scores aujourd'hui</p>
+                </div>
+
+                <div className="glass-card group">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center">
+                            <Layers className="w-4.5 h-4.5 text-violet-500 dark:text-violet-400" />
+                        </div>
+                    </div>
+                    <p className="text-2xl font-bold text-foreground tracking-tight">{stats.total_groups}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Groupes</p>
+                </div>
             </div>
 
             {isAdmin && stats.pending_payments !== undefined && stats.pending_payments > 0 && (
