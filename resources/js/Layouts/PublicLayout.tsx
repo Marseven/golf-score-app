@@ -44,12 +44,6 @@ export default function PublicLayout({ children, transparentHeader = false }: Pr
                         >
                             Tournois
                         </Link>
-                        <Link
-                            href={route('classement')}
-                            className="px-4 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
-                        >
-                            Classement
-                        </Link>
                     </nav>
 
                     {/* Right: Theme + Auth (desktop) */}
@@ -124,13 +118,6 @@ export default function PublicLayout({ children, transparentHeader = false }: Pr
                                 className="block px-4 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
                             >
                                 Tournois
-                            </Link>
-                            <Link
-                                href={route('classement')}
-                                onClick={() => setMobileOpen(false)}
-                                className="block px-4 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
-                            >
-                                Classement
                             </Link>
                             {user && isAdminOrCaptain && (
                                 <Link
