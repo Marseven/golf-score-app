@@ -30,6 +30,8 @@ class Group extends Model
      */
     protected $fillable = [
         'tournament_id',
+        'phase',
+        'category_id',
         'code',
         'tee_time',
         'marker_id',
@@ -44,6 +46,7 @@ class Group extends Model
     protected function casts(): array
     {
         return [
+            'phase' => 'integer',
             'tee_date' => 'date',
             'scores_confirmed_at' => 'datetime',
         ];
@@ -87,6 +90,14 @@ class Group extends Model
     public function players(): HasMany
     {
         return $this->hasMany(Player::class);
+    }
+
+    /**
+     * Get the category of this group.
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
     }
 
     /**

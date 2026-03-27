@@ -37,7 +37,7 @@ class Player extends Model
         'phone',
         'handicap',
         'registration_status',
-        'cut_status',
+        'cut_after_phase',
     ];
 
     /**
@@ -49,7 +49,18 @@ class Player extends Model
     {
         return [
             'handicap' => 'decimal:1',
+            'cut_after_phase' => 'integer',
         ];
+    }
+
+    public function getIsCutAttribute(): bool
+    {
+        return $this->cut_after_phase !== null;
+    }
+
+    public function isActiveInPhase(int $phase): bool
+    {
+        return $this->cut_after_phase === null || $this->cut_after_phase >= $phase;
     }
 
     /**

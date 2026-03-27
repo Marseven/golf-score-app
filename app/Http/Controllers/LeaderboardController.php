@@ -37,6 +37,7 @@ class LeaderboardController extends Controller
                 'scores' => [],
                 'holes' => [],
                 'categories' => [],
+                'cuts' => [],
             ]);
         }
 
@@ -46,6 +47,7 @@ class LeaderboardController extends Controller
             'scores' => $tournament->scores()->get(),
             'holes' => $tournament->holes()->orderBy('number')->get(),
             'categories' => $tournament->categories,
+            'cuts' => $tournament->cuts()->with('category')->get(),
         ]);
     }
 
@@ -65,6 +67,7 @@ class LeaderboardController extends Controller
                 'scores' => [],
                 'holes' => [],
                 'categories' => [],
+                'cuts' => [],
                 'logoUrl' => $logoUrl,
                 'sponsorLogoUrl' => $sponsorLogoUrl,
             ]);
@@ -76,6 +79,7 @@ class LeaderboardController extends Controller
             'scores' => $tournament->scores()->get(),
             'holes' => $tournament->holes()->orderBy('number')->get(),
             'categories' => $tournament->categories,
+            'cuts' => $tournament->cuts()->with('category')->get(),
             'logoUrl' => $logoUrl,
             'sponsorLogoUrl' => $sponsorLogoUrl,
         ]);

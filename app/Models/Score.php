@@ -30,6 +30,7 @@ class Score extends Model
         'player_id',
         'hole_id',
         'strokes',
+        'phase',
         'synced',
     ];
 
@@ -42,6 +43,7 @@ class Score extends Model
     {
         return [
             'strokes' => 'integer',
+            'phase' => 'integer',
             'synced' => 'boolean',
         ];
     }

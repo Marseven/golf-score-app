@@ -72,6 +72,7 @@ export default function CaddyMasterScoring({ group, groupCode, players, holes, e
         forceSyncNow,
     } = useOfflineScores({
         groupId: group.id,
+        phase: group.phase,
         players,
         holes,
         existingScores,
@@ -124,7 +125,9 @@ export default function CaddyMasterScoring({ group, groupCode, players, holes, e
                     </Link>
                     <div className="text-center">
                         <p className="text-sm font-bold text-foreground">{groupCode}</p>
-                        <p className="text-xs text-muted-foreground">Trou {currentHole + 1}/{holes.length}</p>
+                        <p className="text-xs text-muted-foreground">
+                            {group.phase > 1 && `Phase ${group.phase} · `}Trou {currentHole + 1}/{holes.length}
+                        </p>
                     </div>
                     <Link href={route('caddie-master.logout')} method="post" as="button" className="p-2 rounded-lg hover:bg-white/10">
                         <LogOut className="w-5 h-5 text-muted-foreground" />

@@ -9,6 +9,8 @@ export default function TournamentCreate() {
         end_date: '',
         club: '',
         scoring_mode: 'stroke_play' as 'stroke_play' | 'stableford' | 'both',
+        phase_count: 1,
+        score_aggregation: 'cumulative' as 'cumulative' | 'separate',
         rules: '',
     });
 
@@ -115,6 +117,53 @@ export default function TournamentCreate() {
                                 <p className="text-xs text-muted-foreground mt-1">{mode.desc}</p>
                             </button>
                         ))}
+                    </div>
+                </div>
+
+                <div className="glass-card">
+                    <h3 className="text-lg font-semibold text-foreground mb-4">Phases du tournoi</h3>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-sm text-muted-foreground block mb-1.5">Nombre de phases (rounds)</label>
+                            <div className="flex gap-2">
+                                {[1, 2, 3, 4].map((n) => (
+                                    <button
+                                        type="button"
+                                        key={n}
+                                        onClick={() => form.setData('phase_count', n)}
+                                        className={`w-12 h-12 rounded-xl text-sm font-bold transition-all ${form.data.phase_count === n ? 'bg-primary text-primary-foreground' : 'bg-surface border border-border text-muted-foreground hover:bg-surface-hover'}`}
+                                    >
+                                        {n}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1.5">
+                                {form.data.phase_count === 1 ? 'Tournoi classique en une seule phase' : `${form.data.phase_count} phases avec cut entre chaque phase`}
+                            </p>
+                        </div>
+                        {form.data.phase_count > 1 && (
+                            <div>
+                                <label className="text-sm text-muted-foreground block mb-1.5">Agrégation des scores</label>
+                                <div className="space-y-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => form.setData('score_aggregation', 'cumulative')}
+                                        className={`w-full text-left p-4 rounded-xl border-2 transition-all ${form.data.score_aggregation === 'cumulative' ? 'border-primary bg-primary/10' : 'border-border bg-surface hover:bg-surface-hover'}`}
+                                    >
+                                        <p className="text-sm font-semibold text-foreground">Cumulatif</p>
+                                        <p className="text-xs text-muted-foreground mt-1">Le classement additionne les scores de toutes les phases</p>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => form.setData('score_aggregation', 'separate')}
+                                        className={`w-full text-left p-4 rounded-xl border-2 transition-all ${form.data.score_aggregation === 'separate' ? 'border-primary bg-primary/10' : 'border-border bg-surface hover:bg-surface-hover'}`}
+                                    >
+                                        <p className="text-sm font-semibold text-foreground">Séparé</p>
+                                        <p className="text-xs text-muted-foreground mt-1">Chaque phase a son propre classement indépendant</p>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 

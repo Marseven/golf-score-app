@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { ArrowLeft, Settings, BarChart3, Trophy, Users, Target, MapPin, Save, Plus, Trash2, Pencil, X, Check, RefreshCw, Clock, Copy, UserPlus, Send, FileText, FileSpreadsheet, QrCode, Flag, Tag, UserCheck, CreditCard, LinkIcon, Download, Hash, Upload, Scissors } from 'lucide-react';
-import type { Tournament, Category, Player, Group, Hole, Score, Payment, Course, PageProps } from '@/types';
+import type { Tournament, Category, Player, Group, Hole, Score, Payment, Course, Cut, PageProps } from '@/types';
 import { categoryColors, categoryDotColors } from '@/Lib/category-colors';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 
@@ -31,6 +31,7 @@ interface Props {
     groups: Group[];
     holes: Hole[];
     scores: Score[];
+    cuts: Cut[];
     registrations: Player[];
     payments: Payment[];
     markers: MarkerUser[];
@@ -217,10 +218,18 @@ function formatDateForInput(dateStr: string | null | undefined): string {
     return dateStr.substring(0, 10);
 }
 
-function TournamentTab({ tournament, players }: { tournament: Tournament; players: Player[] }) {
+function TournamentTab({ tournament, players, categories, cuts }: { tournament: Tournament; players: Player[]; categories: Category[]; cuts: Cut[] }) {
     const [copied, setCopied] = useState(false);
     const [pinCopied, setPinCopied] = useState(false);
-    const [cutCount, setCutCount] = useState<number>(tournament.cut_count ?? Math.ceil(players.length / 2));
+    const [cutCounts, setCutCounts] = useState<Record<string, number>>(() => {
+        const initial: Record<string, number> = {};
+        (categories ?? []).forEach((cat) => {
+            const catPlayers = players.filter((p) => p.category_id === cat.id).length;
+            const existingCut = cuts?.find((c) => c.category_id === cat.id && c.after_phase === 1);
+            initial[cat.id] = existingCut?.qualified_count ?? Math.ceil(catPlayers / 2);
+        });
+        return initial;
+    });
     const form = useForm({
         name: tournament.name,
         start_date: formatDateForInput(tournament.start_date),
@@ -228,6 +237,8 @@ function TournamentTab({ tournament, players }: { tournament: Tournament; player
         club: tournament.club,
         status: tournament.status,
         scoring_mode: tournament.scoring_mode,
+        phase_count: tournament.phase_count,
+        score_aggregation: tournament.score_aggregation,
         rules: tournament.rules || '',
         registration_open: tournament.registration_open,
         registration_currency: tournament.registration_currency,
@@ -373,63 +384,107 @@ function TournamentTab({ tournament, players }: { tournament: Tournament; player
                 </div>
             </div>
 
-            {/* Cut section */}
-            <div className="glass-card">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
-                        <Scissors className="w-5 h-5 text-red-400" />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-semibold text-foreground">Cut</h3>
-                        <p className="text-xs text-muted-foreground">Éliminer les joueurs en dehors du top N</p>
+            {/* Phase configuration */}
+            {tournament.phase_count > 1 && (
+                <div className="glass-card">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center">
+                            <Flag className="w-5 h-5 text-violet-400" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-semibold text-foreground">Phases</h3>
+                            <p className="text-xs text-muted-foreground">{tournament.phase_count} phases — Scores {tournament.score_aggregation === 'cumulative' ? 'cumulatifs' : 'séparés'}</p>
+                        </div>
                     </div>
                 </div>
-                {tournament.cut_applied ? (
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <span className="px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-medium">Cut appliqué</span>
-                            <span className="text-sm text-muted-foreground">Top {tournament.cut_count} qualifiés</span>
+            )}
+
+            {/* Cut section — per phase and per category */}
+            {tournament.phase_count > 1 && Array.from({ length: tournament.phase_count - 1 }, (_, i) => i + 1).map((afterPhase) => {
+                const phaseCuts = cuts.filter((c) => c.after_phase === afterPhase);
+                const allApplied = phaseCuts.length > 0 && phaseCuts.every((c) => c.applied_at);
+
+                return (
+                    <div key={afterPhase} className="glass-card">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
+                                <Scissors className="w-5 h-5 text-red-400" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-semibold text-foreground">Cut après Phase {afterPhase}</h3>
+                                <p className="text-xs text-muted-foreground">Éliminer les joueurs par catégorie</p>
+                            </div>
+                            {allApplied && (
+                                <span className="ml-auto px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-medium">Appliqué</span>
+                            )}
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (confirm('Réinitialiser le cut ? Tous les joueurs redeviendront actifs.')) {
-                                    router.delete(route('tournaments.resetCut', tournament.id));
-                                }
-                            }}
-                            className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-sm font-medium transition-colors"
-                        >
-                            <RefreshCw className="w-4 h-4" />Réinitialiser
-                        </button>
+                        {allApplied ? (
+                            <div className="space-y-2">
+                                {phaseCuts.map((cut) => (
+                                    <div key={cut.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface">
+                                        <span className="text-sm text-foreground">{cut.category?.name ?? '—'}</span>
+                                        <span className="text-sm text-muted-foreground">Top {cut.qualified_count} qualifiés</span>
+                                    </div>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (confirm(`Réinitialiser le cut après Phase ${afterPhase} ? Les joueurs redeviendront actifs.`)) {
+                                            router.post(route('tournaments.resetPhaseCut', tournament.id), { after_phase: afterPhase });
+                                        }
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-sm font-medium transition-colors mt-2"
+                                >
+                                    <RefreshCw className="w-4 h-4" />Réinitialiser
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {(categories ?? []).map((cat) => {
+                                    const catPlayers = players.filter((p) => p.category_id === cat.id).length;
+                                    const key = `${afterPhase}-${cat.id}`;
+                                    return (
+                                        <div key={cat.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface">
+                                            <span className="text-sm font-medium text-foreground min-w-[120px]">{cat.name}</span>
+                                            <span className="text-xs text-muted-foreground">({catPlayers} joueurs)</span>
+                                            <div className="ml-auto flex items-center gap-2">
+                                                <label className="text-xs text-muted-foreground">Qualifiés :</label>
+                                                <input
+                                                    type="number"
+                                                    value={cutCounts[cat.id] ?? Math.ceil(catPlayers / 2)}
+                                                    onChange={(e) => setCutCounts((prev) => ({ ...prev, [cat.id]: Number(e.target.value) }))}
+                                                    min={1}
+                                                    max={catPlayers}
+                                                    className="w-20 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-foreground text-center focus:border-primary focus:outline-none"
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const cutsPayload = (categories ?? []).map((cat) => ({
+                                            category_id: cat.id,
+                                            qualified_count: cutCounts[cat.id] ?? Math.ceil(players.filter((p) => p.category_id === cat.id).length / 2),
+                                        }));
+                                        if (confirm(`Appliquer le cut après Phase ${afterPhase} ?`)) {
+                                            router.post(route('tournaments.applyPhaseCut', tournament.id), {
+                                                after_phase: afterPhase,
+                                                cuts: cutsPayload,
+                                            });
+                                        }
+                                    }}
+                                    disabled={players.length === 0}
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                                >
+                                    <Scissors className="w-4 h-4" />Appliquer le cut
+                                </button>
+                            </div>
+                        )}
                     </div>
-                ) : (
-                    <div className="flex items-center gap-3">
-                        <div>
-                            <label className="text-xs text-muted-foreground block mb-1">Nombre de qualifiés</label>
-                            <input
-                                type="number"
-                                value={cutCount}
-                                onChange={(e) => setCutCount(Number(e.target.value))}
-                                min={1}
-                                max={players.length}
-                                className="w-24 bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none"
-                            />
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (confirm(`Appliquer le cut ? Les ${cutCount} premiers seront qualifiés.`)) {
-                                    router.post(route('tournaments.applyCut', tournament.id), { cut_count: cutCount });
-                                }
-                            }}
-                            disabled={players.length === 0}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 mt-auto"
-                        >
-                            <Scissors className="w-4 h-4" />Appliquer le cut
-                        </button>
-                    </div>
-                )}
-            </div>
+                );
+            })}
 
             {/* Caddie Master section */}
             <div className="glass-card">
@@ -777,17 +832,18 @@ function PlayersTab({ tournament, players, categories, groups }: { tournament: T
     );
 }
 
-// --- Groups Tab (enriched with marker, PIN, QR code) ---
-function GroupsTab({ tournament, groups, markers, players }: { tournament: Tournament; groups: Group[]; markers: MarkerUser[]; players: Player[] }) {
+// --- Groups Tab (enriched with marker, PIN, QR code, phase filtering) ---
+function GroupsTab({ tournament, groups, markers, players, categories }: { tournament: Tournament; groups: Group[]; markers: MarkerUser[]; players: Player[]; categories: Category[] }) {
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
     const [showQR, setShowQR] = useState<string | null>(null);
     const [showMarkerForm, setShowMarkerForm] = useState(false);
-    const form = useForm({ tee_time: '08:00', tee_date: '', marker_id: '', marker_phone: '', player_ids: [] as string[] });
+    const [activePhase, setActivePhase] = useState(1);
+    const form = useForm({ tee_time: '08:00', tee_date: '', phase: 1, category_id: '' as string, marker_id: '', marker_phone: '', player_ids: [] as string[] });
     const markerForm = useForm({ name: '', email: '', password: '' });
 
-    const resetForm = () => { form.reset(); setShowForm(false); setEditingId(null); };
+    const resetForm = () => { form.reset(); form.setData('phase', activePhase); setShowForm(false); setEditingId(null); };
 
     const handleCreateMarker = (e: React.FormEvent) => {
         e.preventDefault();
@@ -796,10 +852,15 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
         });
     };
 
-    // Players not assigned to any group, or assigned to the group being edited
-    const availablePlayers = players.filter((p) =>
-        !p.group_id || p.group_id === editingId
-    );
+    // Players not assigned to any group, or assigned to the group being edited.
+    // If category is selected, filter by category. If phase > 1, filter out cut players.
+    const availablePlayers = players.filter((p) => {
+        if (p.group_id && p.group_id !== editingId) return false;
+        if (form.data.category_id && p.category_id !== form.data.category_id) return false;
+        const phase = form.data.phase;
+        if (phase > 1 && p.cut_after_phase != null && p.cut_after_phase < phase) return false;
+        return true;
+    });
 
     // Markers not assigned to any other group
     const assignedMarkerIds = groups
@@ -812,6 +873,8 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
         form.setData({
             tee_time: group.tee_time,
             tee_date: group.tee_date ? group.tee_date.substring(0, 10) : '',
+            phase: group.phase ?? 1,
+            category_id: group.category_id ?? '',
             marker_id: group.marker_id ?? '',
             marker_phone: group.marker_phone ?? '',
             player_ids: group.players?.map((p) => p.id) ?? [],
@@ -919,8 +982,30 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
         img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
     };
 
+    // Filter groups by active phase
+    const filteredGroups = tournament.phase_count > 1
+        ? groups.filter((g) => (g.phase ?? 1) === activePhase)
+        : groups;
+
     return (
         <div className="space-y-4">
+            {/* Phase tabs */}
+            {tournament.phase_count > 1 && (
+                <div className="flex gap-2 mb-2">
+                    {Array.from({ length: tournament.phase_count }, (_, i) => i + 1).map((phase) => {
+                        const count = groups.filter((g) => (g.phase ?? 1) === phase).length;
+                        return (
+                            <button
+                                key={phase}
+                                onClick={() => { setActivePhase(phase); form.setData('phase', phase); }}
+                                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${activePhase === phase ? 'bg-primary/10 text-primary' : 'bg-surface text-muted-foreground hover:bg-surface-hover'}`}
+                            >
+                                Phase {phase} ({count})
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
             <div className="flex flex-wrap gap-3">
                 <button onClick={() => { resetForm(); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 shadow-lg shadow-primary/25">
                     <Plus className="w-4 h-4" />Nouveau groupe
@@ -958,7 +1043,26 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
             {(showForm || editingId) && (
                 <form onSubmit={handleSave} className="glass-card space-y-4">
                     <h3 className="text-sm font-semibold text-foreground">{editingId ? 'Modifier le groupe' : 'Nouveau groupe'}</h3>
-                    <div className={`grid grid-cols-1 ${tournament.end_date ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-4`}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {tournament.phase_count > 1 && (
+                            <div>
+                                <label className="text-xs text-muted-foreground block mb-1">Phase</label>
+                                <select value={form.data.phase} onChange={(e) => form.setData('phase', Number(e.target.value))} className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none appearance-none">
+                                    {Array.from({ length: tournament.phase_count }, (_, i) => i + 1).map((p) => (
+                                        <option key={p} value={p}>Phase {p}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                        {tournament.phase_count > 1 && (
+                            <div>
+                                <label className="text-xs text-muted-foreground block mb-1">Catégorie</label>
+                                <select value={form.data.category_id} onChange={(e) => form.setData('category_id', e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none appearance-none">
+                                    <option value="">— Aucune —</option>
+                                    {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                </select>
+                            </div>
+                        )}
                         <div>
                             <label className="text-xs text-muted-foreground block mb-1">Heure de depart</label>
                             <input type="time" value={form.data.tee_time} onChange={(e) => form.setData('tee_time', e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
@@ -1017,11 +1121,17 @@ function GroupsTab({ tournament, groups, markers, players }: { tournament: Tourn
                 </form>
             )}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {groups.map((group) => (
+                {filteredGroups.map((group) => (
                     <div key={group.id} className="glass-card p-0 overflow-hidden">
                         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
                             <div className="flex items-center gap-3">
                                 <span className="text-lg font-bold text-foreground">{group.code}</span>
+                                {tournament.phase_count > 1 && (
+                                    <span className="px-2 py-0.5 rounded-md bg-violet-500/20 text-violet-400 text-[10px] font-bold">P{group.phase ?? 1}</span>
+                                )}
+                                {group.category && (
+                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium ${categoryColors[group.category.name] ?? 'bg-surface-hover text-foreground'}`}>{group.category.short_name}</span>
+                                )}
                                 <div className="flex items-center gap-1.5 text-muted-foreground">
                                     <Clock className="w-3.5 h-3.5" />
                                     <span className="text-xs">
@@ -1558,7 +1668,7 @@ function FlashMessages() {
 }
 
 // --- Main Page ---
-export default function TournamentManage({ tournament, courses, categories, players, groups, holes, scores, registrations, payments, markers }: Props) {
+export default function TournamentManage({ tournament, courses, categories, players, groups, holes, scores, cuts, registrations, payments, markers }: Props) {
     const [activeTab, setActiveTab] = useState('dashboard');
     const { auth } = usePage<PageProps>().props;
     const roles = auth?.roles ?? [];
@@ -1592,10 +1702,10 @@ export default function TournamentManage({ tournament, courses, categories, play
             <FlashMessages />
 
             {activeTab === 'dashboard' && <DashboardTab tournament={tournament} players={players} groups={groups} scores={scores} />}
-            {activeTab === 'tournament' && <TournamentTab tournament={tournament} players={players} />}
+            {activeTab === 'tournament' && <TournamentTab tournament={tournament} players={players} categories={categories} cuts={cuts} />}
             {activeTab === 'categories' && <CategoriesTab tournament={tournament} categories={categories} courses={courses} />}
             {activeTab === 'players' && <PlayersTab tournament={tournament} players={players} categories={categories} groups={groups} />}
-            {activeTab === 'groups' && <GroupsTab tournament={tournament} groups={groups} markers={markers} players={players} />}
+            {activeTab === 'groups' && <GroupsTab tournament={tournament} groups={groups} markers={markers} players={players} categories={categories} />}
             {activeTab === 'course' && <CourseTab tournament={tournament} courses={courses} holes={holes} categories={categories} />}
             {activeTab === 'registrations' && <RegistrationsTab tournament={tournament} registrations={registrations} />}
             {activeTab === 'payments' && <PaymentsTab tournament={tournament} payments={payments} />}

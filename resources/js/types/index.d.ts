@@ -26,12 +26,12 @@ export interface Tournament {
     club: string;
     status: 'draft' | 'published' | 'active' | 'finished';
     scoring_mode: 'stroke_play' | 'stableford' | 'both';
+    phase_count: number;
+    score_aggregation: 'cumulative' | 'separate';
     rules: string | null;
     registration_open: boolean;
     registration_fee: number;
     registration_currency: string;
-    cut_count: number | null;
-    cut_applied: boolean;
     caddie_master_pin: string | null;
     created_by: string | null;
     created_at: string;
@@ -43,6 +43,7 @@ export interface Tournament {
     players?: Player[];
     groups?: Group[];
     holes?: Hole[];
+    cuts?: Cut[];
 }
 
 export interface Course {
@@ -77,6 +78,9 @@ export interface Hole {
 export interface Group {
     id: string;
     tournament_id: string;
+    phase: number;
+    category_id: string | null;
+    category?: Category | null;
     code: string;
     tee_time: string;
     tee_date: string | null;
@@ -88,6 +92,16 @@ export interface Group {
     confirmed_by_name: string | null;
     marker?: User | null;
     players?: Player[];
+}
+
+export interface Cut {
+    id: string;
+    tournament_id: string;
+    category_id: string;
+    after_phase: number;
+    qualified_count: number | null;
+    applied_at: string | null;
+    category?: Category;
 }
 
 export interface UserRole {
@@ -108,7 +122,7 @@ export interface Player {
     phone: string | null;
     handicap: number;
     registration_status: 'pending' | 'approved' | 'rejected';
-    cut_status: 'active' | 'cut';
+    cut_after_phase: number | null;
     category?: Category | null;
     group?: Group | null;
     scores?: Score[];
@@ -119,6 +133,7 @@ export interface Score {
     player_id: string;
     hole_id: string;
     strokes: number;
+    phase: number;
     synced: boolean;
 }
 

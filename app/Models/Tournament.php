@@ -36,12 +36,12 @@ class Tournament extends Model
         'club',
         'status',
         'scoring_mode',
+        'phase_count',
+        'score_aggregation',
         'rules',
         'registration_open',
         'registration_fee',
         'registration_currency',
-        'cut_count',
-        'cut_applied',
         'caddie_master_pin',
         'created_by',
     ];
@@ -58,8 +58,7 @@ class Tournament extends Model
             'end_date' => 'date',
             'registration_open' => 'boolean',
             'registration_fee' => 'decimal:2',
-            'cut_count' => 'integer',
-            'cut_applied' => 'boolean',
+            'phase_count' => 'integer',
         ];
     }
 
@@ -159,6 +158,14 @@ class Tournament extends Model
     public function scores(): HasManyThrough
     {
         return $this->hasManyThrough(Score::class, Player::class);
+    }
+
+    /**
+     * Get the cuts for the tournament.
+     */
+    public function cuts(): HasMany
+    {
+        return $this->hasMany(Cut::class);
     }
 
     /**

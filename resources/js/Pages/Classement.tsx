@@ -5,7 +5,7 @@ import { Trophy, Download, Share2, FileText, Tv, Image, Loader2, ChevronDown } f
 import { buildLeaderboard } from '@/Lib/scoring';
 import { categoryColors } from '@/Lib/category-colors';
 import { useRealtimeScores } from '@/Hooks/useRealtimeScores';
-import type { Tournament, Player, Score, Hole, Category } from '@/types';
+import type { Tournament, Player, Score, Hole, Category, Cut } from '@/types';
 
 interface Props {
     tournament: Tournament | null;
@@ -13,6 +13,7 @@ interface Props {
     scores: Score[];
     holes: Hole[];
     categories: Category[];
+    cuts: Cut[];
 }
 
 type ScoringMode = 'stroke' | 'stableford';
@@ -24,12 +25,13 @@ function PositionBadge({ position }: { position: number }) {
     return <span className="w-8 h-8 rounded-lg bg-surface-hover text-muted-foreground flex items-center justify-center text-sm font-bold">{position}</span>;
 }
 
-export default function Classement({ tournament, players, scores, holes, categories }: Props) {
+export default function Classement({ tournament, players, scores, holes, categories, cuts }: Props) {
     const { auth } = usePage().props as any;
     const user = auth?.user;
     const { lastUpdate } = useRealtimeScores(tournament?.id);
     const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
     const [scoringMode, setScoringMode] = useState<ScoringMode>('stroke');
+    const [activePhase, setActivePhase] = useState<number | undefined>(undefined);
     const [capturing, setCapturing] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
     const leaderboardRef = useRef<HTMLDivElement>(null);
@@ -45,7 +47,9 @@ export default function Classement({ tournament, players, scores, holes, categor
         holes,
         activeCategoryId ?? undefined,
         scoringMode,
-        categories
+        categories,
+        activePhase,
+        tournament?.score_aggregation
     );
 
     const buildWhatsAppText = () => {
@@ -202,6 +206,27 @@ export default function Classement({ tournament, players, scores, holes, categor
                     })}
                 </div>
 
+                {/* Phase selector */}
+                {tournament && tournament.phase_count > 1 && (
+                    <div className="flex gap-2 overflow-x-auto pb-2 mb-3 -mx-2 px-2">
+                        <button
+                            onClick={() => setActivePhase(undefined)}
+                            className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${activePhase === undefined ? 'bg-violet-500 text-white' : 'bg-surface text-muted-foreground hover:bg-surface-hover'}`}
+                        >
+                            {tournament.score_aggregation === 'cumulative' ? 'Total' : 'Toutes'}
+                        </button>
+                        {Array.from({ length: tournament.phase_count }, (_, i) => i + 1).map((phase) => (
+                            <button
+                                key={phase}
+                                onClick={() => setActivePhase(phase)}
+                                className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${activePhase === phase ? 'bg-violet-500 text-white' : 'bg-surface text-muted-foreground hover:bg-surface-hover'}`}
+                            >
+                                Phase {phase}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
                 {/* Scoring Mode Toggle */}
                 <div className="grid grid-cols-2 gap-2 mb-6">
                     <button onClick={() => setScoringMode('stroke')} className={`py-2.5 rounded-xl text-sm font-medium transition-all ${scoringMode === 'stroke' ? 'bg-emerald-500 text-white' : 'bg-surface text-muted-foreground hover:bg-surface-hover'}`}>Stroke Play</button>
@@ -213,18 +238,25 @@ export default function Classement({ tournament, players, scores, holes, categor
                     {leaderboard.map((entry, idx) => {
                         const position = idx + 1;
                         const isTop3 = position <= 3;
-                        const isCut = entry.player.cut_status === 'cut';
+                        const isCut = entry.player.cut_after_phase != null;
                         const scoreColor = entry.strokeToPar < 0 ? 'text-emerald-400' : entry.strokeToPar === 0 ? 'text-foreground' : 'text-red-400';
                         const sign = entry.strokeToPar > 0 ? '+' : '';
 
+                        // Determine if a cut line should be drawn after this entry
+                        const currentCategoryCut = activeCategoryId
+                            ? cuts?.find((c) => c.category_id === activeCategoryId && c.after_phase === (activePhase ?? 1) && !c.applied_at)
+                            : null;
+                        const showCutLine = currentCategoryCut && !isCut && position === currentCategoryCut.qualified_count;
+
                         return (
-                            <div key={entry.player.id} className={`glass-card flex items-center justify-between ${isCut ? 'opacity-50' : ''} ${isTop3 && !isCut ? 'bg-gradient-to-r from-amber-500/10 to-transparent' : ''}`}>
+                            <div key={entry.player.id}>
+                                <div className={`glass-card flex items-center justify-between ${isCut ? 'opacity-50' : ''} ${isTop3 && !isCut ? 'bg-gradient-to-r from-amber-500/10 to-transparent' : ''}`}>
                                 <div className="flex items-center gap-3 min-w-0">
                                     <PositionBadge position={position} />
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-2">
                                             <p className="text-sm font-semibold text-foreground truncate">{entry.player.name}</p>
-                                            {isCut && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">CUT</span>}
+                                            {isCut && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">CUT P{entry.player.cut_after_phase}</span>}
                                         </div>
                                         <div className="flex items-center gap-2 mt-0.5">
                                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${categoryColors[entry.categoryName] ?? 'bg-surface-hover text-foreground'}`}>
@@ -250,6 +282,14 @@ export default function Classement({ tournament, players, scores, holes, categor
                                         </>
                                     )}
                                 </div>
+                            </div>
+                            {showCutLine && (
+                                <div className="flex items-center gap-2 my-1">
+                                    <div className="flex-1 h-0.5 bg-red-500/50" />
+                                    <span className="text-[10px] font-bold text-red-400 uppercase">Ligne de cut</span>
+                                    <div className="flex-1 h-0.5 bg-red-500/50" />
+                                </div>
+                            )}
                             </div>
                         );
                     })}

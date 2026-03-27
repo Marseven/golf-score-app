@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Cut;
 use App\Models\Player;
 use App\Models\Tournament;
 use App\Models\User;
@@ -29,10 +30,12 @@ class TournamentController extends Controller
             'categories',
             'groups.players.category',
             'groups.marker',
+            'groups.category',
             'players.category',
             'players.group',
             'players.payments',
             'holes',
+            'cuts.category',
         ]);
 
         $scores = $tournament->scores()->with('hole')->get();
@@ -56,6 +59,7 @@ class TournamentController extends Controller
             'groups' => $tournament->groups,
             'holes' => $tournament->holes,
             'scores' => $scores,
+            'cuts' => $tournament->cuts,
             'registrations' => $registrations,
             'payments' => $payments,
             'markers' => $markers,
@@ -70,11 +74,15 @@ class TournamentController extends Controller
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'club' => 'required|string|max:255',
             'scoring_mode' => 'required|in:stroke_play,stableford,both',
+            'phase_count' => 'integer|min:1|max:4',
+            'score_aggregation' => 'in:cumulative,separate',
             'rules' => 'nullable|string',
         ]);
 
         $tournament = Tournament::create([
             ...$validated,
+            'phase_count' => $validated['phase_count'] ?? 1,
+            'score_aggregation' => $validated['score_aggregation'] ?? 'cumulative',
             'caddie_master_pin' => Tournament::generateUniqueCaddieMasterPin(),
             'created_by' => $request->user()->id,
         ]);
@@ -94,8 +102,10 @@ class TournamentController extends Controller
             ['name' => 'Amateur F', 'short_name' => 'AF', 'color' => 'violet', 'course_id' => $defaultCourse->id],
         ];
 
+        $categoryIds = [];
         foreach ($defaultCategories as $cat) {
-            $tournament->categories()->create($cat);
+            $category = $tournament->categories()->create($cat);
+            $categoryIds[] = $category->id;
         }
 
         // Create default 18 holes (on default course)
@@ -107,6 +117,19 @@ class TournamentController extends Controller
                 'distance' => 0,
                 'hole_index' => $i,
             ]);
+        }
+
+        // Create Cut records for multi-phase tournaments
+        $phaseCount = $validated['phase_count'] ?? 1;
+        if ($phaseCount > 1) {
+            foreach ($categoryIds as $categoryId) {
+                for ($phase = 1; $phase < $phaseCount; $phase++) {
+                    $tournament->cuts()->create([
+                        'category_id' => $categoryId,
+                        'after_phase' => $phase,
+                    ]);
+                }
+            }
         }
 
         return redirect()->route('tournaments.show', $tournament)->with('success', 'Tournoi créé avec succès.');
@@ -128,6 +151,8 @@ class TournamentController extends Controller
             'club' => 'required|string|max:255',
             'status' => 'required|in:draft,published,active,finished',
             'scoring_mode' => 'required|in:stroke_play,stableford,both',
+            'phase_count' => 'integer|min:1|max:4',
+            'score_aggregation' => 'in:cumulative,separate',
             'rules' => 'nullable|string',
             'registration_open' => 'boolean',
             'registration_fee' => 'numeric|min:0',
@@ -135,8 +160,24 @@ class TournamentController extends Controller
             'caddie_master_pin' => 'nullable|string|digits:6|unique:tournaments,caddie_master_pin,'.$tournament->id,
         ]);
 
+        $oldPhaseCount = $tournament->phase_count;
         $tournament->update($validated);
         $tournament->syncStatus();
+
+        // If phase_count changed, ensure Cut records exist for all categories and phases
+        $newPhaseCount = $tournament->phase_count;
+        if ($newPhaseCount !== $oldPhaseCount && $newPhaseCount > 1) {
+            $categoryIds = $tournament->categories()->pluck('id');
+            foreach ($categoryIds as $categoryId) {
+                for ($phase = 1; $phase < $newPhaseCount; $phase++) {
+                    Cut::firstOrCreate([
+                        'tournament_id' => $tournament->id,
+                        'category_id' => $categoryId,
+                        'after_phase' => $phase,
+                    ]);
+                }
+            }
+        }
 
         return back()->with('success', 'Tournoi mis à jour.');
     }
@@ -153,48 +194,86 @@ class TournamentController extends Controller
         return back()->with('success', $message);
     }
 
-    public function applyCut(Request $request, Tournament $tournament)
+    public function applyPhaseCut(Request $request, Tournament $tournament)
     {
         $validated = $request->validate([
-            'cut_count' => 'required|integer|min:1',
+            'after_phase' => 'required|integer|min:1|max:'.($tournament->phase_count - 1),
+            'cuts' => 'required|array',
+            'cuts.*.category_id' => 'required|uuid|exists:categories,id',
+            'cuts.*.qualified_count' => 'required|integer|min:1',
         ]);
 
-        $cutCount = $validated['cut_count'];
+        $afterPhase = $validated['after_phase'];
 
-        // Build stroke play leaderboard
-        $players = $tournament->players()->with('scores.hole')->get();
+        foreach ($validated['cuts'] as $cutData) {
+            $categoryId = $cutData['category_id'];
+            $qualifiedCount = $cutData['qualified_count'];
 
-        $ranked = $players->sortBy(function ($player) {
-            $totalStrokes = $player->scores->sum('strokes');
-            $totalPar = $player->scores->sum(fn ($s) => $s->hole->par ?? 0);
+            // Get players in this category, ranked by stroke-to-par for this phase
+            $players = $tournament->players()
+                ->where('category_id', $categoryId)
+                ->with(['scores' => function ($q) use ($afterPhase, $tournament) {
+                    if ($tournament->score_aggregation === 'cumulative') {
+                        $q->where('phase', '<=', $afterPhase);
+                    } else {
+                        $q->where('phase', $afterPhase);
+                    }
+                }, 'scores.hole'])
+                ->where(function ($q) use ($afterPhase) {
+                    $q->whereNull('cut_after_phase')
+                      ->orWhere('cut_after_phase', '>=', $afterPhase);
+                })
+                ->get();
 
-            return $totalStrokes - $totalPar;
-        })->values();
+            $ranked = $players->sortBy(function ($player) {
+                $totalStrokes = $player->scores->sum('strokes');
+                $totalPar = $player->scores->sum(fn ($s) => $s->hole->par ?? 0);
 
-        // Top N are active, rest are cut
-        foreach ($ranked as $index => $player) {
-            $player->update([
-                'cut_status' => $index < $cutCount ? 'active' : 'cut',
-            ]);
+                return $totalStrokes - $totalPar;
+            })->values();
+
+            foreach ($ranked as $index => $player) {
+                if ($index >= $qualifiedCount) {
+                    $player->update(['cut_after_phase' => $afterPhase]);
+                }
+            }
+
+            // Update Cut record
+            Cut::updateOrCreate(
+                [
+                    'tournament_id' => $tournament->id,
+                    'category_id' => $categoryId,
+                    'after_phase' => $afterPhase,
+                ],
+                [
+                    'qualified_count' => $qualifiedCount,
+                    'applied_at' => now(),
+                ]
+            );
         }
 
-        $tournament->update([
-            'cut_count' => $cutCount,
-            'cut_applied' => true,
-        ]);
-
-        return back()->with('success', "Cut appliqué : {$cutCount} joueurs qualifiés.");
+        return back()->with('success', 'Cut appliqué pour la phase '.$afterPhase.'.');
     }
 
-    public function resetCut(Tournament $tournament)
+    public function resetPhaseCut(Request $request, Tournament $tournament)
     {
-        $tournament->players()->update(['cut_status' => 'active']);
-        $tournament->update([
-            'cut_count' => null,
-            'cut_applied' => false,
+        $validated = $request->validate([
+            'after_phase' => 'required|integer|min:1',
         ]);
 
-        return back()->with('success', 'Cut réinitialisé.');
+        $afterPhase = $validated['after_phase'];
+
+        // Reset players cut after this phase
+        $tournament->players()
+            ->where('cut_after_phase', $afterPhase)
+            ->update(['cut_after_phase' => null]);
+
+        // Reset Cut records for this phase
+        $tournament->cuts()
+            ->where('after_phase', $afterPhase)
+            ->update(['applied_at' => null]);
+
+        return back()->with('success', 'Cut réinitialisé pour la phase '.$afterPhase.'.');
     }
 
     public function destroy(Tournament $tournament)

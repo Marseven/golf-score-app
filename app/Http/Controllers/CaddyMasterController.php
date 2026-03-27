@@ -101,11 +101,14 @@ class CaddyMasterController extends Controller
             'scores.*.strokes' => 'required|integer|min:1',
         ]);
 
+        $phase = $group->phase;
+
         foreach ($validated['scores'] as $scoreData) {
             Score::updateOrCreate(
                 [
                     'player_id' => $scoreData['player_id'],
                     'hole_id' => $scoreData['hole_id'],
+                    'phase' => $phase,
                 ],
                 [
                     'strokes' => $scoreData['strokes'],

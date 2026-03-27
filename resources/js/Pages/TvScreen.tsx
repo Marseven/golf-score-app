@@ -4,7 +4,7 @@ import { Trophy, X, Pause, Play, Maximize, Minimize } from 'lucide-react';
 import { buildLeaderboard } from '@/Lib/scoring';
 import { categoryDotColors, categoryColors } from '@/Lib/category-colors';
 import { useRealtimeScores } from '@/Hooks/useRealtimeScores';
-import type { Tournament, Player, Score, Hole, Category } from '@/types';
+import type { Tournament, Player, Score, Hole, Category, Cut } from '@/types';
 
 interface Props {
     tournament: Tournament | null;
@@ -12,6 +12,7 @@ interface Props {
     scores: Score[];
     holes: Hole[];
     categories: Category[];
+    cuts: Cut[];
     logoUrl?: string | null;
     sponsorLogoUrl?: string | null;
 }
@@ -23,7 +24,7 @@ function PositionCell({ position }: { position: number }) {
     return <span className="w-10 h-10 rounded-xl bg-white/10 text-muted-foreground flex items-center justify-center text-lg font-bold">{position}</span>;
 }
 
-export default function TvScreen({ tournament, players, scores, holes, categories, logoUrl, sponsorLogoUrl }: Props) {
+export default function TvScreen({ tournament, players, scores, holes, categories, cuts, logoUrl, sponsorLogoUrl }: Props) {
     useRealtimeScores(tournament?.id);
     const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
     const [isPaused, setIsPaused] = useState(false);
@@ -68,7 +69,9 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
         category: p.category ?? categories.find((c) => c.id === p.category_id) ?? null,
     }));
 
-    const leaderboard = buildLeaderboard(playersWithCategory, scores, holes, activeCategoryId ?? undefined, 'stroke', categories).slice(0, 10);
+    const allEntries = buildLeaderboard(playersWithCategory, scores, holes, activeCategoryId ?? undefined, 'stroke', categories);
+    // Hide cut players completely on TV
+    const leaderboard = allEntries.filter((entry) => entry.player.cut_after_phase == null).slice(0, 10);
 
     const now = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     const activeCatName = activeCategoryId ? categories?.find((c) => c.id === activeCategoryId)?.name ?? 'Tous' : 'Tous';
@@ -149,17 +152,15 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                             )}
                             {leaderboard.map((entry, idx) => {
                                 const position = idx + 1;
-                                const isCut = entry.player.cut_status === 'cut';
                                 const scoreColor = entry.strokeToPar < 0 ? 'text-emerald-400' : entry.strokeToPar === 0 ? 'text-white' : 'text-red-400';
                                 const sign = entry.strokeToPar > 0 ? '+' : '';
                                 return (
-                                    <div key={entry.player.id} className={`grid grid-cols-[80px_1fr_80px_100px_100px_100px] items-center px-8 py-4 border-b border-white/5 ${isCut ? 'opacity-40' : ''} ${position === 1 && !isCut ? 'bg-gradient-to-r from-amber-500/15 to-transparent' : ''}`} style={{ animation: `fadeSlideIn 0.4s ease-out ${idx * 0.08}s both` }}>
+                                    <div key={entry.player.id} className={`grid grid-cols-[80px_1fr_80px_100px_100px_100px] items-center px-8 py-4 border-b border-white/5 ${position === 1 ? 'bg-gradient-to-r from-amber-500/15 to-transparent' : ''}`} style={{ animation: `fadeSlideIn 0.4s ease-out ${idx * 0.08}s both` }}>
                                         <div><PositionCell position={position} /></div>
                                         <div className="flex items-center gap-3">
                                             <div className={`w-3 h-3 rounded-full ${categoryDotColors[entry.categoryName] ?? 'bg-gray-500'}`} />
                                             <span className="text-lg font-semibold text-white">{entry.player.name}</span>
                                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${categoryColors[entry.categoryName] ?? 'bg-white/10 text-white'}`}>{entry.categoryName}</span>
-                                            {isCut && <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-500/30 text-red-400">CUT</span>}
                                         </div>
                                         <span className="text-base text-white/40 text-center font-mono">{entry.playingHandicap || '—'}</span>
                                         <span className="text-base text-white/60 text-center">{entry.holesPlayed}/18</span>

@@ -11,6 +11,7 @@ type SyncStatus = 'idle' | 'syncing' | 'error';
 
 interface UseOfflineScoresOptions {
     groupId: string;
+    phase?: number;
     players: Player[];
     holes: Hole[];
     existingScores: Record<string, Score[]>;
@@ -23,7 +24,7 @@ function getCsrfToken(): string {
     return match ? decodeURIComponent(match[1]) : '';
 }
 
-export function useOfflineScores({ groupId, players, holes, existingScores, saveUrl, csrfRefreshUrl }: UseOfflineScoresOptions) {
+export function useOfflineScores({ groupId, phase, players, holes, existingScores, saveUrl, csrfRefreshUrl }: UseOfflineScoresOptions) {
     // Build initial scores grid from server data
     const buildInitialScores = useCallback((): number[][] => {
         return players.map((player) => {

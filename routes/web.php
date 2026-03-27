@@ -83,12 +83,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('tournaments.togglePublish')
         ->middleware('role:admin,captain');
 
-    // Cut system
-    Route::post('tournaments/{tournament}/cut', [TournamentController::class, 'applyCut'])
-        ->name('tournaments.applyCut')
+    // Phase cut system
+    Route::post('tournaments/{tournament}/phase-cut', [TournamentController::class, 'applyPhaseCut'])
+        ->name('tournaments.applyPhaseCut')
         ->middleware('role:admin,captain');
-    Route::delete('tournaments/{tournament}/cut', [TournamentController::class, 'resetCut'])
-        ->name('tournaments.resetCut')
+    Route::post('tournaments/{tournament}/phase-cut/reset', [TournamentController::class, 'resetPhaseCut'])
+        ->name('tournaments.resetPhaseCut')
+        ->middleware('role:admin,captain');
+
+    // Available players for group creation
+    Route::get('tournaments/{tournament}/available-players', [GroupController::class, 'availablePlayers'])
+        ->name('tournaments.availablePlayers')
         ->middleware('role:admin,captain');
 
     // Nested tournament resources

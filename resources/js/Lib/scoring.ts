@@ -3,7 +3,7 @@ export interface PlayerData {
   name: string;
   handicap: number;
   category_id: string | null;
-  cut_status?: 'active' | 'cut';
+  cut_after_phase?: number | null;
   category?: {
     name: string;
     color: string;
@@ -27,6 +27,7 @@ export interface ScoreData {
   player_id: string;
   hole_id: string;
   strokes: number;
+  phase: number;
   synced: boolean;
 }
 
@@ -73,22 +74,43 @@ export function buildLeaderboard(
   holes: HoleData[],
   categoryId?: string,
   mode: "stroke" | "stableford" = "stroke",
-  categories?: CategoryData[]
+  categories?: CategoryData[],
+  phase?: number,
+  scoreAggregation?: 'cumulative' | 'separate'
 ): LeaderboardEntry[] {
   const holeMap = new Map(holes.map((h) => [h.id, h]));
   const categoryMap = new Map(
     (categories ?? []).map((c) => [c.id, c])
   );
+
+  // Filter scores by phase if specified
+  let filteredScores = scores;
+  if (phase !== undefined) {
+    if (scoreAggregation === 'separate') {
+      filteredScores = scores.filter((s) => s.phase === phase);
+    } else {
+      // cumulative: include scores from phase 1 up to the selected phase
+      filteredScores = scores.filter((s) => s.phase <= phase);
+    }
+  }
+
   const scoresByPlayer = new Map<string, ScoreData[]>();
-  for (const s of scores) {
+  for (const s of filteredScores) {
     const arr = scoresByPlayer.get(s.player_id) || [];
     arr.push(s);
     scoresByPlayer.set(s.player_id, arr);
   }
 
-  const filtered = categoryId
+  let filtered = categoryId
     ? players.filter((p) => p.category_id === categoryId)
     : players;
+
+  // Filter out players cut before this phase if phase is specified
+  if (phase !== undefined && phase > 1) {
+    filtered = filtered.filter(
+      (p) => p.cut_after_phase == null || p.cut_after_phase >= phase
+    );
+  }
 
   const entries: LeaderboardEntry[] = filtered.map((player) => {
     const playerScores = scoresByPlayer.get(player.id) || [];

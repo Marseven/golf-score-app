@@ -19,11 +19,41 @@ class GroupController extends Controller
         $validated = $request->validate([
             'tee_time' => 'required|string',
             'tee_date' => 'nullable|date',
+            'phase' => 'integer|min:1|max:4',
+            'category_id' => 'nullable|uuid|exists:categories,id',
             'marker_id' => 'nullable|uuid|exists:users,id',
             'marker_phone' => 'nullable|string|max:50',
             'player_ids' => 'nullable|array',
             'player_ids.*' => 'uuid|exists:players,id',
         ]);
+
+        $phase = $validated['phase'] ?? 1;
+        $categoryId = $validated['category_id'] ?? null;
+
+        // Validate player eligibility
+        if (! empty($validated['player_ids'])) {
+            $playersQuery = Player::where('tournament_id', $tournament->id)
+                ->whereIn('id', $validated['player_ids']);
+
+            // If category is set, validate all players belong to it
+            if ($categoryId) {
+                $wrongCategory = (clone $playersQuery)->where('category_id', '!=', $categoryId)->count();
+                if ($wrongCategory > 0) {
+                    return back()->withErrors(['player_ids' => 'Certains joueurs ne sont pas dans la catégorie sélectionnée.']);
+                }
+            }
+
+            // If phase > 1, validate players are not cut before this phase
+            if ($phase > 1) {
+                $cutPlayers = (clone $playersQuery)->where(function ($q) use ($phase) {
+                    $q->whereNotNull('cut_after_phase')
+                      ->where('cut_after_phase', '<', $phase);
+                })->count();
+                if ($cutPlayers > 0) {
+                    return back()->withErrors(['player_ids' => 'Certains joueurs ont été éliminés avant cette phase.']);
+                }
+            }
+        }
 
         $code = $this->generateUniqueGroupCode();
 
@@ -31,6 +61,8 @@ class GroupController extends Controller
             'code' => $code,
             'tee_time' => $validated['tee_time'],
             'tee_date' => $validated['tee_date'] ?? null,
+            'phase' => $phase,
+            'category_id' => $categoryId,
             'marker_phone' => $validated['marker_phone'] ?? null,
         ];
 
@@ -60,15 +92,22 @@ class GroupController extends Controller
         $validated = $request->validate([
             'tee_time' => 'required|string',
             'tee_date' => 'nullable|date',
+            'phase' => 'integer|min:1|max:4',
+            'category_id' => 'nullable|uuid|exists:categories,id',
             'marker_id' => 'nullable|uuid|exists:users,id',
             'marker_phone' => 'nullable|string|max:50',
             'player_ids' => 'nullable|array',
             'player_ids.*' => 'uuid|exists:players,id',
         ]);
 
+        $phase = $validated['phase'] ?? $group->phase;
+        $categoryId = $validated['category_id'] ?? null;
+
         $groupData = [
             'tee_time' => $validated['tee_time'],
             'tee_date' => $validated['tee_date'] ?? null,
+            'phase' => $phase,
+            'category_id' => $categoryId,
             'marker_phone' => $validated['marker_phone'] ?? null,
         ];
 
@@ -97,6 +136,25 @@ class GroupController extends Controller
         }
 
         return back()->with('success', 'Groupe mis à jour.');
+    }
+
+    public function availablePlayers(Tournament $tournament, Request $request)
+    {
+        $phase = (int) $request->input('phase', 1);
+        $categoryId = $request->input('category_id');
+
+        $query = $tournament->players()
+            ->whereNull('group_id')
+            ->where(function ($q) use ($phase) {
+                $q->whereNull('cut_after_phase')
+                  ->orWhere('cut_after_phase', '>=', $phase);
+            });
+
+        if ($categoryId) {
+            $query->where('category_id', $categoryId);
+        }
+
+        return response()->json($query->with('category')->get());
     }
 
     public function storeMarker(Request $request, Tournament $tournament)
