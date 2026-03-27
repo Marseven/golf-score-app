@@ -1055,15 +1055,13 @@ function GroupsTab({ tournament, groups, markers, players, categories }: { tourn
                                 </select>
                             </div>
                         )}
-                        {tournament.phase_count > 1 && (
-                            <div>
-                                <label className="text-xs text-muted-foreground block mb-1">Catégorie</label>
-                                <select value={form.data.category_id} onChange={(e) => form.setData('category_id', e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none appearance-none">
-                                    <option value="">— Aucune —</option>
-                                    {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
-                            </div>
-                        )}
+                        <div>
+                            <label className="text-xs text-muted-foreground block mb-1">Catégorie</label>
+                            <select value={form.data.category_id} onChange={(e) => { form.setData('category_id', e.target.value); form.setData('player_ids', []); }} className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none appearance-none">
+                                <option value="">— Toutes —</option>
+                                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                        </div>
                         <div>
                             <label className="text-xs text-muted-foreground block mb-1">Heure de depart</label>
                             <input type="time" value={form.data.tee_time} onChange={(e) => form.setData('tee_time', e.target.value)} className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
