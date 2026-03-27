@@ -4,7 +4,7 @@ import { Trophy, X, Pause, Play, Maximize, Minimize } from 'lucide-react';
 import { buildLeaderboard } from '@/Lib/scoring';
 import { categoryDotColors, categoryColors } from '@/Lib/category-colors';
 import { useRealtimeScores } from '@/Hooks/useRealtimeScores';
-import type { Tournament, Player, Score, Hole, Category, Cut } from '@/types';
+import type { Tournament, Player, Score, Hole, Category, Cut, CategoryPar } from '@/types';
 
 interface Props {
     tournament: Tournament | null;
@@ -13,6 +13,7 @@ interface Props {
     holes: Hole[];
     categories: Category[];
     cuts: Cut[];
+    categoryPars: CategoryPar[];
     logoUrl?: string | null;
     sponsorLogoUrl?: string | null;
 }
@@ -24,7 +25,7 @@ function PositionCell({ position }: { position: number }) {
     return <span className="w-10 h-10 rounded-xl bg-white/10 text-muted-foreground flex items-center justify-center text-lg font-bold">{position}</span>;
 }
 
-export default function TvScreen({ tournament, players, scores, holes, categories, cuts, logoUrl, sponsorLogoUrl }: Props) {
+export default function TvScreen({ tournament, players, scores, holes, categories, cuts, categoryPars, logoUrl, sponsorLogoUrl }: Props) {
     useRealtimeScores(tournament?.id);
     const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
     const [isPaused, setIsPaused] = useState(false);
@@ -69,7 +70,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
         category: p.category ?? categories.find((c) => c.id === p.category_id) ?? null,
     }));
 
-    const allEntries = buildLeaderboard(playersWithCategory, scores, holes, activeCategoryId ?? undefined, 'stroke', categories);
+    const allEntries = buildLeaderboard(playersWithCategory, scores, holes, activeCategoryId ?? undefined, 'stroke', categories, undefined, undefined, categoryPars);
     // Hide cut players completely on TV
     const leaderboard = allEntries.filter((entry) => entry.player.cut_after_phase == null).slice(0, 10);
 

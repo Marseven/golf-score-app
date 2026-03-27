@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { ArrowLeft, Settings, BarChart3, Trophy, Users, Target, MapPin, Save, Plus, Trash2, Pencil, X, Check, RefreshCw, Clock, Copy, UserPlus, Send, FileText, FileSpreadsheet, QrCode, Flag, Tag, UserCheck, CreditCard, LinkIcon, Download, Hash, Upload, Scissors } from 'lucide-react';
-import type { Tournament, Category, Player, Group, Hole, Score, Payment, Course, Cut, PageProps } from '@/types';
+import type { Tournament, Category, Player, Group, Hole, Score, Payment, Course, Cut, CategoryPar, PageProps } from '@/types';
 import { categoryColors, categoryDotColors } from '@/Lib/category-colors';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 
@@ -35,6 +35,7 @@ interface Props {
     registrations: Player[];
     payments: Payment[];
     markers: MarkerUser[];
+    categoryPars: CategoryPar[];
 }
 
 interface TabDef {
@@ -1251,7 +1252,7 @@ function GroupsTab({ tournament, groups, markers, players, categories }: { tourn
 }
 
 // --- Course Tab ---
-function CourseTab({ tournament, courses, holes, categories }: { tournament: Tournament; courses: Course[]; holes: Hole[]; categories: Category[] }) {
+function CourseTab({ tournament, courses, holes, categories, categoryPars }: { tournament: Tournament; courses: Course[]; holes: Hole[]; categories: Category[]; categoryPars: CategoryPar[] }) {
     const [activeCourseId, setActiveCourseId] = useState<string>(courses[0]?.id ?? '');
     const [importingHoles, setImportingHoles] = useState(false);
     const [showNewCourse, setShowNewCourse] = useState(false);
@@ -1468,6 +1469,136 @@ function CourseTab({ tournament, courses, holes, categories }: { tournament: Tou
                     </button>
                 </div>
             </form>
+
+            {/* Category-specific pars matrix */}
+            <CategoryParsMatrix
+                tournament={tournament}
+                holes={courseHoles}
+                categories={categories.filter(c => c.course_id === activeCourseId)}
+                categoryPars={categoryPars}
+            />
+        </div>
+    );
+}
+
+function CategoryParsMatrix({ tournament, holes, categories, categoryPars }: {
+    tournament: Tournament;
+    holes: Hole[];
+    categories: Category[];
+    categoryPars: CategoryPar[];
+}) {
+    const [parsData, setParsData] = useState<Record<string, number>>(() => {
+        const map: Record<string, number> = {};
+        for (const cp of categoryPars) {
+            map[`${cp.category_id}:${cp.hole_id}`] = cp.par;
+        }
+        return map;
+    });
+    const [saving, setSaving] = useState(false);
+
+    // Rebuild parsData when categoryPars prop changes
+    const prevCategoryParsRef = useRef(categoryPars);
+    if (prevCategoryParsRef.current !== categoryPars) {
+        prevCategoryParsRef.current = categoryPars;
+        const map: Record<string, number> = {};
+        for (const cp of categoryPars) {
+            map[`${cp.category_id}:${cp.hole_id}`] = cp.par;
+        }
+        setParsData(map);
+    }
+
+    if (categories.length === 0) {
+        return (
+            <div className="glass-card">
+                <p className="text-sm text-muted-foreground italic">Associez des catégories à ce parcours pour définir les pars par catégorie.</p>
+            </div>
+        );
+    }
+
+    const sortedHoles = [...holes].sort((a, b) => a.number - b.number);
+
+    const getPar = (catId: string, holeId: string, defaultPar: number) => {
+        const key = `${catId}:${holeId}`;
+        return parsData[key] ?? defaultPar;
+    };
+
+    const setPar = (catId: string, holeId: string, value: number) => {
+        setParsData(prev => ({ ...prev, [`${catId}:${holeId}`]: value }));
+    };
+
+    const handleSave = () => {
+        setSaving(true);
+        const payload: { category_id: string; hole_id: string; par: number }[] = [];
+        for (const cat of categories) {
+            for (const hole of sortedHoles) {
+                const par = getPar(cat.id, hole.id, hole.par);
+                payload.push({ category_id: cat.id, hole_id: hole.id, par });
+            }
+        }
+        router.put(route('holes.updateCategoryPars', tournament.id), { category_pars: payload }, {
+            preserveScroll: true,
+            onFinish: () => setSaving(false),
+        });
+    };
+
+    return (
+        <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-foreground">Par par catégorie</h3>
+            <div className="glass-card p-0 overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead>
+                            <tr className="border-b border-border">
+                                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Trou</th>
+                                <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Par défaut</th>
+                                {categories.map(cat => (
+                                    <th key={cat.id} className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">
+                                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${categoryColors[cat.name] ?? 'bg-surface-hover text-foreground'}`}>{cat.short_name}</span>
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                            {sortedHoles.map(hole => (
+                                <tr key={hole.id} className="hover:bg-surface transition-colors">
+                                    <td className="px-4 py-2">
+                                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold ${hole.number <= 9 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'}`}>{hole.number}</span>
+                                    </td>
+                                    <td className="px-4 py-2 text-center text-sm text-muted-foreground font-mono">{hole.par}</td>
+                                    {categories.map(cat => (
+                                        <td key={cat.id} className="px-4 py-2 text-center">
+                                            <input
+                                                type="number"
+                                                min={3}
+                                                max={5}
+                                                value={getPar(cat.id, hole.id, hole.par)}
+                                                onChange={e => setPar(cat.id, hole.id, Number(e.target.value))}
+                                                className="w-14 text-center bg-surface border border-border rounded-lg px-1 py-1 text-sm text-foreground focus:border-primary focus:outline-none"
+                                            />
+                                        </td>
+                                    ))}
+                                </tr>
+                            ))}
+                            {/* Totals row */}
+                            <tr className="bg-amber-500/10 border-t border-border">
+                                <td className="px-4 py-3 text-sm font-black text-foreground">TOTAL</td>
+                                <td className="px-4 py-3 text-center text-sm font-black text-foreground">{sortedHoles.reduce((s, h) => s + h.par, 0)}</td>
+                                {categories.map(cat => (
+                                    <td key={cat.id} className="px-4 py-3 text-center text-sm font-black text-foreground">
+                                        {sortedHoles.reduce((s, h) => s + getPar(cat.id, h.id, h.par), 0)}
+                                    </td>
+                                ))}
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div className="flex justify-end">
+                <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 shadow-lg shadow-primary/25 disabled:opacity-50">
+                    <Save className="w-4 h-4" />
+                    {saving ? 'Sauvegarde...' : 'Enregistrer les pars'}
+                </button>
+            </div>
         </div>
     );
 }
@@ -1668,7 +1799,7 @@ function FlashMessages() {
 }
 
 // --- Main Page ---
-export default function TournamentManage({ tournament, courses, categories, players, groups, holes, scores, cuts, registrations, payments, markers }: Props) {
+export default function TournamentManage({ tournament, courses, categories, players, groups, holes, scores, cuts, registrations, payments, markers, categoryPars }: Props) {
     const [activeTab, setActiveTab] = useState('dashboard');
     const { auth } = usePage<PageProps>().props;
     const roles = auth?.roles ?? [];
@@ -1706,7 +1837,7 @@ export default function TournamentManage({ tournament, courses, categories, play
             {activeTab === 'categories' && <CategoriesTab tournament={tournament} categories={categories} courses={courses} />}
             {activeTab === 'players' && <PlayersTab tournament={tournament} players={players} categories={categories} groups={groups} />}
             {activeTab === 'groups' && <GroupsTab tournament={tournament} groups={groups} markers={markers} players={players} categories={categories} />}
-            {activeTab === 'course' && <CourseTab tournament={tournament} courses={courses} holes={holes} categories={categories} />}
+            {activeTab === 'course' && <CourseTab tournament={tournament} courses={courses} holes={holes} categories={categories} categoryPars={categoryPars} />}
             {activeTab === 'registrations' && <RegistrationsTab tournament={tournament} registrations={registrations} />}
             {activeTab === 'payments' && <PaymentsTab tournament={tournament} payments={payments} />}
         </AppLayout>

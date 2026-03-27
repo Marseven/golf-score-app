@@ -5,7 +5,7 @@ import { Trophy, Download, Share2, FileText, Tv, Image, Loader2, ChevronDown } f
 import { buildLeaderboard } from '@/Lib/scoring';
 import { categoryColors } from '@/Lib/category-colors';
 import { useRealtimeScores } from '@/Hooks/useRealtimeScores';
-import type { Tournament, Player, Score, Hole, Category, Cut } from '@/types';
+import type { Tournament, Player, Score, Hole, Category, Cut, CategoryPar } from '@/types';
 
 interface Props {
     tournament: Tournament | null;
@@ -14,6 +14,7 @@ interface Props {
     holes: Hole[];
     categories: Category[];
     cuts: Cut[];
+    categoryPars: CategoryPar[];
 }
 
 type ScoringMode = 'stroke' | 'stableford';
@@ -25,7 +26,7 @@ function PositionBadge({ position }: { position: number }) {
     return <span className="w-8 h-8 rounded-lg bg-surface-hover text-muted-foreground flex items-center justify-center text-sm font-bold">{position}</span>;
 }
 
-export default function Classement({ tournament, players, scores, holes, categories, cuts }: Props) {
+export default function Classement({ tournament, players, scores, holes, categories, cuts, categoryPars }: Props) {
     const { auth } = usePage().props as any;
     const user = auth?.user;
     const { lastUpdate } = useRealtimeScores(tournament?.id);
@@ -49,14 +50,15 @@ export default function Classement({ tournament, players, scores, holes, categor
         scoringMode,
         categories,
         activePhase,
-        tournament?.score_aggregation
+        tournament?.score_aggregation,
+        categoryPars
     );
 
     const buildWhatsAppText = () => {
         if (!tournament) return '';
         const header = `🏆 ${tournament.name}${tournament.club ? ` - ${tournament.club}` : ''}`;
         const sections = categories.map((cat) => {
-            const catLeaderboard = buildLeaderboard(playersWithCategory, scores, holes, cat.id, 'stroke', categories);
+            const catLeaderboard = buildLeaderboard(playersWithCategory, scores, holes, cat.id, 'stroke', categories, undefined, undefined, categoryPars);
             const top3 = catLeaderboard.slice(0, 3).map((entry, i) => {
                 const sign = entry.strokeToPar > 0 ? '+' : '';
                 const score = entry.strokeToPar === 0 ? 'E' : `${sign}${entry.strokeToPar}`;

@@ -76,12 +76,29 @@ export function buildLeaderboard(
   mode: "stroke" | "stableford" = "stroke",
   categories?: CategoryData[],
   phase?: number,
-  scoreAggregation?: 'cumulative' | 'separate'
+  scoreAggregation?: 'cumulative' | 'separate',
+  categoryPars?: { category_id: string; hole_id: string; par: number }[]
 ): LeaderboardEntry[] {
   const holeMap = new Map(holes.map((h) => [h.id, h]));
   const categoryMap = new Map(
     (categories ?? []).map((c) => [c.id, c])
   );
+
+  // Build category-specific par lookup
+  const catParMap = new Map<string, number>();
+  if (categoryPars) {
+    for (const cp of categoryPars) {
+      catParMap.set(`${cp.category_id}:${cp.hole_id}`, cp.par);
+    }
+  }
+  const getEffectivePar = (holeId: string, holePar: number, playerCategoryId: string | null): number => {
+    if (playerCategoryId) {
+      const key = `${playerCategoryId}:${holeId}`;
+      const catPar = catParMap.get(key);
+      if (catPar !== undefined) return catPar;
+    }
+    return holePar;
+  };
 
   // Filter scores by phase if specified
   let filteredScores = scores;
@@ -129,12 +146,13 @@ export function buildLeaderboard(
     for (const s of playerScores) {
       const hole = holeMap.get(s.hole_id);
       if (!hole) continue;
+      const effectivePar = getEffectivePar(s.hole_id, hole.par, player.category_id);
       totalStrokes += s.strokes;
-      totalPar += hole.par;
-      stablefordPoints += calculateStablefordPoints(s.strokes, hole.par);
+      totalPar += effectivePar;
+      stablefordPoints += calculateStablefordPoints(s.strokes, effectivePar);
       netStablefordPoints += calculateNetStablefordPoints(
         s.strokes,
-        hole.par,
+        effectivePar,
         hole.hole_index,
         playingHandicap
       );

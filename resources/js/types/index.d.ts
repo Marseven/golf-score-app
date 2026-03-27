@@ -151,6 +151,12 @@ export interface Member {
     updated_at: string;
 }
 
+export interface CategoryPar {
+    category_id: string;
+    hole_id: string;
+    par: number;
+}
+
 export interface Payment {
     id: string;
     player_id: string;

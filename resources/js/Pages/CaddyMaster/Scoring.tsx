@@ -3,7 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight, Wifi, WifiOff, Minus, Plus, LogOut, ArrowLeft, RefreshCw, AlertTriangle, CheckCircle2, Shield } from 'lucide-react';
 import { categoryDotColors } from '@/Lib/category-colors';
 import { useOfflineScores } from '@/Hooks/useOfflineScores';
-import type { Player, Hole, Group, Score } from '@/types';
+import type { Player, Hole, Group, Score, CategoryPar } from '@/types';
 
 interface Props {
     group: Group;
@@ -12,6 +12,7 @@ interface Props {
     holes: Hole[];
     existingScores: Record<string, Score[]>;
     tournamentId: string;
+    categoryPars: CategoryPar[];
 }
 
 function getScoreLabel(score: number, par: number) {
@@ -54,12 +55,25 @@ function PlayerScoreCard({ player, score, par, onIncrement, onDecrement, disable
     );
 }
 
-export default function CaddyMasterScoring({ group, groupCode, players, holes, existingScores, tournamentId }: Props) {
+export default function CaddyMasterScoring({ group, groupCode, players, holes, existingScores, tournamentId, categoryPars }: Props) {
     const [currentHole, setCurrentHole] = useState(0);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [confirmedName, setConfirmedName] = useState('');
     const [confirming, setConfirming] = useState(false);
     const isConfirmed = !!group.scores_confirmed_at;
+
+    // Build category par lookup
+    const catParMap = new Map<string, number>();
+    for (const cp of categoryPars) {
+        catParMap.set(`${cp.category_id}:${cp.hole_id}`, cp.par);
+    }
+    const getParForPlayer = (hole: Hole, player: Player) => {
+        if (player.category_id) {
+            const catPar = catParMap.get(`${player.category_id}:${hole.id}`);
+            if (catPar !== undefined) return catPar;
+        }
+        return hole.par;
+    };
 
     const {
         scores,
@@ -78,6 +92,7 @@ export default function CaddyMasterScoring({ group, groupCode, players, holes, e
         existingScores,
         saveUrl: route('caddie-master.save', group.id),
         csrfRefreshUrl: route('caddie-master.login'),
+        categoryPars,
     });
 
     const hole = holes[currentHole];
@@ -177,7 +192,7 @@ export default function CaddyMasterScoring({ group, groupCode, players, holes, e
                             <ChevronRight className="w-5 h-5 text-white" />
                         </button>
                     </div>
-                    <p className="text-center text-sm text-white/80">Par {hole.par} &bull; {hole.distance}m</p>
+                    <p className="text-center text-sm text-white/80">Par {group.category_id ? (catParMap.get(`${group.category_id}:${hole.id}`) ?? hole.par) : hole.par} &bull; {hole.distance}m</p>
                     <div className="flex items-center justify-center gap-1.5 mt-4">
                         {holes.map((_, i) => (
                             <div key={i} className={`w-2.5 h-2.5 rounded-full transition-colors ${i === currentHole ? 'bg-white' : i < currentHole ? 'bg-white/40' : 'bg-white/15'}`} />
@@ -192,7 +207,7 @@ export default function CaddyMasterScoring({ group, groupCode, players, holes, e
                             key={player.id}
                             player={player}
                             score={scores[idx][currentHole]}
-                            par={hole.par}
+                            par={getParForPlayer(hole, player)}
                             onIncrement={() => updateScore(idx, currentHole, 1)}
                             onDecrement={() => updateScore(idx, currentHole, -1)}
                             disabled={isConfirmed}
@@ -228,7 +243,7 @@ export default function CaddyMasterScoring({ group, groupCode, players, holes, e
                             <div className="px-6 py-4 max-h-60 overflow-y-auto space-y-2">
                                 {players.map((player, pIdx) => {
                                     const total = scores[pIdx].reduce((sum: number, s: number) => sum + s, 0);
-                                    const totalPar = holes.reduce((sum, h) => sum + h.par, 0);
+                                    const totalPar = holes.reduce((sum, h) => sum + getParForPlayer(h, player), 0);
                                     const diff = total - totalPar;
                                     const diffStr = diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`;
                                     return (

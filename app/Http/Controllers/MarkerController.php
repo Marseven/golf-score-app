@@ -6,6 +6,7 @@ use App\Events\ScoreUpdated;
 use App\Models\Group;
 use App\Models\Score;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class MarkerController extends Controller
@@ -56,6 +57,10 @@ class MarkerController extends Controller
             ->get()
             ->groupBy('player_id');
 
+        $categoryPars = DB::table('category_hole')
+            ->whereIn('hole_id', $holes->pluck('id'))
+            ->get(['category_id', 'hole_id', 'par']);
+
         return Inertia::render('Marqueur/Scoring', [
             'group' => $group,
             'groupCode' => $group->code,
@@ -63,6 +68,7 @@ class MarkerController extends Controller
             'holes' => $holes,
             'existingScores' => $scores,
             'tournamentId' => $group->tournament_id,
+            'categoryPars' => $categoryPars,
         ]);
     }
 

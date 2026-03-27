@@ -21,6 +21,18 @@
         <p class="subtitle" style="font-weight: bold; color: #333;">Catégorie : {{ $categoryName }}</p>
     @endif
 
+    @php
+        $catParsMap = collect($categoryPars ?? [])->keyBy(fn($r) => $r->category_id . ':' . $r->hole_id);
+        $getParForScore = function($score, $categoryId) use ($catParsMap) {
+            if ($categoryId) {
+                $key = $categoryId . ':' . $score->hole_id;
+                $catPar = $catParsMap->get($key);
+                if ($catPar) return $catPar->par;
+            }
+            return optional($score->hole)->par ?? 0;
+        };
+    @endphp
+
     <table>
         <thead>
             <tr>
@@ -36,13 +48,14 @@
         </thead>
         <tbody>
             @php $position = 0; @endphp
-            @foreach ($players->sortBy(fn($p) => $p->scores->sum('strokes') - $p->scores->sum(fn($s) => optional($s->hole)->par ?? 0)) as $player)
+            @foreach ($players->sortBy(fn($p) => $p->scores->sum('strokes') - $p->scores->sum(fn($s) => $getParForScore($s, $p->category_id))) as $player)
                 @php
                     $position++;
+                    $categoryId = $player->category_id;
                     $totalStrokes = $player->scores->sum('strokes');
-                    $totalPar = $player->scores->sum(fn($s) => optional($s->hole)->par ?? 0);
+                    $totalPar = $player->scores->sum(fn($s) => $getParForScore($s, $categoryId));
                     $strokeToPar = $totalStrokes - $totalPar;
-                    $stableford = $player->scores->sum(fn($s) => max(0, (optional($s->hole)->par ?? 0) - $s->strokes + 2));
+                    $stableford = $player->scores->sum(fn($s) => max(0, $getParForScore($s, $categoryId) - $s->strokes + 2));
                 @endphp
                 <tr>
                     <td>{{ $position }}</td>

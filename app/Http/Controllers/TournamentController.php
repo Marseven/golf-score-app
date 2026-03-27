@@ -7,6 +7,7 @@ use App\Models\Player;
 use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class TournamentController extends Controller
@@ -51,6 +52,10 @@ class TournamentController extends Controller
             ->where(fn ($q2) => $q2->whereNull('tournament_id')->orWhere('tournament_id', $tournament->id))
         )->orderBy('name')->get(['id', 'name', 'email']);
 
+        $categoryPars = DB::table('category_hole')
+            ->whereIn('hole_id', $tournament->holes()->pluck('holes.id'))
+            ->get(['category_id', 'hole_id', 'par']);
+
         return Inertia::render('Admin/Tournaments/Manage', [
             'tournament' => $tournament,
             'courses' => $tournament->courses,
@@ -63,6 +68,7 @@ class TournamentController extends Controller
             'registrations' => $registrations,
             'payments' => $payments,
             'markers' => $markers,
+            'categoryPars' => $categoryPars,
         ]);
     }
 
@@ -205,6 +211,11 @@ class TournamentController extends Controller
 
         $afterPhase = $validated['after_phase'];
 
+        $catPars = DB::table('category_hole')
+            ->whereIn('hole_id', $tournament->holes()->pluck('holes.id'))
+            ->get()
+            ->keyBy(fn ($r) => $r->category_id.':'.$r->hole_id);
+
         foreach ($validated['cuts'] as $cutData) {
             $categoryId = $cutData['category_id'];
             $qualifiedCount = $cutData['qualified_count'];
@@ -225,9 +236,13 @@ class TournamentController extends Controller
                 })
                 ->get();
 
-            $ranked = $players->sortBy(function ($player) {
+            $ranked = $players->sortBy(function ($player) use ($catPars, $categoryId) {
                 $totalStrokes = $player->scores->sum('strokes');
-                $totalPar = $player->scores->sum(fn ($s) => $s->hole->par ?? 0);
+                $totalPar = $player->scores->sum(function ($s) use ($catPars, $categoryId) {
+                    $key = $categoryId.':'.$s->hole_id;
+
+                    return isset($catPars[$key]) ? $catPars[$key]->par : ($s->hole->par ?? 0);
+                });
 
                 return $totalStrokes - $totalPar;
             })->values();

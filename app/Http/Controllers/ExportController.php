@@ -6,6 +6,7 @@ use App\Exports\LeaderboardExport;
 use App\Models\Tournament;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ExportController extends Controller
@@ -26,6 +27,10 @@ class ExportController extends Controller
             ? $tournament->categories->firstWhere('id', $categoryId)?->name
             : null;
 
+        $categoryPars = DB::table('category_hole')
+            ->whereIn('hole_id', $tournament->holes()->pluck('holes.id'))
+            ->get(['category_id', 'hole_id', 'par']);
+
         $pdf = Pdf::loadView('exports.leaderboard', [
             'tournament' => $tournament,
             'players' => $players,
@@ -33,6 +38,7 @@ class ExportController extends Controller
             'holes' => $tournament->holes,
             'categories' => $tournament->categories,
             'categoryName' => $categoryName,
+            'categoryPars' => $categoryPars,
         ]);
 
         $suffix = $categoryName ? "-{$categoryName}" : '';
@@ -44,8 +50,12 @@ class ExportController extends Controller
     {
         $categoryId = $request->query('category_id');
 
+        $categoryPars = DB::table('category_hole')
+            ->whereIn('hole_id', $tournament->holes()->pluck('holes.id'))
+            ->get(['category_id', 'hole_id', 'par']);
+
         return Excel::download(
-            new LeaderboardExport($tournament, $categoryId),
+            new LeaderboardExport($tournament, $categoryId, $categoryPars),
             "classement-{$tournament->name}.xlsx"
         );
     }

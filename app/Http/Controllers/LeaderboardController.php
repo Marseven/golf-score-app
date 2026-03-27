@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Setting;
 use App\Models\Tournament;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
@@ -38,8 +39,13 @@ class LeaderboardController extends Controller
                 'holes' => [],
                 'categories' => [],
                 'cuts' => [],
+                'categoryPars' => [],
             ]);
         }
+
+        $categoryPars = DB::table('category_hole')
+            ->whereIn('hole_id', $tournament->holes()->pluck('holes.id'))
+            ->get(['category_id', 'hole_id', 'par']);
 
         return Inertia::render('Classement', [
             'tournament' => $tournament,
@@ -48,6 +54,7 @@ class LeaderboardController extends Controller
             'holes' => $tournament->holes()->orderBy('number')->get(),
             'categories' => $tournament->categories,
             'cuts' => $tournament->cuts()->with('category')->get(),
+            'categoryPars' => $categoryPars,
         ]);
     }
 
@@ -68,10 +75,15 @@ class LeaderboardController extends Controller
                 'holes' => [],
                 'categories' => [],
                 'cuts' => [],
+                'categoryPars' => [],
                 'logoUrl' => $logoUrl,
                 'sponsorLogoUrl' => $sponsorLogoUrl,
             ]);
         }
+
+        $categoryPars = DB::table('category_hole')
+            ->whereIn('hole_id', $tournament->holes()->pluck('holes.id'))
+            ->get(['category_id', 'hole_id', 'par']);
 
         return Inertia::render('TvScreen', [
             'tournament' => $tournament,
@@ -80,6 +92,7 @@ class LeaderboardController extends Controller
             'holes' => $tournament->holes()->orderBy('number')->get(),
             'categories' => $tournament->categories,
             'cuts' => $tournament->cuts()->with('category')->get(),
+            'categoryPars' => $categoryPars,
             'logoUrl' => $logoUrl,
             'sponsorLogoUrl' => $sponsorLogoUrl,
         ]);

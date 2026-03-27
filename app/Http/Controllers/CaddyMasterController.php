@@ -7,6 +7,7 @@ use App\Models\Group;
 use App\Models\Score;
 use App\Models\Tournament;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class CaddyMasterController extends Controller
@@ -77,6 +78,10 @@ class CaddyMasterController extends Controller
             ->get()
             ->groupBy('player_id');
 
+        $categoryPars = DB::table('category_hole')
+            ->whereIn('hole_id', $holes->pluck('id'))
+            ->get(['category_id', 'hole_id', 'par']);
+
         return Inertia::render('CaddyMaster/Scoring', [
             'group' => $group,
             'groupCode' => $group->code,
@@ -84,6 +89,7 @@ class CaddyMasterController extends Controller
             'holes' => $holes,
             'existingScores' => $scores,
             'tournamentId' => $group->tournament_id,
+            'categoryPars' => $categoryPars,
         ]);
     }
 

@@ -5,7 +5,7 @@ import {
     deletePendingScores,
     getPendingCount,
 } from '@/Lib/offline-store';
-import type { Player, Hole, Score } from '@/types';
+import type { Player, Hole, Score, CategoryPar } from '@/types';
 
 type SyncStatus = 'idle' | 'syncing' | 'error';
 
@@ -17,6 +17,7 @@ interface UseOfflineScoresOptions {
     existingScores: Record<string, Score[]>;
     saveUrl: string;
     csrfRefreshUrl: string;
+    categoryPars?: CategoryPar[];
 }
 
 function getCsrfToken(): string {
@@ -24,14 +25,28 @@ function getCsrfToken(): string {
     return match ? decodeURIComponent(match[1]) : '';
 }
 
-export function useOfflineScores({ groupId, phase, players, holes, existingScores, saveUrl, csrfRefreshUrl }: UseOfflineScoresOptions) {
+export function useOfflineScores({ groupId, phase, players, holes, existingScores, saveUrl, csrfRefreshUrl, categoryPars }: UseOfflineScoresOptions) {
+    // Build category par lookup for default scores
+    const catParMap = new Map<string, number>();
+    if (categoryPars) {
+        for (const cp of categoryPars) {
+            catParMap.set(`${cp.category_id}:${cp.hole_id}`, cp.par);
+        }
+    }
+
     // Build initial scores grid from server data
     const buildInitialScores = useCallback((): number[][] => {
         return players.map((player) => {
             const playerScores = existingScores[player.id] || [];
             return holes.map((hole) => {
                 const existing = playerScores.find((s) => s.hole_id === hole.id);
-                return existing ? existing.strokes : hole.par;
+                if (existing) return existing.strokes;
+                // Use category-specific par as default if available
+                if (player.category_id) {
+                    const catPar = catParMap.get(`${player.category_id}:${hole.id}`);
+                    if (catPar !== undefined) return catPar;
+                }
+                return hole.par;
             });
         });
     }, [players, holes, existingScores]);

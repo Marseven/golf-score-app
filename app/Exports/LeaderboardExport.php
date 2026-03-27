@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\Tournament;
+use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
@@ -11,10 +12,31 @@ class LeaderboardExport implements FromCollection, WithHeadings, WithMapping
 {
     private int $position = 0;
 
+    private Collection $catPars;
+
     public function __construct(
         protected Tournament $tournament,
         protected ?string $categoryId = null,
-    ) {}
+        ?Collection $categoryPars = null,
+    ) {
+        $this->catPars = collect();
+        if ($categoryPars) {
+            $this->catPars = $categoryPars->keyBy(fn ($r) => $r->category_id.':'.$r->hole_id);
+        }
+    }
+
+    private function getParForScore($score, ?string $categoryId): int
+    {
+        if ($categoryId) {
+            $key = $categoryId.':'.$score->hole_id;
+            $catPar = $this->catPars->get($key);
+            if ($catPar) {
+                return $catPar->par;
+            }
+        }
+
+        return $score->hole->par ?? 0;
+    }
 
     public function collection()
     {
@@ -24,10 +46,12 @@ class LeaderboardExport implements FromCollection, WithHeadings, WithMapping
             $query->where('category_id', $this->categoryId);
         }
 
+        $catPars = $this->catPars;
+
         return $query->get()
-            ->sortBy(function ($player) {
+            ->sortBy(function ($player) use ($catPars) {
                 $totalStrokes = $player->scores->sum('strokes');
-                $totalPar = $player->scores->sum(fn ($s) => $s->hole->par ?? 0);
+                $totalPar = $player->scores->sum(fn ($s) => $this->getParForScore($s, $player->category_id));
 
                 return $totalStrokes - $totalPar;
             })->values();
@@ -41,9 +65,10 @@ class LeaderboardExport implements FromCollection, WithHeadings, WithMapping
     public function map($player): array
     {
         $scores = $player->scores;
+        $categoryId = $player->category_id;
         $totalStrokes = $scores->sum('strokes');
-        $totalPar = $scores->sum(fn ($s) => $s->hole->par ?? 0);
-        $stableford = $scores->sum(fn ($s) => max(0, ($s->hole->par ?? 0) - $s->strokes + 2));
+        $totalPar = $scores->sum(fn ($s) => $this->getParForScore($s, $categoryId));
+        $stableford = $scores->sum(fn ($s) => max(0, $this->getParForScore($s, $categoryId) - $s->strokes + 2));
 
         $this->position++;
 
