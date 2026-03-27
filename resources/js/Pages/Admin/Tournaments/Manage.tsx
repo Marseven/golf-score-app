@@ -4,7 +4,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { ArrowLeft, Settings, BarChart3, Trophy, Users, Target, MapPin, Save, Plus, Trash2, Pencil, X, Check, RefreshCw, Clock, Copy, UserPlus, Send, FileText, FileSpreadsheet, QrCode, Flag, Tag, UserCheck, CreditCard, LinkIcon, Download, Hash, Upload, Scissors } from 'lucide-react';
 import type { Tournament, Category, Player, Group, Hole, Score, Payment, Course, PageProps } from '@/types';
 import { categoryColors, categoryDotColors } from '@/Lib/category-colors';
-import { QRCodeSVG } from 'qrcode.react';
+import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 
 function downloadCsvTemplate(filename: string, headers: string[], sampleRows: string[][]) {
     const csv = [headers.join(','), ...sampleRows.map((r) => r.join(','))].join('\n');
@@ -56,6 +56,8 @@ const allTabs: TabDef[] = [
 
 // --- Dashboard Tab ---
 function DashboardTab({ tournament, players, groups, scores }: { tournament: Tournament; players: Player[]; groups: Group[]; scores: Score[] }) {
+    const [showQRModal, setShowQRModal] = useState(false);
+    const qrCanvasRef = useRef<HTMLCanvasElement>(null);
     const syncedCount = scores.filter((s) => s.synced).length;
     const totalHoles = players.length * 18;
     const progress = totalHoles > 0 ? Math.round((scores.length / totalHoles) * 100) : 0;
@@ -81,6 +83,9 @@ function DashboardTab({ tournament, players, groups, scores }: { tournament: Tou
                 window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                 break;
             }
+            case 'QR Codes':
+                setShowQRModal(true);
+                break;
         }
     };
 
@@ -90,6 +95,50 @@ function DashboardTab({ tournament, players, groups, scores }: { tournament: Tou
         { label: 'Export Excel', desc: 'Données complètes', icon: FileSpreadsheet, color: 'text-green-400' },
         { label: 'QR Codes', desc: 'Accès public', icon: QrCode, color: 'text-blue-400' },
     ];
+
+    const classementUrl = route('classement', tournament.id);
+
+    const downloadClassementQR = () => {
+        const canvas = qrCanvasRef.current;
+        if (!canvas) return;
+
+        const qrSize = 256;
+        const padding = 40;
+        const width = qrSize + padding * 2;
+        const headerHeight = 80;
+        const footerHeight = 40;
+        const height = headerHeight + qrSize + footerHeight + padding;
+
+        const outCanvas = document.createElement('canvas');
+        outCanvas.width = width;
+        outCanvas.height = height;
+        const ctx = outCanvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.fillStyle = '#111111';
+        ctx.font = 'bold 20px Arial, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(tournament.name, width / 2, padding + 25);
+
+        ctx.fillStyle = '#666666';
+        ctx.font = '13px Arial, sans-serif';
+        ctx.fillText('Classement en ligne', width / 2, padding + 50);
+
+        ctx.drawImage(canvas, padding, headerHeight, qrSize, qrSize);
+
+        ctx.fillStyle = '#999999';
+        ctx.font = '9px Arial, sans-serif';
+        const displayUrl = classementUrl.length > 60 ? classementUrl.substring(0, 57) + '...' : classementUrl;
+        ctx.fillText(displayUrl, width / 2, headerHeight + qrSize + 20);
+
+        const link = document.createElement('a');
+        link.download = `qr-classement-${tournament.name.replace(/\s+/g, '-').toLowerCase()}.png`;
+        link.href = outCanvas.toDataURL('image/png');
+        link.click();
+    };
 
     return (
         <div className="space-y-6">
@@ -118,6 +167,46 @@ function DashboardTab({ tournament, players, groups, scores }: { tournament: Tou
                     ))}
                 </div>
             </div>
+
+            {/* QR Code Modal */}
+            {showQRModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/50" onClick={() => setShowQRModal(false)} />
+                    <div className="relative w-full max-w-sm mx-4 bg-sidebar border border-border rounded-2xl shadow-xl">
+                        <div className="flex items-center justify-between p-5 border-b border-border">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                                    <QrCode className="w-4.5 h-4.5 text-blue-500 dark:text-blue-400" />
+                                </div>
+                                <h2 className="text-lg font-semibold text-foreground">QR Code Classement</h2>
+                            </div>
+                            <button onClick={() => setShowQRModal(false)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface transition-colors">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-6 flex flex-col items-center gap-4">
+                            <div className="bg-white p-4 rounded-xl">
+                                <QRCodeCanvas
+                                    ref={qrCanvasRef}
+                                    value={classementUrl}
+                                    size={200}
+                                    level="M"
+                                    bgColor="#ffffff"
+                                    fgColor="#000000"
+                                />
+                            </div>
+                            <p className="text-[10px] text-muted-foreground font-mono break-all text-center max-w-[260px]">{classementUrl}</p>
+                            <button
+                                onClick={downloadClassementQR}
+                                className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 shadow-lg shadow-primary/25 transition-colors"
+                            >
+                                <Download className="w-4 h-4" />
+                                Télécharger PNG
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
