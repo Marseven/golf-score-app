@@ -13,7 +13,7 @@ class TotalEnergiesSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Clean all existing data
+        // 1. Clean tournament-related data (preserve users & roles)
         DB::table('scores')->delete();
         DB::table('payments')->delete();
         DB::table('players')->delete();
@@ -28,10 +28,9 @@ class TotalEnergiesSeeder extends Seeder
         DB::table('categories')->delete();
         DB::table('holes')->delete();
         DB::table('courses')->delete();
-        DB::table('user_roles')->delete();
         DB::table('tournaments')->delete();
 
-        // 2. Create tournament
+        // 2. Create tournament (idempotent)
         $tournament = Tournament::create([
             'name' => 'TOTAL ÉNERGIES',
             'start_date' => '2026-03-28',
