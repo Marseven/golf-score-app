@@ -9,9 +9,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('scores', function (Blueprint $table) {
-            $table->unsignedTinyInteger('phase')->default(1)->after('strokes');
-        });
+        if (! Schema::hasColumn('scores', 'phase')) {
+            Schema::table('scores', function (Blueprint $table) {
+                $table->unsignedTinyInteger('phase')->default(1)->after('strokes');
+            });
+        }
 
         $driver = DB::connection()->getDriverName();
 
