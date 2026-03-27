@@ -286,7 +286,7 @@ function TournamentTab({ tournament, players, categories, cuts }: { tournament: 
                         onClick={() => form.setData('registration_open', !form.data.registration_open)}
                         className={`relative shrink-0 w-12 h-7 rounded-full transition-colors ${form.data.registration_open ? 'bg-primary' : 'bg-surface-hover border border-border'}`}
                     >
-                        <span className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${form.data.registration_open ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                        <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${form.data.registration_open ? 'translate-x-[18px]' : 'translate-x-0'}`} />
                     </button>
                 </div>
             </div>
