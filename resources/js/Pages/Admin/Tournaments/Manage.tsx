@@ -268,7 +268,7 @@ function TournamentTab({ tournament, players, categories, cuts }: { tournament: 
     return (
         <form onSubmit={handleSave} className="space-y-6">
             {/* Registration toggle banner */}
-            <div className={`glass-card !overflow-visible ${form.data.registration_open ? 'border-emerald-500/20' : 'border-amber-500/20'}`}>
+            <div className={`rounded-2xl p-4 sm:p-6 border ${form.data.registration_open ? 'border-emerald-500/20' : 'border-amber-500/20'}`} style={{ background: 'hsl(var(--glass-bg))' }}>
                 <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${form.data.registration_open ? 'bg-emerald-500/20' : 'bg-amber-500/20'}`}>
                         <UserPlus className={`w-5 h-5 ${form.data.registration_open ? 'text-emerald-400' : 'text-amber-400'}`} />
