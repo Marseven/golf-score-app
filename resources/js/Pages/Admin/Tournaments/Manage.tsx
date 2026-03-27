@@ -1,9 +1,10 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { ArrowLeft, Settings, BarChart3, Trophy, Users, Target, MapPin, Save, Plus, Trash2, Pencil, X, Check, RefreshCw, Clock, Copy, UserPlus, Send, FileText, FileSpreadsheet, QrCode, Flag, Tag, UserCheck, CreditCard, LinkIcon, Download, Hash, Upload, Scissors } from 'lucide-react';
 import type { Tournament, Category, Player, Group, Hole, Score, Payment, Course, Cut, CategoryPar, PageProps } from '@/types';
 import { categoryColors, categoryDotColors } from '@/Lib/category-colors';
+import DataTable from '@/Components/DataTable';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 
 function downloadCsvTemplate(filename: string, headers: string[], sampleRows: string[][]) {
@@ -794,41 +795,49 @@ function PlayersTab({ tournament, players, categories, groups }: { tournament: T
                 </button>
             </div>
             {formUI}
-            <div className="glass-card p-0 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b border-border">
-                                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Joueur</th>
-                                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Catégorie</th>
-                                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">HC</th>
-                                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Groupe</th>
-                                <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {players.map((player) => (
-                                <tr key={player.id} className="hover:bg-surface transition-colors">
-                                    <td className="px-6 py-4"><span className="text-sm font-medium text-foreground">{player.name}</span></td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-3 py-1 rounded-lg text-xs font-medium ${categoryColors[player.category?.name ?? ''] ?? 'bg-surface-hover text-foreground'}`}>
-                                            {player.category?.name ?? '—'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4"><span className="text-sm text-foreground">{player.handicap}</span></td>
-                                    <td className="px-6 py-4"><span className="px-2 py-1 rounded-md bg-surface-hover text-xs font-mono text-foreground">{player.group?.code ?? '—'}</span></td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center justify-end gap-1">
-                                            <button onClick={() => startEdit(player)} className="p-2 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-foreground transition-colors"><Pencil className="w-4 h-4" /></button>
-                                            <button onClick={() => handleDelete(player.id, player.name)} className="p-2 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-4 h-4" /></button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <DataTable data={players} searchKeys={['name']} searchPlaceholder="Rechercher un joueur...">
+                {(paginatedPlayers) => (
+                    <div className="glass-card p-0 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="border-b border-border">
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Joueur</th>
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Catégorie</th>
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">HC</th>
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Groupe</th>
+                                        <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {paginatedPlayers.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={5} className="px-6 py-8 text-center text-sm text-muted-foreground italic">Aucun résultat</td>
+                                        </tr>
+                                    ) : paginatedPlayers.map((player) => (
+                                        <tr key={player.id} className="hover:bg-surface transition-colors">
+                                            <td className="px-6 py-4"><span className="text-sm font-medium text-foreground">{player.name}</span></td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-3 py-1 rounded-lg text-xs font-medium ${categoryColors[player.category?.name ?? ''] ?? 'bg-surface-hover text-foreground'}`}>
+                                                    {player.category?.name ?? '—'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4"><span className="text-sm text-foreground">{player.handicap}</span></td>
+                                            <td className="px-6 py-4"><span className="px-2 py-1 rounded-md bg-surface-hover text-xs font-mono text-foreground">{player.group?.code ?? '—'}</span></td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button onClick={() => startEdit(player)} className="p-2 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-foreground transition-colors"><Pencil className="w-4 h-4" /></button>
+                                                    <button onClick={() => handleDelete(player.id, player.name)} className="p-2 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+            </DataTable>
         </div>
     );
 }
@@ -1638,63 +1647,67 @@ function RegistrationsTab({ tournament, registrations }: { tournament: Tournamen
                     </button>
                 </div>
             )}
-            <div className="glass-card p-0 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b border-border">
-                                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Joueur</th>
-                                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Email</th>
-                                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Catégorie</th>
-                                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">HC</th>
-                                <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Statut</th>
-                                <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {registrations.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-8 text-center text-sm text-muted-foreground italic">Aucune inscription</td>
-                                </tr>
-                            ) : registrations.map((player) => (
-                                <tr key={player.id} className="hover:bg-surface transition-colors">
-                                    <td className="px-6 py-4"><span className="text-sm font-medium text-foreground">{player.name}</span></td>
-                                    <td className="px-6 py-4"><span className="text-sm text-muted-foreground">{player.email ?? '—'}</span></td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-3 py-1 rounded-lg text-xs font-medium ${categoryColors[player.category?.name ?? ''] ?? 'bg-surface-hover text-foreground'}`}>
-                                            {player.category?.name ?? '—'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4"><span className="text-sm text-foreground">{player.handicap}</span></td>
-                                    <td className="px-6 py-4 text-center">
-                                        <span className={`px-3 py-1 rounded-lg text-xs font-medium ${statusBadge[player.registration_status]}`}>
-                                            {statusLabel[player.registration_status]}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-right">
-                                        {player.registration_status === 'pending' && (
-                                            <div className="flex items-center justify-end gap-1">
-                                                <button
-                                                    onClick={() => handleStatusChange(player.id, 'approved')}
-                                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-xs font-medium transition-colors"
-                                                >
-                                                    <Check className="w-3 h-3" />Approuver
-                                                </button>
-                                                <button
-                                                    onClick={() => handleStatusChange(player.id, 'rejected')}
-                                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs font-medium transition-colors"
-                                                >
-                                                    <X className="w-3 h-3" />Refuser
-                                                </button>
-                                            </div>
-                                        )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <DataTable data={registrations} searchKeys={['name', 'email']} searchPlaceholder="Rechercher une inscription...">
+                {(paginatedRegistrations) => (
+                    <div className="glass-card p-0 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="border-b border-border">
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Joueur</th>
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Email</th>
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Catégorie</th>
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">HC</th>
+                                        <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Statut</th>
+                                        <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {paginatedRegistrations.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-8 text-center text-sm text-muted-foreground italic">Aucun résultat</td>
+                                        </tr>
+                                    ) : paginatedRegistrations.map((player) => (
+                                        <tr key={player.id} className="hover:bg-surface transition-colors">
+                                            <td className="px-6 py-4"><span className="text-sm font-medium text-foreground">{player.name}</span></td>
+                                            <td className="px-6 py-4"><span className="text-sm text-muted-foreground">{player.email ?? '—'}</span></td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-3 py-1 rounded-lg text-xs font-medium ${categoryColors[player.category?.name ?? ''] ?? 'bg-surface-hover text-foreground'}`}>
+                                                    {player.category?.name ?? '—'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4"><span className="text-sm text-foreground">{player.handicap}</span></td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`px-3 py-1 rounded-lg text-xs font-medium ${statusBadge[player.registration_status]}`}>
+                                                    {statusLabel[player.registration_status]}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                {player.registration_status === 'pending' && (
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <button
+                                                            onClick={() => handleStatusChange(player.id, 'approved')}
+                                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-xs font-medium transition-colors"
+                                                        >
+                                                            <Check className="w-3 h-3" />Approuver
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleStatusChange(player.id, 'rejected')}
+                                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs font-medium transition-colors"
+                                                        >
+                                                            <X className="w-3 h-3" />Refuser
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+            </DataTable>
         </div>
     );
 }
@@ -1716,61 +1729,65 @@ function PaymentsTab({ tournament, payments }: { tournament: Tournament; payment
 
     return (
         <div className="space-y-4">
-            <div className="glass-card p-0 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b border-border">
-                                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Joueur</th>
-                                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Montant</th>
-                                <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Statut</th>
-                                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Référence</th>
-                                <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Date</th>
-                                <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {payments.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-8 text-center text-sm text-muted-foreground italic">Aucun paiement</td>
-                                </tr>
-                            ) : payments.map((payment) => (
-                                <tr key={payment.id} className="hover:bg-surface transition-colors">
-                                    <td className="px-6 py-4"><span className="text-sm font-medium text-foreground">{(payment as any).player?.name ?? '—'}</span></td>
-                                    <td className="px-6 py-4"><span className="text-sm text-foreground">{payment.amount} {payment.currency}</span></td>
-                                    <td className="px-6 py-4 text-center">
-                                        <span className={`px-3 py-1 rounded-lg text-xs font-medium ${statusBadge[payment.status]}`}>
-                                            {statusLabel[payment.status]}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4"><span className="text-xs font-mono text-muted-foreground">{payment.ebilling_reference ?? '—'}</span></td>
-                                    <td className="px-6 py-4"><span className="text-xs text-muted-foreground">{new Date(payment.created_at ?? '').toLocaleDateString('fr-FR')}</span></td>
-                                    <td className="px-6 py-4 text-right">
-                                        <div className="flex items-center gap-2 justify-end">
-                                            {payment.status === 'pending' && (
-                                                <button
-                                                    onClick={() => router.patch(route('payments.complete', [tournament.id, payment.id]))}
-                                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-xs font-medium transition-colors"
-                                                >
-                                                    <Check className="w-3 h-3" />Marquer recu
-                                                </button>
-                                            )}
-                                            {payment.status === 'completed' && (
-                                                <a
-                                                    href={route('payments.receipt', [tournament.id, payment.id])}
-                                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 text-xs font-medium transition-colors"
-                                                >
-                                                    <FileText className="w-3 h-3" />Recu PDF
-                                                </a>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <DataTable data={payments} searchKeys={['player.name', 'ebilling_reference']} searchPlaceholder="Rechercher un paiement...">
+                {(paginatedPayments) => (
+                    <div className="glass-card p-0 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="border-b border-border">
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Joueur</th>
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Montant</th>
+                                        <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Statut</th>
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Référence</th>
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Date</th>
+                                        <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-6 py-4">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {paginatedPayments.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-8 text-center text-sm text-muted-foreground italic">Aucun résultat</td>
+                                        </tr>
+                                    ) : paginatedPayments.map((payment) => (
+                                        <tr key={payment.id} className="hover:bg-surface transition-colors">
+                                            <td className="px-6 py-4"><span className="text-sm font-medium text-foreground">{(payment as any).player?.name ?? '—'}</span></td>
+                                            <td className="px-6 py-4"><span className="text-sm text-foreground">{payment.amount} {payment.currency}</span></td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`px-3 py-1 rounded-lg text-xs font-medium ${statusBadge[payment.status]}`}>
+                                                    {statusLabel[payment.status]}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4"><span className="text-xs font-mono text-muted-foreground">{payment.ebilling_reference ?? '—'}</span></td>
+                                            <td className="px-6 py-4"><span className="text-xs text-muted-foreground">{new Date(payment.created_at ?? '').toLocaleDateString('fr-FR')}</span></td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex items-center gap-2 justify-end">
+                                                    {payment.status === 'pending' && (
+                                                        <button
+                                                            onClick={() => router.patch(route('payments.complete', [tournament.id, payment.id]))}
+                                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-xs font-medium transition-colors"
+                                                        >
+                                                            <Check className="w-3 h-3" />Marquer recu
+                                                        </button>
+                                                    )}
+                                                    {payment.status === 'completed' && (
+                                                        <a
+                                                            href={route('payments.receipt', [tournament.id, payment.id])}
+                                                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 text-xs font-medium transition-colors"
+                                                        >
+                                                            <FileText className="w-3 h-3" />Recu PDF
+                                                        </a>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+            </DataTable>
         </div>
     );
 }
