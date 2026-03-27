@@ -21,9 +21,14 @@ return new class extends Migration
             DB::statement('DROP INDEX IF EXISTS scores_player_id_hole_id_unique');
             DB::statement('CREATE UNIQUE INDEX scores_player_id_hole_id_phase_unique ON scores (player_id, hole_id, phase)');
         } else {
+            // MySQL: must drop foreign keys before dropping the unique index they depend on
             Schema::table('scores', function (Blueprint $table) {
+                $table->dropForeign(['player_id']);
+                $table->dropForeign(['hole_id']);
                 $table->dropUnique(['player_id', 'hole_id']);
                 $table->unique(['player_id', 'hole_id', 'phase']);
+                $table->foreign('player_id')->references('id')->on('players')->onDelete('cascade');
+                $table->foreign('hole_id')->references('id')->on('holes')->onDelete('cascade');
             });
         }
     }
@@ -37,8 +42,12 @@ return new class extends Migration
             DB::statement('CREATE UNIQUE INDEX scores_player_id_hole_id_unique ON scores (player_id, hole_id)');
         } else {
             Schema::table('scores', function (Blueprint $table) {
+                $table->dropForeign(['player_id']);
+                $table->dropForeign(['hole_id']);
                 $table->dropUnique(['player_id', 'hole_id', 'phase']);
                 $table->unique(['player_id', 'hole_id']);
+                $table->foreign('player_id')->references('id')->on('players')->onDelete('cascade');
+                $table->foreign('hole_id')->references('id')->on('holes')->onDelete('cascade');
             });
         }
 
