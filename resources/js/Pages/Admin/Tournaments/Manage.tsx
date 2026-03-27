@@ -268,24 +268,22 @@ function TournamentTab({ tournament, players, categories, cuts }: { tournament: 
     return (
         <form onSubmit={handleSave} className="space-y-6">
             {/* Registration toggle banner */}
-            <div className={`glass-card flex items-center justify-between ${form.data.registration_open ? 'border-emerald-500/20' : 'border-amber-500/20'}`}>
-                <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${form.data.registration_open ? 'bg-emerald-500/20' : 'bg-amber-500/20'}`}>
-                        <UserPlus className={`w-5 h-5 ${form.data.registration_open ? 'text-emerald-400' : 'text-amber-400'}`} />
-                    </div>
-                    <div>
-                        <p className="text-sm font-semibold text-foreground">
-                            {form.data.registration_open ? 'Inscriptions ouvertes' : 'Inscriptions fermées'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                            {form.data.registration_open ? 'Les joueurs peuvent s\'inscrire en ligne' : 'Les inscriptions en ligne sont désactivées'}
-                        </p>
-                    </div>
+            <div className={`glass-card flex flex-wrap items-center gap-4 ${form.data.registration_open ? 'border-emerald-500/20' : 'border-amber-500/20'}`}>
+                <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center ${form.data.registration_open ? 'bg-emerald-500/20' : 'bg-amber-500/20'}`}>
+                    <UserPlus className={`w-5 h-5 ${form.data.registration_open ? 'text-emerald-400' : 'text-amber-400'}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">
+                        {form.data.registration_open ? 'Inscriptions ouvertes' : 'Inscriptions fermées'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                        {form.data.registration_open ? 'Les joueurs peuvent s\'inscrire en ligne' : 'Les inscriptions en ligne sont désactivées'}
+                    </p>
                 </div>
                 <button
                     type="button"
                     onClick={() => form.setData('registration_open', !form.data.registration_open)}
-                    className={`relative w-12 h-7 rounded-full transition-colors ${form.data.registration_open ? 'bg-primary' : 'bg-surface-hover border border-border'}`}
+                    className={`relative shrink-0 w-12 h-7 rounded-full transition-colors ${form.data.registration_open ? 'bg-primary' : 'bg-surface-hover border border-border'}`}
                 >
                     <span className={`absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${form.data.registration_open ? 'translate-x-5' : 'translate-x-0.5'}`} />
                 </button>
