@@ -118,6 +118,7 @@ export interface Player {
     group_id: string | null;
     user_id: string | null;
     name: string;
+    gender: 'M' | 'F' | null;
     email: string | null;
     phone: string | null;
     handicap: number;

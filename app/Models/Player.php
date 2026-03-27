@@ -33,6 +33,7 @@ class Player extends Model
         'group_id',
         'user_id',
         'name',
+        'gender',
         'email',
         'phone',
         'handicap',
