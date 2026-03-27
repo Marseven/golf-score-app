@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\CaddyMasterController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\ExportController;
@@ -9,6 +10,7 @@ use App\Http\Controllers\HoleController;
 use App\Http\Controllers\HoleImportController;
 use App\Http\Controllers\LeaderboardController;
 use App\Http\Controllers\MarkerController;
+use App\Http\Controllers\MemberController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PlayerController;
 use App\Http\Controllers\PlayerImportController;
@@ -50,6 +52,17 @@ Route::get('/marqueur/scoring/{group}', [MarkerController::class, 'scoring'])->n
 Route::post('/marqueur/scoring/{group}/save', [MarkerController::class, 'saveScores'])->name('marqueur.save')->middleware('marker');
 Route::post('/marqueur/scoring/{group}/confirm', [MarkerController::class, 'confirmScores'])->name('marqueur.confirm')->middleware('marker');
 Route::post('/marqueur/logout', [MarkerController::class, 'logout'])->name('marqueur.logout');
+
+// Caddie-Master (public login, session-based multi-group scoring)
+Route::get('/caddie-master', [CaddyMasterController::class, 'login'])->name('caddie-master.login');
+Route::post('/caddie-master', [CaddyMasterController::class, 'authenticate'])->name('caddie-master.authenticate');
+Route::middleware('caddie-master')->prefix('caddie-master')->group(function () {
+    Route::get('/dashboard', [CaddyMasterController::class, 'dashboard'])->name('caddie-master.dashboard');
+    Route::get('/scoring/{group}', [CaddyMasterController::class, 'scoring'])->name('caddie-master.scoring');
+    Route::post('/scoring/{group}/save', [CaddyMasterController::class, 'saveScores'])->name('caddie-master.save');
+    Route::post('/scoring/{group}/confirm', [CaddyMasterController::class, 'confirmScores'])->name('caddie-master.confirm');
+});
+Route::post('/caddie-master/logout', [CaddyMasterController::class, 'logout'])->name('caddie-master.logout');
 
 // Authenticated routes
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -103,8 +116,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('payments/{payment}/receipt', [PaymentController::class, 'receipt'])->name('payments.receipt');
     });
 
-    // Admin-only: settings & user management
+    // Admin-only: members, settings & user management
     Route::middleware('role:admin')->group(function () {
+        Route::get('/admin/members', [MemberController::class, 'index'])->name('admin.members');
+        Route::post('/admin/members', [MemberController::class, 'store'])->name('admin.members.store');
+        Route::put('/admin/members/{member}', [MemberController::class, 'update'])->name('admin.members.update');
+        Route::delete('/admin/members/{member}', [MemberController::class, 'destroy'])->name('admin.members.destroy');
+        Route::post('/admin/members/import', [MemberController::class, 'import'])->name('admin.members.import');
+
         Route::get('/admin/settings', [SettingController::class, 'index'])->name('admin.settings');
         Route::put('/admin/settings', [SettingController::class, 'update'])->name('admin.settings.update');
         Route::post('/admin/settings/logo', [SettingController::class, 'uploadLogo'])->name('admin.settings.upload-logo');

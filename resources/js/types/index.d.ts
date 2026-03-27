@@ -32,6 +32,7 @@ export interface Tournament {
     registration_currency: string;
     cut_count: number | null;
     cut_applied: boolean;
+    caddie_master_pin: string | null;
     created_by: string | null;
     created_at: string;
     updated_at: string;
@@ -119,6 +120,20 @@ export interface Score {
     hole_id: string;
     strokes: number;
     synced: boolean;
+}
+
+export interface Member {
+    id: string;
+    member_code: string;
+    first_name: string;
+    last_name: string;
+    email: string | null;
+    phone: string | null;
+    handicap_index: number;
+    category_type: 'professional' | 'amateur';
+    status: 'active' | 'inactive';
+    created_at: string;
+    updated_at: string;
 }
 
 export interface Payment {

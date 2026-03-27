@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CaddyMasterMiddleware;
 use App\Http\Middleware\EnsureHasRole;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\MarkerMiddleware;
@@ -24,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => EnsureHasRole::class,
             'marker' => MarkerMiddleware::class,
+            'caddie-master' => CaddyMasterMiddleware::class,
         ]);
 
         $middleware->validateCsrfTokens(except: [

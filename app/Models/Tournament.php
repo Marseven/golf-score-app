@@ -42,6 +42,7 @@ class Tournament extends Model
         'registration_currency',
         'cut_count',
         'cut_applied',
+        'caddie_master_pin',
         'created_by',
     ];
 
@@ -174,5 +175,14 @@ class Tournament extends Model
     public function userRoles(): HasMany
     {
         return $this->hasMany(UserRole::class);
+    }
+
+    public static function generateUniqueCaddieMasterPin(): string
+    {
+        do {
+            $pin = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        } while (static::where('caddie_master_pin', $pin)->exists());
+
+        return $pin;
     }
 }

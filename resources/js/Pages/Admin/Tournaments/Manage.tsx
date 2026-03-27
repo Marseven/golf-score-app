@@ -130,6 +130,7 @@ function formatDateForInput(dateStr: string | null | undefined): string {
 
 function TournamentTab({ tournament, players }: { tournament: Tournament; players: Player[] }) {
     const [copied, setCopied] = useState(false);
+    const [pinCopied, setPinCopied] = useState(false);
     const [cutCount, setCutCount] = useState<number>(tournament.cut_count ?? Math.ceil(players.length / 2));
     const form = useForm({
         name: tournament.name,
@@ -141,6 +142,7 @@ function TournamentTab({ tournament, players }: { tournament: Tournament; player
         rules: tournament.rules || '',
         registration_open: tournament.registration_open,
         registration_currency: tournament.registration_currency,
+        caddie_master_pin: tournament.caddie_master_pin || '',
     });
 
     const scoringModes = [
@@ -338,6 +340,75 @@ function TournamentTab({ tournament, players }: { tournament: Tournament; player
                         </button>
                     </div>
                 )}
+            </div>
+
+            {/* Caddie Master section */}
+            <div className="glass-card">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                        <Target className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-semibold text-foreground">Caddie Master</h3>
+                        <p className="text-xs text-muted-foreground">PIN d'accès pour la saisie multi-groupes</p>
+                    </div>
+                </div>
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-sm text-muted-foreground block mb-1.5">PIN Caddie Master</label>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="text"
+                                readOnly
+                                value={form.data.caddie_master_pin}
+                                className="flex-1 bg-surface border border-border rounded-xl px-4 py-3 text-foreground font-mono text-lg tracking-[0.3em] text-center focus:outline-none"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    navigator.clipboard.writeText(form.data.caddie_master_pin);
+                                    setPinCopied(true);
+                                    setTimeout(() => setPinCopied(false), 2000);
+                                }}
+                                className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium transition-colors"
+                            >
+                                <Copy className="w-4 h-4" />
+                                {pinCopied ? 'Copié !' : 'Copier'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const newPin = String(Math.floor(Math.random() * 1000000)).padStart(6, '0');
+                                    form.setData('caddie_master_pin', newPin);
+                                }}
+                                className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-surface hover:bg-surface-hover border border-border text-foreground text-sm font-medium transition-colors"
+                            >
+                                <RefreshCw className="w-4 h-4" />
+                                Régénérer
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="text-sm text-muted-foreground block mb-1.5">Lien Caddie Master</label>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="text"
+                                readOnly
+                                value={route('caddie-master.login')}
+                                className="flex-1 bg-surface border border-border rounded-xl px-4 py-3 text-sm text-muted-foreground focus:outline-none"
+                            />
+                            <a
+                                href={route('caddie-master.login')}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-surface hover:bg-surface-hover border border-border text-foreground text-sm font-medium transition-colors"
+                            >
+                                <LinkIcon className="w-4 h-4" />
+                                Ouvrir
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div className="flex justify-end">
