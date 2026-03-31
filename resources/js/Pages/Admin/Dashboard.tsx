@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Plus, Trash2, Users, Calendar, MapPin, Trophy, CreditCard, UserCheck, Layers, ArrowRight, Clock, Globe, EyeOff, BarChart3 } from 'lucide-react';
+import { useConfirm } from '@/Components/ConfirmDialog';
 import type { Tournament } from '@/types';
 
 interface Stats {
@@ -34,22 +35,35 @@ export default function AdminDashboard({ tournaments, stats, isAdmin }: Props) {
     const { auth } = usePage().props as any;
     const user = auth?.user;
     const [filter, setFilter] = useState<FilterStatus>('all');
+    const { confirm, confirmDialog } = useConfirm();
 
     const filtered = filter === 'all' ? tournaments : tournaments.filter((t) => t.status === filter);
 
-    const handleDelete = (e: React.MouseEvent, tournament: Tournament) => {
+    const handleDelete = async (e: React.MouseEvent, tournament: Tournament) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!confirm(`Supprimer le tournoi "${tournament.name}" ? Cette action est irréversible.`)) return;
+        const ok = await confirm({
+            title: 'Supprimer le tournoi',
+            message: `Supprimer le tournoi "${tournament.name}" ? Cette action est irréversible.`,
+            confirmLabel: 'Supprimer',
+            variant: 'danger',
+        });
+        if (!ok) return;
         router.delete(route('tournaments.destroy', tournament.id));
     };
 
-    const handleTogglePublish = (e: React.MouseEvent, tournament: Tournament) => {
+    const handleTogglePublish = async (e: React.MouseEvent, tournament: Tournament) => {
         e.preventDefault();
         e.stopPropagation();
         const isPublished = tournament.status === 'published' || tournament.status === 'active';
         const action = isPublished ? 'Dépublier' : 'Publier';
-        if (!confirm(`${action} le tournoi "${tournament.name}" ?`)) return;
+        const ok = await confirm({
+            title: `${action} le tournoi`,
+            message: `${action} le tournoi "${tournament.name}" ?`,
+            confirmLabel: action,
+            variant: isPublished ? 'warning' : 'default',
+        });
+        if (!ok) return;
         router.patch(route('tournaments.togglePublish', tournament.id));
     };
 
@@ -238,7 +252,7 @@ export default function AdminDashboard({ tournaments, stats, isAdmin }: Props) {
                                         {tournament.status !== 'finished' && (
                                             <button
                                                 onClick={(e) => handleTogglePublish(e, tournament)}
-                                                className={`p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all ${
+                                                className={`p-1.5 rounded-lg transition-all ${
                                                     tournament.status === 'published' || tournament.status === 'active'
                                                         ? 'hover:bg-surface-hover text-muted-foreground hover:text-amber-400'
                                                         : 'hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-400'
@@ -250,7 +264,7 @@ export default function AdminDashboard({ tournaments, stats, isAdmin }: Props) {
                                         )}
                                         <button
                                             onClick={(e) => handleDelete(e, tournament)}
-                                            className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-surface-hover text-muted-foreground hover:text-destructive transition-all"
+                                            className="p-1.5 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-destructive transition-all"
                                             title="Supprimer"
                                         >
                                             <Trash2 className="w-4 h-4" />
@@ -296,6 +310,7 @@ export default function AdminDashboard({ tournaments, stats, isAdmin }: Props) {
                     })}
                 </div>
             )}
+            {confirmDialog}
         </AppLayout>
     );
 }

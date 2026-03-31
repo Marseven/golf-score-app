@@ -23,12 +23,14 @@ class CaddyMasterController extends Controller
             'pin' => 'required|string|digits:6',
         ]);
 
-        $tournament = Tournament::where('caddie_master_pin', $validated['pin'])
-            ->whereIn('status', ['published', 'active'])
-            ->first();
+        $tournament = Tournament::where('caddie_master_pin', $validated['pin'])->first();
 
         if (! $tournament) {
             return back()->withErrors(['pin' => 'PIN invalide.']);
+        }
+
+        if (! in_array($tournament->status, ['published', 'active'])) {
+            return back()->withErrors(['pin' => 'Le tournoi associé n\'est pas encore publié ou est terminé.']);
         }
 
         $request->session()->put('caddie_master_tournament_id', $tournament->id);

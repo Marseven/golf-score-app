@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Head, useForm, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Users, UserCheck, Plus, Pencil, Trash2, X, Save, Shield, Eye, EyeOff } from 'lucide-react';
+import { useConfirm } from '@/Components/ConfirmDialog';
 
 interface UserItem {
     id: string;
@@ -108,6 +109,7 @@ export default function AdminUsers({ users }: Props) {
     const [showModal, setShowModal] = useState(false);
     const [editingUser, setEditingUser] = useState<UserItem | null>(null);
     const [showPassword, setShowPassword] = useState(false);
+    const { confirm, confirmDialog } = useConfirm();
 
     const form = useForm({
         name: '',
@@ -178,8 +180,14 @@ export default function AdminUsers({ users }: Props) {
         }
     };
 
-    const handleDelete = (user: UserItem) => {
-        if (!confirm(`Supprimer l'utilisateur "${user.name}" ? Cette action est irréversible.`)) return;
+    const handleDelete = async (user: UserItem) => {
+        const ok = await confirm({
+            title: 'Supprimer l\'utilisateur',
+            message: `Supprimer l'utilisateur "${user.name}" ? Cette action est irréversible.`,
+            confirmLabel: 'Supprimer',
+            variant: 'danger',
+        });
+        if (!ok) return;
         router.delete(route('admin.users.destroy', user.id));
     };
 
@@ -400,6 +408,7 @@ export default function AdminUsers({ users }: Props) {
                     </div>
                 </div>
             )}
+            {confirmDialog}
         </AppLayout>
     );
 }

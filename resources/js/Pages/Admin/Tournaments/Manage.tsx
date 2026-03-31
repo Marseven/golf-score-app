@@ -5,6 +5,7 @@ import { ArrowLeft, Settings, BarChart3, Trophy, Users, Target, MapPin, Save, Pl
 import type { Tournament, Category, Player, Group, Hole, Score, Payment, Course, Cut, CategoryPar, PageProps } from '@/types';
 import { categoryColors, categoryDotColors } from '@/Lib/category-colors';
 import DataTable from '@/Components/DataTable';
+import { useConfirm } from '@/Components/ConfirmDialog';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 
 function downloadCsvTemplate(filename: string, headers: string[], sampleRows: string[][]) {
@@ -223,6 +224,7 @@ function formatDateForInput(dateStr: string | null | undefined): string {
 function TournamentTab({ tournament, players, categories, cuts }: { tournament: Tournament; players: Player[]; categories: Category[]; cuts: Cut[] }) {
     const [copied, setCopied] = useState(false);
     const [pinCopied, setPinCopied] = useState(false);
+    const { confirm, confirmDialog } = useConfirm();
     const [cutCounts, setCutCounts] = useState<Record<string, number>>(() => {
         const initial: Record<string, number> = {};
         (categories ?? []).forEach((cat) => {
@@ -430,8 +432,14 @@ function TournamentTab({ tournament, players, categories, cuts }: { tournament: 
                                 ))}
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        if (confirm(`Réinitialiser le cut après Phase ${afterPhase} ? Les joueurs redeviendront actifs.`)) {
+                                    onClick={async () => {
+                                        const ok = await confirm({
+                                            title: 'Réinitialiser le cut',
+                                            message: `Réinitialiser le cut après Phase ${afterPhase} ? Les joueurs redeviendront actifs.`,
+                                            confirmLabel: 'Réinitialiser',
+                                            variant: 'warning',
+                                        });
+                                        if (ok) {
                                             router.post(route('tournaments.resetPhaseCut', tournament.id), { after_phase: afterPhase });
                                         }
                                     }}
@@ -465,12 +473,18 @@ function TournamentTab({ tournament, players, categories, cuts }: { tournament: 
                                 })}
                                 <button
                                     type="button"
-                                    onClick={() => {
+                                    onClick={async () => {
                                         const cutsPayload = (categories ?? []).map((cat) => ({
                                             category_id: cat.id,
                                             qualified_count: cutCounts[cat.id] ?? Math.ceil(players.filter((p) => p.category_id === cat.id).length / 2),
                                         }));
-                                        if (confirm(`Appliquer le cut après Phase ${afterPhase} ?`)) {
+                                        const ok = await confirm({
+                                            title: 'Appliquer le cut',
+                                            message: `Appliquer le cut après Phase ${afterPhase} ?`,
+                                            confirmLabel: 'Appliquer',
+                                            variant: 'warning',
+                                        });
+                                        if (ok) {
                                             router.post(route('tournaments.applyPhaseCut', tournament.id), {
                                                 after_phase: afterPhase,
                                                 cuts: cutsPayload,
@@ -563,6 +577,7 @@ function TournamentTab({ tournament, players, categories, cuts }: { tournament: 
                     {form.processing ? 'Sauvegarde...' : 'Sauvegarder'}
                 </button>
             </div>
+            {confirmDialog}
         </form>
     );
 }
@@ -572,6 +587,7 @@ function CategoriesTab({ tournament, categories, courses }: { tournament: Tourna
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const form = useForm({ name: '', short_name: '', color: 'blue', registration_fee: 0, course_id: courses[0]?.id ?? '', handicap_coefficient: 1.0 });
+    const { confirm, confirmDialog } = useConfirm();
 
     const colorOptions = ['blue', 'pink', 'emerald', 'violet', 'amber', 'red', 'cyan', 'orange'];
 
@@ -592,8 +608,14 @@ function CategoriesTab({ tournament, categories, courses }: { tournament: Tourna
         }
     };
 
-    const handleDelete = (id: string, name: string) => {
-        if (!confirm(`Supprimer la catégorie "${name}" ?`)) return;
+    const handleDelete = async (id: string, name: string) => {
+        const ok = await confirm({
+            title: 'Supprimer la catégorie',
+            message: `Supprimer la catégorie "${name}" ?`,
+            confirmLabel: 'Supprimer',
+            variant: 'danger',
+        });
+        if (!ok) return;
         router.delete(route('categories.destroy', [tournament.id, id]));
     };
 
@@ -699,6 +721,7 @@ function CategoriesTab({ tournament, categories, courses }: { tournament: Tourna
                     </table>
                 </div>
             </div>
+            {confirmDialog}
         </div>
     );
 }
@@ -708,6 +731,7 @@ function PlayersTab({ tournament, players, categories, groups }: { tournament: T
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [importing, setImporting] = useState(false);
+    const { confirm, confirmDialog } = useConfirm();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const form = useForm({ name: '', handicap: 0, category_id: '', group_id: '', email: '', phone: '' });
 
@@ -728,8 +752,14 @@ function PlayersTab({ tournament, players, categories, groups }: { tournament: T
         }
     };
 
-    const handleDelete = (id: string, name: string) => {
-        if (!confirm(`Supprimer le joueur "${name}" ?`)) return;
+    const handleDelete = async (id: string, name: string) => {
+        const ok = await confirm({
+            title: 'Supprimer le joueur',
+            message: `Supprimer le joueur "${name}" ?`,
+            confirmLabel: 'Supprimer',
+            variant: 'danger',
+        });
+        if (!ok) return;
         router.delete(route('players.destroy', [tournament.id, id]));
     };
 
@@ -838,6 +868,7 @@ function PlayersTab({ tournament, players, categories, groups }: { tournament: T
                     </div>
                 )}
             </DataTable>
+            {confirmDialog}
         </div>
     );
 }
@@ -850,6 +881,7 @@ function GroupsTab({ tournament, groups, markers, players, categories }: { tourn
     const [showQR, setShowQR] = useState<string | null>(null);
     const [showMarkerForm, setShowMarkerForm] = useState(false);
     const [activePhase, setActivePhase] = useState(1);
+    const { confirm, confirmDialog } = useConfirm();
     const form = useForm({ tee_time: '08:00', tee_date: '', phase: 1, category_id: '' as string, marker_id: '', marker_phone: '', player_ids: [] as string[] });
     const markerForm = useForm({ name: '', email: '', password: '' });
 
@@ -910,8 +942,14 @@ function GroupsTab({ tournament, groups, markers, players, categories }: { tourn
         }
     };
 
-    const handleDelete = (id: string, code: string) => {
-        if (!confirm(`Supprimer le groupe "${code}" ?`)) return;
+    const handleDelete = async (id: string, code: string) => {
+        const ok = await confirm({
+            title: 'Supprimer le groupe',
+            message: `Supprimer le groupe "${code}" ?`,
+            confirmLabel: 'Supprimer',
+            variant: 'danger',
+        });
+        if (!ok) return;
         router.delete(route('groups.destroy', [tournament.id, id]));
     };
 
@@ -1030,23 +1068,23 @@ function GroupsTab({ tournament, groups, markers, players, categories }: { tourn
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div>
                             <label className="text-xs text-muted-foreground block mb-1">Nom</label>
-                            <input type="text" value={markerForm.data.name} onChange={(e) => markerForm.setData('name', e.target.value)} placeholder="Nom complet" className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
+                            <input type="text" required value={markerForm.data.name} onChange={(e) => markerForm.setData('name', e.target.value)} placeholder="Nom complet" className={`w-full bg-surface border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none ${markerForm.errors.name ? 'border-destructive' : 'border-border'}`} />
                             {markerForm.errors.name && <p className="text-xs text-destructive mt-1">{markerForm.errors.name}</p>}
                         </div>
                         <div>
                             <label className="text-xs text-muted-foreground block mb-1">Email</label>
-                            <input type="email" value={markerForm.data.email} onChange={(e) => markerForm.setData('email', e.target.value)} placeholder="email@exemple.com" className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
+                            <input type="email" required value={markerForm.data.email} onChange={(e) => markerForm.setData('email', e.target.value)} placeholder="email@exemple.com" className={`w-full bg-surface border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none ${markerForm.errors.email ? 'border-destructive' : 'border-border'}`} />
                             {markerForm.errors.email && <p className="text-xs text-destructive mt-1">{markerForm.errors.email}</p>}
                         </div>
                         <div>
                             <label className="text-xs text-muted-foreground block mb-1">Mot de passe</label>
-                            <input type="password" value={markerForm.data.password} onChange={(e) => markerForm.setData('password', e.target.value)} placeholder="Min. 6 caracteres" className="w-full bg-surface border border-border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
+                            <input type="password" required value={markerForm.data.password} onChange={(e) => markerForm.setData('password', e.target.value)} placeholder="Min. 6 caracteres" className={`w-full bg-surface border rounded-xl px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none ${markerForm.errors.password ? 'border-destructive' : 'border-border'}`} />
                             {markerForm.errors.password && <p className="text-xs text-destructive mt-1">{markerForm.errors.password}</p>}
                         </div>
                     </div>
                     <div className="flex gap-2 justify-end">
                         <button type="button" onClick={() => { markerForm.reset(); setShowMarkerForm(false); }} className="flex items-center gap-2 px-4 py-2 bg-surface border border-border rounded-xl text-sm text-foreground hover:bg-surface-hover"><X className="w-4 h-4" />Annuler</button>
-                        <button type="submit" disabled={markerForm.processing || !markerForm.data.name.trim() || !markerForm.data.email.trim()} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm hover:bg-primary/90"><Check className="w-4 h-4" />{markerForm.processing ? '...' : 'Creer'}</button>
+                        <button type="submit" disabled={markerForm.processing || !markerForm.data.name.trim() || !markerForm.data.email.trim() || !markerForm.data.password.trim()} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm hover:bg-primary/90 disabled:opacity-50"><Check className="w-4 h-4" />{markerForm.processing ? '...' : 'Creer'}</button>
                     </div>
                 </form>
             )}
@@ -1254,6 +1292,7 @@ function GroupsTab({ tournament, groups, markers, players, categories }: { tourn
                     </div>
                 ))}
             </div>
+            {confirmDialog}
         </div>
     );
 }
@@ -1264,6 +1303,7 @@ function CourseTab({ tournament, courses, holes, categories, categoryPars }: { t
     const [importingHoles, setImportingHoles] = useState(false);
     const [showNewCourse, setShowNewCourse] = useState(false);
     const [editingCourseName, setEditingCourseName] = useState<string | null>(null);
+    const { confirm, confirmDialog } = useConfirm();
     const holeFileRef = useRef<HTMLInputElement>(null);
     const newCourseForm = useForm({ name: '' });
     const renameForm = useForm({ name: '' });
@@ -1317,8 +1357,14 @@ function CourseTab({ tournament, courses, holes, categories, categoryPars }: { t
         });
     };
 
-    const handleDeleteCourse = (courseId: string, name: string) => {
-        if (!confirm(`Supprimer le parcours "${name}" et tous ses trous ?`)) return;
+    const handleDeleteCourse = async (courseId: string, name: string) => {
+        const ok = await confirm({
+            title: 'Supprimer le parcours',
+            message: `Supprimer le parcours "${name}" et tous ses trous ?`,
+            confirmLabel: 'Supprimer',
+            variant: 'danger',
+        });
+        if (!ok) return;
         router.delete(route('courses.destroy', [tournament.id, courseId]));
     };
 
@@ -1484,6 +1530,7 @@ function CourseTab({ tournament, courses, holes, categories, categoryPars }: { t
                 categories={categories.filter(c => c.course_id === activeCourseId)}
                 categoryPars={categoryPars}
             />
+            {confirmDialog}
         </div>
     );
 }
@@ -1612,6 +1659,7 @@ function CategoryParsMatrix({ tournament, holes, categories, categoryPars }: {
 
 // --- Registrations Tab (admin-only) ---
 function RegistrationsTab({ tournament, registrations }: { tournament: Tournament; registrations: Player[] }) {
+    const { confirm, confirmDialog } = useConfirm();
     const statusBadge: Record<string, string> = {
         pending: 'bg-amber-500/20 text-amber-400',
         approved: 'bg-emerald-500/20 text-emerald-400',
@@ -1629,9 +1677,15 @@ function RegistrationsTab({ tournament, registrations }: { tournament: Tournamen
         router.patch(route('registrations.update', [tournament.id, playerId]), { registration_status: status });
     };
 
-    const handleBulk = (status: 'approved' | 'rejected') => {
+    const handleBulk = async (status: 'approved' | 'rejected') => {
         const label = status === 'approved' ? 'approuver' : 'refuser';
-        if (!confirm(`Voulez-vous ${label} toutes les inscriptions en attente (${pendingCount}) ?`)) return;
+        const ok = await confirm({
+            title: `${status === 'approved' ? 'Approuver' : 'Refuser'} les inscriptions`,
+            message: `Voulez-vous ${label} toutes les inscriptions en attente (${pendingCount}) ?`,
+            confirmLabel: status === 'approved' ? 'Approuver' : 'Refuser',
+            variant: status === 'rejected' ? 'danger' : 'warning',
+        });
+        if (!ok) return;
         router.patch(route('registrations.bulkUpdate', tournament.id), { registration_status: status });
     };
 
@@ -1708,6 +1762,7 @@ function RegistrationsTab({ tournament, registrations }: { tournament: Tournamen
                     </div>
                 )}
             </DataTable>
+            {confirmDialog}
         </div>
     );
 }

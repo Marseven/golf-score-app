@@ -63,6 +63,7 @@ export default function TournamentCreate() {
                                     type="date"
                                     value={form.data.start_date}
                                     onChange={(e) => form.setData('start_date', e.target.value)}
+                                    min={new Date().toISOString().split('T')[0]}
                                     className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:border-primary focus:outline-none transition-colors"
                                 />
                                 {form.errors.start_date && <p className="text-xs text-destructive mt-1">{form.errors.start_date}</p>}

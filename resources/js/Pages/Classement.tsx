@@ -31,7 +31,9 @@ export default function Classement({ tournament, players, scores, holes, categor
     const user = auth?.user;
     const { lastUpdate } = useRealtimeScores(tournament?.id);
     const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
-    const [scoringMode, setScoringMode] = useState<ScoringMode>('stroke');
+    const [scoringMode, setScoringMode] = useState<ScoringMode>(
+        tournament?.scoring_mode === 'stableford' ? 'stableford' : 'stroke'
+    );
     const [activePhase, setActivePhase] = useState<number | undefined>(undefined);
     const [capturing, setCapturing] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
@@ -229,11 +231,13 @@ export default function Classement({ tournament, players, scores, holes, categor
                     </div>
                 )}
 
-                {/* Scoring Mode Toggle */}
-                <div className="grid grid-cols-2 gap-2 mb-6">
-                    <button onClick={() => setScoringMode('stroke')} className={`py-2.5 rounded-xl text-sm font-medium transition-all ${scoringMode === 'stroke' ? 'bg-emerald-500 text-white' : 'bg-surface text-muted-foreground hover:bg-surface-hover'}`}>Stroke Play</button>
-                    <button onClick={() => setScoringMode('stableford')} className={`py-2.5 rounded-xl text-sm font-medium transition-all ${scoringMode === 'stableford' ? 'bg-amber-500 text-amber-950' : 'bg-surface text-muted-foreground hover:bg-surface-hover'}`}>Stableford</button>
-                </div>
+                {/* Scoring Mode Toggle — only shown when tournament supports both modes */}
+                {tournament?.scoring_mode === 'both' && (
+                    <div className="grid grid-cols-2 gap-2 mb-6">
+                        <button onClick={() => setScoringMode('stroke')} className={`py-2.5 rounded-xl text-sm font-medium transition-all ${scoringMode === 'stroke' ? 'bg-emerald-500 text-white' : 'bg-surface text-muted-foreground hover:bg-surface-hover'}`}>Stroke Play</button>
+                        <button onClick={() => setScoringMode('stableford')} className={`py-2.5 rounded-xl text-sm font-medium transition-all ${scoringMode === 'stableford' ? 'bg-amber-500 text-amber-950' : 'bg-surface text-muted-foreground hover:bg-surface-hover'}`}>Stableford</button>
+                    </div>
+                )}
 
                 {/* Leaderboard — captured for screenshot */}
                 <div ref={leaderboardRef} className="space-y-2">

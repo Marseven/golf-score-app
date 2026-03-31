@@ -44,6 +44,24 @@ export default function PublicLayout({ children, transparentHeader = false }: Pr
                         >
                             Tournois
                         </Link>
+                        <Link
+                            href={route('classement')}
+                            className="px-4 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
+                        >
+                            Classement
+                        </Link>
+                        <Link
+                            href={route('marqueur.login')}
+                            className="px-4 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
+                        >
+                            Marqueur
+                        </Link>
+                        <Link
+                            href={route('caddie-master.login')}
+                            className="px-4 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
+                        >
+                            Caddie-Master
+                        </Link>
                     </nav>
 
                     {/* Right: Theme + Auth (desktop) */}
@@ -118,6 +136,27 @@ export default function PublicLayout({ children, transparentHeader = false }: Pr
                                 className="block px-4 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
                             >
                                 Tournois
+                            </Link>
+                            <Link
+                                href={route('classement')}
+                                onClick={() => setMobileOpen(false)}
+                                className="block px-4 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
+                            >
+                                Classement
+                            </Link>
+                            <Link
+                                href={route('marqueur.login')}
+                                onClick={() => setMobileOpen(false)}
+                                className="block px-4 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
+                            >
+                                Marqueur
+                            </Link>
+                            <Link
+                                href={route('caddie-master.login')}
+                                onClick={() => setMobileOpen(false)}
+                                className="block px-4 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
+                            >
+                                Caddie-Master
                             </Link>
                             {user && isAdminOrCaptain && (
                                 <Link

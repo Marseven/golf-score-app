@@ -2,6 +2,7 @@ import { useState, useMemo, useRef } from 'react';
 import { Head, useForm, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Contact, Plus, Pencil, Trash2, X, Save, Search, Upload, Download } from 'lucide-react';
+import { useConfirm } from '@/Components/ConfirmDialog';
 import type { Member } from '@/types';
 
 interface Props {
@@ -29,6 +30,7 @@ export default function AdminMembers({ members }: Props) {
     const [editingMember, setEditingMember] = useState<Member | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const { confirm, confirmDialog } = useConfirm();
 
     const form = useForm({
         first_name: '',
@@ -90,8 +92,14 @@ export default function AdminMembers({ members }: Props) {
         }
     };
 
-    const handleDelete = (member: Member) => {
-        if (!confirm(`Supprimer le membre "${member.first_name} ${member.last_name}" ? Cette action est irréversible.`)) return;
+    const handleDelete = async (member: Member) => {
+        const ok = await confirm({
+            title: 'Supprimer le membre',
+            message: `Supprimer le membre "${member.first_name} ${member.last_name}" ? Cette action est irréversible.`,
+            confirmLabel: 'Supprimer',
+            variant: 'danger',
+        });
+        if (!ok) return;
         router.delete(route('admin.members.destroy', member.id));
     };
 
@@ -402,6 +410,7 @@ export default function AdminMembers({ members }: Props) {
                     </div>
                 </div>
             )}
+            {confirmDialog}
         </AppLayout>
     );
 }
