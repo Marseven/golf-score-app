@@ -274,7 +274,7 @@ export default function Classement({ tournament, players, scores, holes, categor
                                             {entry.playingHandicap > 0 && (
                                                 <span className="text-xs text-muted-foreground font-mono">HC {entry.playingHandicap}</span>
                                             )}
-                                            <span className="text-xs text-muted-foreground">{entry.holesPlayed}/18 trous</span>
+                                            <span className="text-xs text-muted-foreground">{entry.holesPlayed} trous</span>
                                         </div>
                                     </div>
                                 </div>

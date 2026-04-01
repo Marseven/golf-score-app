@@ -145,7 +145,7 @@ export function useOfflineScores({ groupId, phase, players, holes, existingScore
         (playerIdx: number, holeIdx: number, delta: number) => {
             setScores((prev) => {
                 const next = prev.map((row) => [...row]);
-                next[playerIdx][holeIdx] = Math.max(1, next[playerIdx][holeIdx] + delta);
+                next[playerIdx][holeIdx] = Math.min(18, Math.max(1, next[playerIdx][holeIdx] + delta));
                 return next;
             });
         },

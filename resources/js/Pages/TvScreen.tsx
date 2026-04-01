@@ -164,7 +164,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${categoryColors[entry.categoryName] ?? 'bg-white/10 text-white'}`}>{entry.categoryName}</span>
                                         </div>
                                         <span className="text-base text-white/40 text-center font-mono">{entry.playingHandicap || '—'}</span>
-                                        <span className="text-base text-white/60 text-center">{entry.holesPlayed}/18</span>
+                                        <span className="text-base text-white/60 text-center">{entry.holesPlayed} trous</span>
                                         <span className="text-xl font-bold text-white text-center">{entry.totalStrokes}</span>
                                         <span className={`text-xl font-bold ${scoreColor} text-right`}>{entry.strokeToPar === 0 ? 'E' : `${sign}${entry.strokeToPar}`}</span>
                                     </div>
@@ -179,7 +179,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                         <span className="text-sm text-white/50">Mise à jour en temps réel &bull; {now}</span>
                     </div>
-                    <span className="text-sm text-white/30">Propulsé par MGC Score</span>
+                    <span className="text-sm text-white/30">Made with Love by JOBS</span>
                 </footer>
             </div>
         </>

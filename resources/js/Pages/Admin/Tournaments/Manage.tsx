@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo } from 'react';
 import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
-import { ArrowLeft, Settings, BarChart3, Trophy, Users, Target, MapPin, Save, Plus, Trash2, Pencil, X, Check, RefreshCw, Clock, Copy, UserPlus, Send, FileText, FileSpreadsheet, QrCode, Flag, Tag, UserCheck, CreditCard, LinkIcon, Download, Hash, Upload, Scissors } from 'lucide-react';
+import { ArrowLeft, Settings, BarChart3, Trophy, Users, Target, MapPin, Save, Plus, Trash2, Pencil, X, Check, RefreshCw, Clock, Copy, UserPlus, Send, FileText, FileSpreadsheet, QrCode, Flag, Tag, UserCheck, CreditCard, LinkIcon, Download, Hash, Upload, Scissors, ClipboardList } from 'lucide-react';
 import type { Tournament, Category, Player, Group, Hole, Score, Payment, Course, Cut, CategoryPar, PageProps } from '@/types';
 import { categoryColors, categoryDotColors } from '@/Lib/category-colors';
 import DataTable from '@/Components/DataTable';
@@ -54,6 +54,7 @@ const allTabs: TabDef[] = [
     { id: 'players', label: 'Joueurs', icon: Users },
     { id: 'groups', label: 'Groupes', icon: Target },
     { id: 'course', label: 'Parcours', icon: MapPin },
+    { id: 'scores', label: 'Scores', icon: ClipboardList },
     { id: 'registrations', label: 'Inscriptions', icon: UserCheck, adminOnly: true },
     { id: 'payments', label: 'Paiements', icon: CreditCard, adminOnly: true },
 ];
@@ -225,13 +226,20 @@ function TournamentTab({ tournament, players, categories, cuts }: { tournament: 
     const [copied, setCopied] = useState(false);
     const [pinCopied, setPinCopied] = useState(false);
     const { confirm, confirmDialog } = useConfirm();
+    const [defaultCut, setDefaultCut] = useState<number>(() => {
+        const firstCut = cuts?.find((c) => c.after_phase === 1 && c.qualified_count);
+        return firstCut?.qualified_count ?? 10;
+    });
+    // Key: "phase:catId" → qualified_count
     const [cutCounts, setCutCounts] = useState<Record<string, number>>(() => {
         const initial: Record<string, number> = {};
-        (categories ?? []).forEach((cat) => {
-            const catPlayers = players.filter((p) => p.category_id === cat.id).length;
-            const existingCut = cuts?.find((c) => c.category_id === cat.id && c.after_phase === 1);
-            initial[cat.id] = existingCut?.qualified_count ?? Math.ceil(catPlayers / 2);
-        });
+        const maxPhase = Math.max(1, tournament.phase_count - 1);
+        for (let phase = 1; phase <= maxPhase; phase++) {
+            (categories ?? []).forEach((cat) => {
+                const existingCut = cuts?.find((c) => c.category_id === cat.id && c.after_phase === phase);
+                initial[`${phase}:${cat.id}`] = existingCut?.qualified_count ?? defaultCut;
+            });
+        }
         return initial;
     });
     const form = useForm({
@@ -404,7 +412,7 @@ function TournamentTab({ tournament, players, categories, cuts }: { tournament: 
             )}
 
             {/* Cut section — per phase and per category */}
-            {tournament.phase_count > 1 && Array.from({ length: tournament.phase_count - 1 }, (_, i) => i + 1).map((afterPhase) => {
+            {Array.from({ length: Math.max(1, tournament.phase_count - 1) }, (_, i) => i + 1).map((afterPhase) => {
                 const phaseCuts = cuts.filter((c) => c.after_phase === afterPhase);
                 const allApplied = phaseCuts.length > 0 && phaseCuts.every((c) => c.applied_at);
 
@@ -415,89 +423,110 @@ function TournamentTab({ tournament, players, categories, cuts }: { tournament: 
                                 <Scissors className="w-5 h-5 text-red-400" />
                             </div>
                             <div>
-                                <h3 className="text-lg font-semibold text-foreground">Cut après Phase {afterPhase}</h3>
-                                <p className="text-xs text-muted-foreground">Éliminer les joueurs par catégorie</p>
+                                <h3 className="text-lg font-semibold text-foreground">{tournament.phase_count > 1 ? `Cut après Phase ${afterPhase}` : 'Cut'}</h3>
+                                <p className="text-xs text-muted-foreground">Définir le nombre de joueurs qualifiés par catégorie</p>
                             </div>
                             {allApplied && (
                                 <span className="ml-auto px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-medium">Appliqué</span>
                             )}
                         </div>
-                        {allApplied ? (
-                            <div className="space-y-2">
-                                {phaseCuts.map((cut) => (
-                                    <div key={cut.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface">
-                                        <span className="text-sm text-foreground">{cut.category?.name ?? '—'}</span>
-                                        <span className="text-sm text-muted-foreground">Top {cut.qualified_count} qualifiés</span>
-                                    </div>
-                                ))}
-                                <button
-                                    type="button"
-                                    onClick={async () => {
-                                        const ok = await confirm({
-                                            title: 'Réinitialiser le cut',
-                                            message: `Réinitialiser le cut après Phase ${afterPhase} ? Les joueurs redeviendront actifs.`,
-                                            confirmLabel: 'Réinitialiser',
-                                            variant: 'warning',
-                                        });
-                                        if (ok) {
-                                            router.post(route('tournaments.resetPhaseCut', tournament.id), { after_phase: afterPhase });
-                                        }
-                                    }}
-                                    className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-sm font-medium transition-colors mt-2"
-                                >
-                                    <RefreshCw className="w-4 h-4" />Réinitialiser
-                                </button>
+                        <div className="space-y-3">
+                            {/* Default cut value */}
+                            <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-primary/5 border border-primary/20">
+                                <div className="flex-1">
+                                    <label className="text-sm font-medium text-foreground">Limite par défaut</label>
+                                    <p className="text-[10px] text-muted-foreground">Nombre de qualifiés appliqué à toutes les catégories</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        value={defaultCut}
+                                        onChange={(e) => setDefaultCut(Math.max(1, Number(e.target.value)))}
+                                        min={1}
+                                        className="w-20 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-foreground text-center focus:border-primary focus:outline-none"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setCutCounts((prev) => {
+                                                const updated = { ...prev };
+                                                (categories ?? []).forEach((cat) => { updated[`${afterPhase}:${cat.id}`] = defaultCut; });
+                                                return updated;
+                                            });
+                                        }}
+                                        className="px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium transition-colors whitespace-nowrap"
+                                    >
+                                        Appliquer à tous
+                                    </button>
+                                </div>
                             </div>
-                        ) : (
-                            <div className="space-y-3">
-                                {(categories ?? []).map((cat) => {
-                                    const catPlayers = players.filter((p) => p.category_id === cat.id).length;
-                                    const key = `${afterPhase}-${cat.id}`;
-                                    return (
-                                        <div key={cat.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface">
-                                            <span className="text-sm font-medium text-foreground min-w-[120px]">{cat.name}</span>
-                                            <span className="text-xs text-muted-foreground">({catPlayers} joueurs)</span>
-                                            <div className="ml-auto flex items-center gap-2">
-                                                <label className="text-xs text-muted-foreground">Qualifiés :</label>
-                                                <input
-                                                    type="number"
-                                                    value={cutCounts[cat.id] ?? Math.ceil(catPlayers / 2)}
-                                                    onChange={(e) => setCutCounts((prev) => ({ ...prev, [cat.id]: Number(e.target.value) }))}
-                                                    min={1}
-                                                    max={catPlayers}
-                                                    className="w-20 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-foreground text-center focus:border-primary focus:outline-none"
-                                                />
-                                            </div>
+
+                            {(categories ?? []).map((cat) => {
+                                const catPlayers = players.filter((p) => p.category_id === cat.id).length;
+                                const existingCut = phaseCuts.find((c) => c.category_id === cat.id);
+                                return (
+                                    <div key={cat.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface">
+                                        <span className="text-sm font-medium text-foreground min-w-[120px]">{cat.name}</span>
+                                        <span className="text-xs text-muted-foreground">({catPlayers} joueurs)</span>
+                                        <div className="ml-auto flex items-center gap-2">
+                                            <label className="text-xs text-muted-foreground">Qualifiés :</label>
+                                            <input
+                                                type="number"
+                                                value={cutCounts[`${afterPhase}:${cat.id}`] ?? defaultCut}
+                                                onChange={(e) => setCutCounts((prev) => ({ ...prev, [`${afterPhase}:${cat.id}`]: Math.max(1, Number(e.target.value)) }))}
+                                                min={1}
+                                                className="w-20 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-foreground text-center focus:border-primary focus:outline-none"
+                                            />
+                                            {existingCut?.applied_at && (
+                                                <span className="text-[10px] text-emerald-400">✓</span>
+                                            )}
                                         </div>
-                                    );
-                                })}
+                                    </div>
+                                );
+                            })}
+                            <div className="flex gap-2">
                                 <button
                                     type="button"
-                                    onClick={async () => {
+                                    onClick={() => {
                                         const cutsPayload = (categories ?? []).map((cat) => ({
                                             category_id: cat.id,
-                                            qualified_count: cutCounts[cat.id] ?? Math.ceil(players.filter((p) => p.category_id === cat.id).length / 2),
+                                            qualified_count: cutCounts[`${afterPhase}:${cat.id}`] ?? defaultCut,
                                         }));
-                                        const ok = await confirm({
-                                            title: 'Appliquer le cut',
-                                            message: `Appliquer le cut après Phase ${afterPhase} ?`,
-                                            confirmLabel: 'Appliquer',
-                                            variant: 'warning',
-                                        });
-                                        if (ok) {
+                                        if (allApplied) {
+                                            router.post(route('tournaments.resetPhaseCut', tournament.id), { after_phase: afterPhase }, {
+                                                preserveScroll: true,
+                                                onSuccess: () => {
+                                                    router.post(route('tournaments.applyPhaseCut', tournament.id), {
+                                                        after_phase: afterPhase,
+                                                        cuts: cutsPayload,
+                                                    }, { preserveScroll: true });
+                                                },
+                                            });
+                                        } else {
                                             router.post(route('tournaments.applyPhaseCut', tournament.id), {
                                                 after_phase: afterPhase,
                                                 cuts: cutsPayload,
-                                            });
+                                            }, { preserveScroll: true });
                                         }
                                     }}
                                     disabled={players.length === 0}
                                     className="flex items-center gap-2 px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
                                 >
-                                    <Scissors className="w-4 h-4" />Appliquer le cut
+                                    <Scissors className="w-4 h-4" />{allApplied ? 'Réappliquer le cut' : 'Appliquer le cut'}
                                 </button>
+                                {allApplied && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            router.post(route('tournaments.resetPhaseCut', tournament.id), { after_phase: afterPhase }, { preserveScroll: true });
+                                        }}
+                                        className="flex items-center gap-2 px-4 py-2.5 bg-surface hover:bg-surface-hover border border-border text-muted-foreground rounded-xl text-sm font-medium transition-colors"
+                                    >
+                                        <RefreshCw className="w-4 h-4" />Réinitialiser
+                                    </button>
+                                )}
                             </div>
-                        )}
+                        </div>
                     </div>
                 );
             })}
@@ -540,6 +569,10 @@ function TournamentTab({ tournament, players, categories, cuts }: { tournament: 
                                 onClick={() => {
                                     const newPin = String(Math.floor(Math.random() * 1000000)).padStart(6, '0');
                                     form.setData('caddie_master_pin', newPin);
+                                    router.put(route('tournaments.update', tournament.id), {
+                                        ...form.data,
+                                        caddie_master_pin: newPin,
+                                    }, { preserveScroll: true });
                                 }}
                                 className="flex items-center gap-1.5 px-4 py-3 rounded-xl bg-surface hover:bg-surface-hover border border-border text-foreground text-sm font-medium transition-colors"
                             >
@@ -1868,6 +1901,353 @@ function FlashMessages() {
     );
 }
 
+// --- Scores Tab ---
+function ScoresTab({ tournament, players, holes, scores, categories, categoryPars }: { tournament: Tournament; players: Player[]; holes: Hole[]; scores: Score[]; categories: Category[]; categoryPars: CategoryPar[] }) {
+    const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
+    const [editedScores, setEditedScores] = useState<Record<string, number>>({});
+    const [saving, setSaving] = useState(false);
+
+    // Build category par lookup: "categoryId:holeId" -> par
+    const catParMap = useMemo(() => {
+        const map = new Map<string, number>();
+        for (const cp of categoryPars) {
+            map.set(`${cp.category_id}:${cp.hole_id}`, cp.par);
+        }
+        return map;
+    }, [categoryPars]);
+
+    // Build hole lookup per category: categoryId -> Map<holeNumber, Hole>
+    // Priority: 1) category_hole pivot, 2) category.course_id, 3) all holes
+    const categoryHolesByNumber = useMemo(() => {
+        const map = new Map<string, Map<number, Hole>>();
+        const holeById = new Map(holes.map((h) => [h.id, h]));
+
+        // 1) Populate from category_hole pivot (categoryPars)
+        for (const cp of categoryPars) {
+            if (!map.has(cp.category_id)) map.set(cp.category_id, new Map());
+            const hole = holeById.get(cp.hole_id);
+            if (hole) map.get(cp.category_id)!.set(hole.number, hole);
+        }
+
+        // 2) For categories without pivot entries, use course_id
+        for (const cat of categories) {
+            if (!map.has(cat.id) || map.get(cat.id)!.size === 0) {
+                const catHoles = new Map<number, Hole>();
+                const courseId = cat.course_id;
+                const matchingHoles = courseId
+                    ? holes.filter((h) => h.course_id === courseId)
+                    : holes;
+                for (const h of matchingHoles) {
+                    catHoles.set(h.number, h);
+                }
+                map.set(cat.id, catHoles);
+            }
+        }
+
+        return map;
+    }, [categoryPars, holes, categories]);
+
+    // Build reverse lookup: for each player, map hole_number -> hole_id from their actual scores
+    // This ensures we always match the hole_id that was used when the score was saved
+    const playerHoleFromScores = useMemo(() => {
+        const map = new Map<string, Map<number, string>>(); // playerId -> Map<holeNumber, holeId>
+        const holeById = new Map(holes.map((h) => [h.id, h]));
+        for (const s of scores) {
+            const hole = holeById.get(s.hole_id);
+            if (!hole) continue;
+            if (!map.has(s.player_id)) map.set(s.player_id, new Map());
+            map.get(s.player_id)!.set(hole.number, s.hole_id);
+        }
+        return map;
+    }, [scores, holes]);
+
+    // Get unique hole numbers sorted (deduplicated across courses)
+    const holeNumbers = useMemo(() => {
+        if (filterCategoryId) {
+            const catHoles = categoryHolesByNumber.get(filterCategoryId);
+            return catHoles ? [...catHoles.keys()].sort((a, b) => a - b) : [];
+        }
+        const nums = new Set(holes.map((h) => h.number));
+        return [...nums].sort((a, b) => a - b);
+    }, [holes, filterCategoryId, categoryHolesByNumber]);
+
+    // Get the hole for a player at a given hole number
+    const getHoleForPlayer = (player: Player, holeNumber: number): Hole | undefined => {
+        const holeById = new Map(holes.map((h) => [h.id, h]));
+
+        // 1) Use the hole_id from the player's actual scores (most reliable)
+        const playerHoles = playerHoleFromScores.get(player.id);
+        if (playerHoles) {
+            const holeId = playerHoles.get(holeNumber);
+            if (holeId) {
+                const hole = holeById.get(holeId);
+                if (hole) return hole;
+            }
+        }
+
+        // 2) Use category -> holes mapping
+        if (player.category_id) {
+            const catHoles = categoryHolesByNumber.get(player.category_id);
+            if (catHoles) {
+                const hole = catHoles.get(holeNumber);
+                if (hole) return hole;
+            }
+        }
+
+        // 3) Fallback: find any hole with this number
+        return holes.find((h) => h.number === holeNumber);
+    };
+
+    // Get par for display in header (use filtered category or first available)
+    const getHeaderPar = (holeNumber: number): number => {
+        if (filterCategoryId) {
+            const catHoles = categoryHolesByNumber.get(filterCategoryId);
+            const hole = catHoles?.get(holeNumber);
+            if (hole) return catParMap.get(`${filterCategoryId}:${hole.id}`) ?? hole.par;
+        }
+        const hole = holes.find((h) => h.number === holeNumber);
+        return hole?.par ?? 0;
+    };
+
+    const filteredPlayers = useMemo(() => {
+        const list = filterCategoryId ? players.filter((p) => p.category_id === filterCategoryId) : players;
+        return list.sort((a, b) => a.name.localeCompare(b.name));
+    }, [players, filterCategoryId]);
+
+    // Build score lookup: "playerId:holeId" -> strokes
+    const scoreLookup = useMemo(() => {
+        const map: Record<string, number> = {};
+        for (const s of scores) {
+            map[`${s.player_id}:${s.hole_id}`] = s.strokes;
+        }
+        return map;
+    }, [scores]);
+
+    const getScore = (playerId: string, holeId: string): number | undefined => {
+        const key = `${playerId}:${holeId}`;
+        return editedScores[key] ?? scoreLookup[key];
+    };
+
+    const setScore = (playerId: string, holeId: string, value: string) => {
+        const key = `${playerId}:${holeId}`;
+        const num = parseInt(value, 10);
+        if (value === '') {
+            const next = { ...editedScores };
+            delete next[key];
+            setEditedScores(next);
+        } else if (!isNaN(num) && num >= 1 && num <= 18) {
+            setEditedScores((prev) => ({ ...prev, [key]: num }));
+        }
+    };
+
+    const hasChanges = Object.keys(editedScores).some((key) => editedScores[key] !== scoreLookup[key]);
+
+    const handleSave = () => {
+        const changedScores = Object.entries(editedScores)
+            .filter(([key, val]) => val !== scoreLookup[key])
+            .map(([key, strokes]) => {
+                const [player_id, hole_id] = key.split(':');
+                return { player_id, hole_id, strokes, phase: 1 };
+            });
+
+        if (changedScores.length === 0) return;
+
+        setSaving(true);
+        router.put(route('scores.update', tournament.id), { scores: changedScores }, {
+            preserveScroll: true,
+            onFinish: () => {
+                setSaving(false);
+                setEditedScores({});
+            },
+        });
+    };
+
+    const getScoreColor = (strokes: number | undefined, par: number) => {
+        if (strokes === undefined) return '';
+        const diff = strokes - par;
+        if (diff <= -2) return 'bg-amber-500/20 text-amber-500';
+        if (diff === -1) return 'bg-emerald-500/20 text-emerald-500';
+        if (diff === 0) return '';
+        if (diff === 1) return 'bg-orange-500/20 text-orange-500';
+        return 'bg-red-500/20 text-red-500';
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center">
+                        <ClipboardList className="w-5 h-5 text-violet-400" />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-semibold text-foreground">Récapitulatif des scores</h2>
+                        <p className="text-xs text-muted-foreground">{filteredPlayers.length} joueur{filteredPlayers.length !== 1 ? 's' : ''} &bull; {holeNumbers.length} trous</p>
+                    </div>
+                </div>
+                {hasChanges && (
+                    <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 shadow-lg shadow-primary/25 disabled:opacity-50"
+                    >
+                        <Save className="w-4 h-4" />
+                        {saving ? 'Sauvegarde...' : 'Enregistrer'}
+                    </button>
+                )}
+            </div>
+
+            {/* Category filter */}
+            <div className="flex gap-2 overflow-x-auto pb-1">
+                <button
+                    onClick={() => setFilterCategoryId(null)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${!filterCategoryId ? 'bg-primary/10 text-primary' : 'bg-surface text-muted-foreground hover:bg-surface-hover'}`}
+                >
+                    Tous ({players.length})
+                </button>
+                {categories.map((cat) => {
+                    const count = players.filter((p) => p.category_id === cat.id).length;
+                    return (
+                        <button
+                            key={cat.id}
+                            onClick={() => setFilterCategoryId(cat.id)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${filterCategoryId === cat.id ? categoryColors[cat.name] ?? 'bg-primary text-primary-foreground' : 'bg-surface text-muted-foreground hover:bg-surface-hover'}`}
+                        >
+                            {cat.short_name} ({count})
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* Scores table */}
+            {filteredPlayers.length === 0 ? (
+                <div className="glass-card text-center py-12">
+                    <ClipboardList className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-50" />
+                    <p className="text-sm text-muted-foreground">Aucun joueur dans cette catégorie</p>
+                </div>
+            ) : (
+                <div className="glass-card p-0 overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                            <thead>
+                                {/* Aller / Retour header */}
+                                <tr className="border-b border-border">
+                                    <th className="sticky left-0 z-10 bg-sidebar" />
+                                    {holeNumbers.length > 0 && (
+                                        <>
+                                            <th colSpan={holeNumbers.filter((n) => n <= 9).length} className="py-1.5 text-center text-[10px] font-bold uppercase tracking-widest text-emerald-500 bg-emerald-500/5 border-b-2 border-emerald-500/30">Aller</th>
+                                            {holeNumbers.some((n) => n > 9) && (
+                                                <>
+                                                    <th className="bg-sidebar" />
+                                                    <th colSpan={holeNumbers.filter((n) => n > 9).length} className="py-1.5 text-center text-[10px] font-bold uppercase tracking-widest text-blue-500 bg-blue-500/5 border-b-2 border-blue-500/30">Retour</th>
+                                                </>
+                                            )}
+                                        </>
+                                    )}
+                                    <th />
+                                    <th />
+                                </tr>
+                                <tr className="border-b border-border">
+                                    <th className="sticky left-0 z-10 bg-sidebar px-3 py-2.5 text-left font-semibold text-muted-foreground min-w-[140px]">Joueur</th>
+                                    {holeNumbers.map((num, idx) => {
+                                        const isOut = num <= 9;
+                                        const outHoles = holeNumbers.filter((n) => n <= 9);
+                                        const showSubTotal = isOut && idx === outHoles.length - 1 && holeNumbers.some((n) => n > 9);
+                                        return [
+                                            <th key={num} className={`px-1 py-2.5 text-center font-semibold min-w-[40px] ${isOut ? 'text-emerald-500 bg-emerald-500/5' : 'text-blue-500 bg-blue-500/5'}`}>
+                                                <div>{num}</div>
+                                                <div className={`text-[10px] font-normal ${isOut ? 'text-emerald-500/50' : 'text-blue-500/50'}`}>P{getHeaderPar(num)}</div>
+                                            </th>,
+                                            showSubTotal && (
+                                                <th key="out" className="px-2 py-2.5 text-center font-bold text-emerald-500 bg-emerald-500/10 min-w-[44px] border-x border-emerald-500/20">
+                                                    <div>OUT</div>
+                                                    <div className="text-[10px] font-normal text-emerald-500/50">P{outHoles.reduce((s, n) => s + getHeaderPar(n), 0)}</div>
+                                                </th>
+                                            ),
+                                        ];
+                                    })}
+                                    <th className="px-3 py-2.5 text-center font-semibold text-muted-foreground">Total</th>
+                                    <th className="px-3 py-2.5 text-center font-semibold text-muted-foreground">+/-</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredPlayers.map((player) => {
+                                    let totalStrokes = 0;
+                                    let totalPar = 0;
+                                    let holesPlayed = 0;
+                                    let outStrokes = 0;
+                                    let outPar = 0;
+                                    let outPlayed = 0;
+
+                                    return (
+                                        <tr key={player.id} className="border-b border-border/50 hover:bg-surface/50">
+                                            <td className="sticky left-0 z-10 bg-sidebar px-3 py-1.5">
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-2 h-2 rounded-full ${categoryDotColors[player.category?.name ?? ''] ?? 'bg-gray-500'}`} />
+                                                    <span className="font-medium text-foreground truncate max-w-[120px]">{player.name}</span>
+                                                </div>
+                                            </td>
+                                            {holeNumbers.map((num, idx) => {
+                                                const hole = getHoleForPlayer(player, num);
+                                                const isOut = num <= 9;
+                                                const outHoles = holeNumbers.filter((n) => n <= 9);
+                                                const showSubTotal = isOut && idx === outHoles.length - 1 && holeNumbers.some((n) => n > 9);
+
+                                                if (!hole) {
+                                                    return [
+                                                        <td key={num} className={`px-0.5 py-0.5 text-center ${isOut ? 'bg-emerald-500/[0.03]' : 'bg-blue-500/[0.03]'}`}>
+                                                            <span className="w-9 h-8 inline-flex items-center justify-center text-xs text-muted-foreground/30">—</span>
+                                                        </td>,
+                                                        showSubTotal && (
+                                                            <td key="out-val" className="px-1 py-1.5 text-center font-bold text-emerald-500 bg-emerald-500/10 border-x border-emerald-500/20">
+                                                                {outPlayed > 0 ? outStrokes : '—'}
+                                                            </td>
+                                                        ),
+                                                    ];
+                                                }
+
+                                                const strokes = getScore(player.id, hole.id);
+                                                const par = player.category_id ? (catParMap.get(`${player.category_id}:${hole.id}`) ?? hole.par) : hole.par;
+                                                if (strokes !== undefined) {
+                                                    totalStrokes += strokes;
+                                                    totalPar += par;
+                                                    holesPlayed++;
+                                                    if (isOut) { outStrokes += strokes; outPar += par; outPlayed++; }
+                                                }
+                                                const isEdited = editedScores[`${player.id}:${hole.id}`] !== undefined && editedScores[`${player.id}:${hole.id}`] !== scoreLookup[`${player.id}:${hole.id}`];
+                                                return [
+                                                    <td key={num} className={`px-0.5 py-0.5 text-center ${isOut ? 'bg-emerald-500/[0.03]' : 'bg-blue-500/[0.03]'}`}>
+                                                        <input
+                                                            type="number"
+                                                            min={1}
+                                                            max={18}
+                                                            value={strokes ?? ''}
+                                                            onChange={(e) => setScore(player.id, hole.id, e.target.value)}
+                                                            className={`w-9 h-8 text-center text-xs rounded-lg border focus:outline-none focus:border-primary transition-colors ${isEdited ? 'border-primary bg-primary/10 font-bold' : 'border-transparent'} ${getScoreColor(strokes, par)} ${strokes === undefined ? 'bg-surface/50 text-muted-foreground' : 'text-foreground'}`}
+                                                        />
+                                                    </td>,
+                                                    showSubTotal && (
+                                                        <td key="out-val" className="px-1 py-1.5 text-center font-bold text-emerald-500 bg-emerald-500/10 border-x border-emerald-500/20">
+                                                            {outPlayed > 0 ? outStrokes : '—'}
+                                                        </td>
+                                                    ),
+                                                ];
+                                            })}
+                                            <td className="px-3 py-1.5 text-center font-bold text-foreground">{holesPlayed > 0 ? totalStrokes : '—'}</td>
+                                            <td className={`px-3 py-1.5 text-center font-bold ${totalStrokes - totalPar < 0 ? 'text-emerald-500' : totalStrokes - totalPar === 0 ? 'text-foreground' : 'text-red-500'}`}>
+                                                {holesPlayed > 0 ? (totalStrokes - totalPar === 0 ? 'E' : `${totalStrokes - totalPar > 0 ? '+' : ''}${totalStrokes - totalPar}`) : '—'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 // --- Main Page ---
 export default function TournamentManage({ tournament, courses, categories, players, groups, holes, scores, cuts, registrations, payments, markers, categoryPars }: Props) {
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -1908,6 +2288,7 @@ export default function TournamentManage({ tournament, courses, categories, play
             {activeTab === 'players' && <PlayersTab tournament={tournament} players={players} categories={categories} groups={groups} />}
             {activeTab === 'groups' && <GroupsTab tournament={tournament} groups={groups} markers={markers} players={players} categories={categories} />}
             {activeTab === 'course' && <CourseTab tournament={tournament} courses={courses} holes={holes} categories={categories} categoryPars={categoryPars} />}
+            {activeTab === 'scores' && <ScoresTab tournament={tournament} players={players} holes={holes} scores={scores} categories={categories} categoryPars={categoryPars} />}
             {activeTab === 'registrations' && <RegistrationsTab tournament={tournament} registrations={registrations} />}
             {activeTab === 'payments' && <PaymentsTab tournament={tournament} payments={payments} />}
         </AppLayout>

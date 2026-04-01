@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\ScoreUpdated;
 use App\Models\Cut;
 use App\Models\Player;
+use App\Models\Score;
 use App\Models\Tournament;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -26,6 +28,18 @@ class TournamentController extends Controller
 
     public function show(Tournament $tournament)
     {
+        // Ensure Cut records exist for all categories and phases
+        $maxPhase = max(1, $tournament->phase_count - 1);
+        foreach ($tournament->categories as $category) {
+            for ($phase = 1; $phase <= $maxPhase; $phase++) {
+                Cut::firstOrCreate([
+                    'tournament_id' => $tournament->id,
+                    'category_id' => $category->id,
+                    'after_phase' => $phase,
+                ]);
+            }
+        }
+
         $tournament->load([
             'courses',
             'categories',
@@ -125,16 +139,15 @@ class TournamentController extends Controller
             ]);
         }
 
-        // Create Cut records for multi-phase tournaments
+        // Create Cut records for all tournaments (phase 1 for single-phase, all phases for multi-phase)
         $phaseCount = $validated['phase_count'] ?? 1;
-        if ($phaseCount > 1) {
-            foreach ($categoryIds as $categoryId) {
-                for ($phase = 1; $phase < $phaseCount; $phase++) {
-                    $tournament->cuts()->create([
-                        'category_id' => $categoryId,
-                        'after_phase' => $phase,
-                    ]);
-                }
+        $maxPhase = max(1, $phaseCount - 1);
+        foreach ($categoryIds as $categoryId) {
+            for ($phase = 1; $phase <= $maxPhase; $phase++) {
+                $tournament->cuts()->create([
+                    'category_id' => $categoryId,
+                    'after_phase' => $phase,
+                ]);
             }
         }
 
@@ -203,7 +216,7 @@ class TournamentController extends Controller
     public function applyPhaseCut(Request $request, Tournament $tournament)
     {
         $validated = $request->validate([
-            'after_phase' => 'required|integer|min:1|max:'.($tournament->phase_count - 1),
+            'after_phase' => 'required|integer|min:1|max:'.max(1, $tournament->phase_count - 1),
             'cuts' => 'required|array',
             'cuts.*.category_id' => 'required|uuid|exists:categories,id',
             'cuts.*.qualified_count' => 'required|integer|min:1',
@@ -289,6 +302,50 @@ class TournamentController extends Controller
             ->update(['applied_at' => null]);
 
         return back()->with('success', 'Cut réinitialisé pour la phase '.$afterPhase.'.');
+    }
+
+    public function updateScores(Request $request, Tournament $tournament)
+    {
+        $validated = $request->validate([
+            'scores' => 'required|array',
+            'scores.*.player_id' => 'required|uuid|exists:players,id',
+            'scores.*.hole_id' => 'required|uuid|exists:holes,id',
+            'scores.*.strokes' => 'required|integer|min:1|max:18',
+            'scores.*.phase' => 'integer|min:1',
+        ]);
+
+        // Build a lookup of allowed hole IDs per player (based on their category)
+        $playerIds = collect($validated['scores'])->pluck('player_id')->unique();
+        $players = Player::with('category.holes')->whereIn('id', $playerIds)->get()->keyBy('id');
+
+        foreach ($validated['scores'] as $scoreData) {
+            $player = $players->get($scoreData['player_id']);
+            if (!$player || !$player->category) {
+                continue;
+            }
+
+            // Only allow holes that belong to the player's category
+            $allowedHoleIds = $player->category->holes->pluck('id')->toArray();
+            if (!in_array($scoreData['hole_id'], $allowedHoleIds)) {
+                continue;
+            }
+
+            Score::updateOrCreate(
+                [
+                    'player_id' => $scoreData['player_id'],
+                    'hole_id' => $scoreData['hole_id'],
+                    'phase' => $scoreData['phase'] ?? 1,
+                ],
+                [
+                    'strokes' => $scoreData['strokes'],
+                    'synced' => true,
+                ]
+            );
+        }
+
+        broadcast(new ScoreUpdated($tournament->id))->toOthers();
+
+        return back()->with('success', 'Scores mis à jour.');
     }
 
     public function destroy(Tournament $tournament)

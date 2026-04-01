@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Events\ScoreUpdated;
 use App\Models\Group;
+use App\Models\Player;
 use App\Models\Score;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -52,8 +53,20 @@ class MarkerController extends Controller
     public function scoring(Group $group)
     {
         $players = $group->players()->with('category')->get();
-        $holes = $group->tournament->holes()->orderBy('number')->get();
+
+        // Get holes that belong to the players' categories in this group
+        $categoryIds = $players->pluck('category_id')->filter()->unique();
+        $categoryHoleIds = DB::table('category_hole')
+            ->whereIn('category_id', $categoryIds)
+            ->pluck('hole_id')
+            ->unique();
+        $holes = $group->tournament->holes()
+            ->whereIn('id', $categoryHoleIds)
+            ->orderBy('number')
+            ->get();
+
         $scores = Score::whereIn('player_id', $players->pluck('id'))
+            ->whereIn('hole_id', $holes->pluck('id'))
             ->get()
             ->groupBy('player_id');
 
@@ -78,12 +91,27 @@ class MarkerController extends Controller
             'scores' => 'required|array',
             'scores.*.player_id' => 'required|uuid|exists:players,id',
             'scores.*.hole_id' => 'required|uuid|exists:holes,id',
-            'scores.*.strokes' => 'required|integer|min:1',
+            'scores.*.strokes' => 'required|integer|min:1|max:18',
         ]);
 
         $phase = $group->phase;
 
+        // Build a lookup of allowed hole IDs per player (based on their category)
+        $playerIds = collect($validated['scores'])->pluck('player_id')->unique();
+        $players = Player::with('category.holes')->whereIn('id', $playerIds)->get()->keyBy('id');
+
         foreach ($validated['scores'] as $scoreData) {
+            $player = $players->get($scoreData['player_id']);
+            if (!$player || !$player->category) {
+                continue;
+            }
+
+            // Only allow holes that belong to the player's category
+            $allowedHoleIds = $player->category->holes->pluck('id')->toArray();
+            if (!in_array($scoreData['hole_id'], $allowedHoleIds)) {
+                continue;
+            }
+
             Score::updateOrCreate(
                 [
                     'player_id' => $scoreData['player_id'],

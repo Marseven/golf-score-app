@@ -111,6 +111,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('category-pars', [HoleController::class, 'updateCategoryPars'])->name('holes.updateCategoryPars');
         Route::get('export/pdf', [ExportController::class, 'pdf'])->name('export.pdf');
         Route::get('export/excel', [ExportController::class, 'excel'])->name('export.excel');
+        Route::put('scores', [TournamentController::class, 'updateScores'])->name('scores.update');
     });
 
     // Admin-only: registrations management

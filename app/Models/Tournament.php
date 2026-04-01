@@ -14,6 +14,15 @@ class Tournament extends Model
 {
     use HasFactory, HasUuids;
 
+    protected static function booted(): void
+    {
+        static::creating(function (Tournament $tournament) {
+            if (empty($tournament->caddie_master_pin)) {
+                $tournament->caddie_master_pin = static::generateUniqueCaddieMasterPin();
+            }
+        });
+    }
+
     /**
      * Indicates that the IDs are not auto-incrementing.
      */
