@@ -49,6 +49,15 @@ class RegistrationController extends Controller
             'payment_method' => 'nullable|string|in:ebilling,cash',
         ]);
 
+        $existing = $tournament->players()
+            ->where('email', $validated['email'])
+            ->where('category_id', $validated['category_id'])
+            ->first();
+
+        if ($existing) {
+            return back()->withErrors(['email' => 'Vous êtes déjà inscrit(e) dans cette catégorie pour ce tournoi.']);
+        }
+
         $player = $tournament->players()->create([
             'name' => $validated['name'],
             'email' => $validated['email'],

@@ -1,4 +1,4 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import PublicLayout from '@/Layouts/PublicLayout';
 import PhoneInput from '@/Components/PhoneInput';
 import { Target, Loader2, UserPlus, Smartphone, Banknote } from 'lucide-react';
@@ -10,9 +10,12 @@ interface Props {
 }
 
 export default function RegistrationCreate({ tournament, categories }: Props) {
+    const { auth } = usePage().props as any;
+    const user = auth?.user;
+
     const form = useForm({
-        name: '',
-        email: '',
+        name: user?.name ?? '',
+        email: user?.email ?? '',
         phone: '',
         handicap: '',
         category_id: '',

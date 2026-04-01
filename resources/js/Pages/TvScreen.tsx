@@ -19,9 +19,9 @@ interface Props {
 }
 
 function PositionCell({ position }: { position: number }) {
-    if (position === 1) return <span className="w-10 h-10 rounded-xl bg-amber-500 text-amber-950 flex items-center justify-center text-lg font-bold">1</span>;
-    if (position === 2) return <span className="w-10 h-10 rounded-xl bg-slate-400 text-slate-950 flex items-center justify-center text-lg font-bold">2</span>;
-    if (position === 3) return <span className="w-10 h-10 rounded-xl bg-amber-700 text-amber-100 flex items-center justify-center text-lg font-bold">3</span>;
+    if (position === 1) return <span className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center text-2xl">🥇</span>;
+    if (position === 2) return <span className="w-10 h-10 rounded-xl bg-slate-400/20 flex items-center justify-center text-2xl">🥈</span>;
+    if (position === 3) return <span className="w-10 h-10 rounded-xl bg-amber-700/20 flex items-center justify-center text-2xl">🥉</span>;
     return <span className="w-10 h-10 rounded-xl bg-white/10 text-muted-foreground flex items-center justify-center text-lg font-bold">{position}</span>;
 }
 

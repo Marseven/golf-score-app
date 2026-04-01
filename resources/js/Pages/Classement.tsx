@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import PublicLayout from '@/Layouts/PublicLayout';
-import { Trophy, Download, Share2, FileText, Tv, Image, Loader2, ChevronDown } from 'lucide-react';
+import { Trophy, Download, Share2, FileText, Tv, Image, Loader2, ChevronDown, QrCode, X, FileSpreadsheet, MoreHorizontal } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { buildLeaderboard } from '@/Lib/scoring';
 import { categoryColors } from '@/Lib/category-colors';
 import { useRealtimeScores } from '@/Hooks/useRealtimeScores';
@@ -20,9 +21,9 @@ interface Props {
 type ScoringMode = 'stroke' | 'stableford';
 
 function PositionBadge({ position }: { position: number }) {
-    if (position === 1) return <span className="w-8 h-8 rounded-lg bg-amber-500 text-amber-950 flex items-center justify-center text-sm font-bold">1</span>;
-    if (position === 2) return <span className="w-8 h-8 rounded-lg bg-slate-400 text-slate-950 flex items-center justify-center text-sm font-bold">2</span>;
-    if (position === 3) return <span className="w-8 h-8 rounded-lg bg-amber-700 text-amber-100 flex items-center justify-center text-sm font-bold">3</span>;
+    if (position === 1) return <span className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center text-lg">🥇</span>;
+    if (position === 2) return <span className="w-8 h-8 rounded-lg bg-slate-400/20 flex items-center justify-center text-lg">🥈</span>;
+    if (position === 3) return <span className="w-8 h-8 rounded-lg bg-amber-700/20 flex items-center justify-center text-lg">🥉</span>;
     return <span className="w-8 h-8 rounded-lg bg-surface-hover text-muted-foreground flex items-center justify-center text-sm font-bold">{position}</span>;
 }
 
@@ -36,7 +37,8 @@ export default function Classement({ tournament, players, scores, holes, categor
     );
     const [activePhase, setActivePhase] = useState<number | undefined>(undefined);
     const [capturing, setCapturing] = useState(false);
-    const [showExportMenu, setShowExportMenu] = useState(false);
+    const [showQR, setShowQR] = useState(false);
+    const [showMoreMenu, setShowMoreMenu] = useState(false);
     const leaderboardRef = useRef<HTMLDivElement>(null);
 
     const playersWithCategory = players.map((p) => ({
@@ -134,63 +136,64 @@ export default function Classement({ tournament, players, scores, holes, categor
                         </div>
                     </div>
                     {tournament && (
-                        <div className="hidden sm:flex items-center gap-2">
-                            <a href={route('tv', tournament.id)} target="_blank" className="flex items-center gap-2 px-3 py-2 bg-surface border border-border rounded-xl text-sm text-foreground hover:bg-surface-hover">
-                                <Tv className="w-4 h-4" />Ecran TV
-                            </a>
-                            {user && (
-                                <div className="relative">
-                                    <button
-                                        onClick={() => setShowExportMenu(!showExportMenu)}
-                                        className="flex items-center gap-2 px-3 py-2 bg-surface border border-border rounded-xl text-sm text-foreground hover:bg-surface-hover"
-                                    >
-                                        <Download className="w-4 h-4" />Export
-                                        <ChevronDown className="w-3 h-3" />
-                                    </button>
-                                    {showExportMenu && (
-                                        <div className="absolute right-0 top-full mt-1 z-50 w-56 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
-                                            <p className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider border-b border-border">PDF</p>
-                                            <a href={route('export.pdf', tournament.id)} onClick={() => setShowExportMenu(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover">
-                                                <FileText className="w-4 h-4" />Toutes les catégories
-                                            </a>
-                                            {categories.map((cat) => (
-                                                <a key={`pdf-${cat.id}`} href={`${route('export.pdf', tournament.id)}?category_id=${cat.id}`} onClick={() => setShowExportMenu(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover">
-                                                    <FileText className="w-4 h-4 opacity-40" />{cat.name}
-                                                </a>
-                                            ))}
-                                            <p className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider border-y border-border">Excel</p>
-                                            <a href={route('export.excel', tournament.id)} onClick={() => setShowExportMenu(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover">
-                                                <Download className="w-4 h-4" />Toutes les catégories
-                                            </a>
-                                            {categories.map((cat) => (
-                                                <a key={`xls-${cat.id}`} href={`${route('export.excel', tournament.id)}?category_id=${cat.id}`} onClick={() => setShowExportMenu(false)} className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-surface-hover">
-                                                    <Download className="w-4 h-4 opacity-40" />{cat.name}
-                                                </a>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                            <button
-                                onClick={handleShareImage}
-                                disabled={capturing}
-                                className="flex items-center gap-2 px-3 py-2 bg-surface border border-border rounded-xl text-sm text-foreground hover:bg-surface-hover disabled:opacity-50"
+                        <div className="flex items-center gap-1.5">
+                            <a
+                                href={route('export.pdf', tournament.id)}
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-500/10 border border-red-500/20 rounded-lg text-xs font-medium text-red-500 hover:bg-red-500/20 transition-colors"
                             >
-                                {capturing ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                    <Image className="w-4 h-4" />
-                                )}
-                                Partager
-                            </button>
+                                <FileText className="w-3.5 h-3.5" />PDF
+                            </a>
                             <button
                                 onClick={() => {
                                     window.open(`https://wa.me/?text=${encodeURIComponent(buildWhatsAppText())}`, '_blank');
                                 }}
-                                className="flex items-center gap-2 px-3 py-2 bg-surface border border-border rounded-xl text-sm text-foreground hover:bg-surface-hover"
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-surface border border-border rounded-lg text-xs text-foreground hover:bg-surface-hover transition-colors"
                             >
-                                <Share2 className="w-4 h-4" />WhatsApp
+                                <Share2 className="w-3.5 h-3.5" />WhatsApp
                             </button>
+                            <a
+                                href={route('tv', tournament.id)}
+                                target="_blank"
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-surface border border-border rounded-lg text-xs text-foreground hover:bg-surface-hover transition-colors"
+                            >
+                                <Tv className="w-3.5 h-3.5" />TV
+                            </a>
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowMoreMenu(!showMoreMenu)}
+                                    className="flex items-center justify-center w-8 h-8 bg-surface border border-border rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-hover transition-colors"
+                                >
+                                    <MoreHorizontal className="w-4 h-4" />
+                                </button>
+                                {showMoreMenu && (
+                                    <>
+                                        <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
+                                        <div className="absolute right-0 top-full mt-1 z-50 w-48 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+                                            <a
+                                                href={route('export.excel', tournament.id)}
+                                                onClick={() => setShowMoreMenu(false)}
+                                                className="flex items-center gap-2 px-3 py-2.5 text-xs text-foreground hover:bg-surface-hover transition-colors"
+                                            >
+                                                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500" />Export Excel
+                                            </a>
+                                            <button
+                                                onClick={() => { setShowQR(true); setShowMoreMenu(false); }}
+                                                className="flex items-center gap-2 w-full px-3 py-2.5 text-xs text-foreground hover:bg-surface-hover transition-colors"
+                                            >
+                                                <QrCode className="w-3.5 h-3.5 text-primary" />QR Code
+                                            </button>
+                                            <button
+                                                onClick={() => { handleShareImage(); setShowMoreMenu(false); }}
+                                                disabled={capturing}
+                                                className="flex items-center gap-2 w-full px-3 py-2.5 text-xs text-foreground hover:bg-surface-hover transition-colors disabled:opacity-50"
+                                            >
+                                                {capturing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Image className="w-3.5 h-3.5" />}
+                                                Partager image
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -307,6 +310,49 @@ export default function Classement({ tournament, players, scores, holes, categor
                     Temps reel &bull; {lastUpdate.toLocaleTimeString('fr-FR')}
                 </div>
             </div>
+            {/* QR Code Modal */}
+            {showQR && tournament && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+                    <div className="absolute inset-0 bg-black/50" onClick={() => setShowQR(false)} />
+                    <div className="relative w-full max-w-sm bg-sidebar border border-border rounded-2xl shadow-xl p-6">
+                        <button
+                            onClick={() => setShowQR(false)}
+                            className="absolute top-4 right-4 p-1 rounded-lg text-muted-foreground hover:text-foreground"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+                                <QrCode className="w-6 h-6 text-primary" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-foreground mb-1">Classement en ligne</h3>
+                            <p className="text-sm text-muted-foreground mb-6">{tournament.name}</p>
+                            <div className="bg-white p-4 rounded-xl mb-4">
+                                <QRCodeSVG
+                                    value={route('classement', tournament.id)}
+                                    size={200}
+                                    level="M"
+                                />
+                            </div>
+                            <p className="text-xs text-muted-foreground mb-4 break-all">{route('classement', tournament.id)}</p>
+                            <div className="flex gap-2 w-full">
+                                <a
+                                    href={route('export.pdf', tournament.id)}
+                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-sm font-medium text-red-500 hover:bg-red-500/20 transition-colors"
+                                >
+                                    <FileText className="w-4 h-4" />PDF
+                                </a>
+                                <a
+                                    href={route('export.excel', tournament.id)}
+                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-sm font-medium text-emerald-500 hover:bg-emerald-500/20 transition-colors"
+                                >
+                                    <FileSpreadsheet className="w-4 h-4" />Excel
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </PublicLayout>
     );
 }

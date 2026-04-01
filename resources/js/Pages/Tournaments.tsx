@@ -10,8 +10,14 @@ interface Props {
 
 type StatusFilter = 'all' | 'upcoming' | 'active' | 'open';
 
-function isUpcoming(tournament: Tournament): boolean {
-    return tournament.status === 'published' || new Date(tournament.start_date) > new Date();
+function getTournamentState(tournament: Tournament): 'upcoming' | 'active' {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const start = new Date(tournament.start_date);
+
+    if (tournament.status === 'active') return 'active';
+    if (start > startOfToday) return 'upcoming';
+    return 'active';
 }
 
 export default function Tournaments({ tournaments }: Props) {
@@ -25,8 +31,8 @@ export default function Tournaments({ tournaments }: Props) {
                 t.club?.toLowerCase().includes(search.toLowerCase());
 
             let matchesStatus = true;
-            if (statusFilter === 'upcoming') matchesStatus = isUpcoming(t);
-            else if (statusFilter === 'active') matchesStatus = t.status === 'active';
+            if (statusFilter === 'upcoming') matchesStatus = getTournamentState(t) === 'upcoming';
+            else if (statusFilter === 'active') matchesStatus = getTournamentState(t) === 'active';
             else if (statusFilter === 'open') matchesStatus = !!t.registration_open;
 
             return matchesSearch && matchesStatus;
@@ -90,11 +96,11 @@ export default function Tournaments({ tournaments }: Props) {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                         {filtered.map((tournament) => {
-                            const upcoming = isUpcoming(tournament);
+                            const state = getTournamentState(tournament);
                             return (
                                 <div key={tournament.id} className="glass-card">
                                     <div className="mb-4">
-                                        {upcoming ? (
+                                        {state === 'upcoming' ? (
                                             <span className="px-3 py-1 rounded-lg text-xs font-medium bg-blue-500/20 text-blue-400">
                                                 A venir
                                             </span>
