@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { router } from "@inertiajs/react";
 
 declare global {
@@ -12,14 +12,21 @@ const POLL_INTERVAL = 5_000; // 5 seconds
 export function useRealtimeScores(tournamentId?: string) {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isReloading = useRef(false);
+
+  const refresh = useCallback(() => {
+    if (isReloading.current) return;
+    isReloading.current = true;
+    router.reload({
+      onFinish: () => {
+        isReloading.current = false;
+        setLastUpdate(new Date());
+      },
+    });
+  }, []);
 
   useEffect(() => {
     if (!tournamentId) return;
-
-    const refresh = () => {
-      router.reload();
-      setLastUpdate(new Date());
-    };
 
     // Try WebSocket via Echo
     if (window.Echo) {
@@ -31,7 +38,7 @@ export function useRealtimeScores(tournamentId?: string) {
       };
     }
 
-    // Fallback: polling when Echo is not available
+    // Fallback: polling
     pollRef.current = setInterval(refresh, POLL_INTERVAL);
 
     return () => {
@@ -40,7 +47,7 @@ export function useRealtimeScores(tournamentId?: string) {
         pollRef.current = null;
       }
     };
-  }, [tournamentId]);
+  }, [tournamentId, refresh]);
 
   return { lastUpdate };
 }

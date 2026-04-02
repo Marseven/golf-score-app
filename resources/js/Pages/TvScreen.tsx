@@ -106,6 +106,10 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
 
     const totalPages = Math.max(1, Math.ceil(fullLeaderboard.length / perPage));
 
+    // Store data in refs so rotation interval doesn't re-create on data change
+    const dataRef = useRef({ playersWithCategory, scores, holes, categories, categoryPars, penalties });
+    dataRef.current = { playersWithCategory, scores, holes, categories, categoryPars, penalties };
+
     // Auto-rotation: paginate within category, then switch
     const rotationRef = useRef({ catIdx: 0, page: 0 });
 
@@ -114,20 +118,18 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
         const interval = setInterval(() => {
             const ids = catIdsRef.current;
             const r = rotationRef.current;
+            const d = dataRef.current;
 
-            // Get current category's total entries
             const currentCatId = ids[r.catIdx] === 'all' ? undefined : ids[r.catIdx];
-            const entries = buildLeaderboard(playersWithCategory, scores, holes, currentCatId, 'stroke', categories, undefined, undefined, categoryPars, penalties)
+            const entries = buildLeaderboard(d.playersWithCategory, d.scores, d.holes, currentCatId, 'stroke', d.categories, undefined, undefined, d.categoryPars, d.penalties)
                 .filter((e) => e.player.cut_after_phase == null);
             const catTotalPages = Math.max(1, Math.ceil(entries.length / perPage));
 
             if (r.page + 1 < catTotalPages) {
-                // Next page in same category
                 r.page += 1;
                 setCurrentPage(r.page);
                 setAnimKey((k) => k + 1);
             } else {
-                // Move to next category, page 0
                 r.page = 0;
                 r.catIdx = (r.catIdx + 1) % ids.length;
                 const next = ids[r.catIdx];
@@ -137,7 +139,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
             }
         }, 20000);
         return () => clearInterval(interval);
-    }, [isPaused, categories?.length, playersWithCategory, scores, holes, categoryPars, penalties]);
+    }, [isPaused, categories?.length]);
 
     const toggleFullscreen = useCallback(() => {
         if (!document.fullscreenElement) {
