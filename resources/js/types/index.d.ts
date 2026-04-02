@@ -96,6 +96,7 @@ export interface Group {
     scores_confirmed_at: string | null;
     confirmed_by_name: string | null;
     marker?: User | null;
+    markers?: (User & { pivot?: { marker_pin?: string } })[];
     players?: Player[];
 }
 

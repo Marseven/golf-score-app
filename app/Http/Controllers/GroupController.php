@@ -25,6 +25,8 @@ class GroupController extends Controller
             'hole_start' => 'integer|min:1|max:18',
             'hole_end' => 'integer|min:1|max:18',
             'marker_id' => 'nullable|uuid|exists:users,id',
+            'marker_ids' => 'nullable|array',
+            'marker_ids.*' => 'uuid|exists:users,id',
             'marker_phone' => 'nullable|string|max:50',
             'player_ids' => 'nullable|array',
             'player_ids.*' => 'uuid|exists:players,id',
@@ -69,17 +71,32 @@ class GroupController extends Controller
             'marker_phone' => $validated['marker_phone'] ?? null,
         ];
 
+        // Keep legacy marker_id for backward compat
         if (! empty($validated['marker_id'])) {
             $groupData['marker_id'] = $validated['marker_id'];
+        }
+
+        $group = $tournament->groups()->create($groupData);
+
+        // Sync markers via pivot (support multiple marker_ids)
+        $markerIds = !empty($validated['marker_ids']) ? $validated['marker_ids'] : (!empty($validated['marker_id']) ? [$validated['marker_id']] : []);
+        foreach ($markerIds as $markerId) {
+            // Get or reuse PIN for this marker
+            $existingPin = \DB::table('group_marker')
+                ->join('groups', 'groups.id', '=', 'group_marker.group_id')
+                ->where('groups.tournament_id', $tournament->id)
+                ->where('group_marker.user_id', $markerId)
+                ->value('group_marker.marker_pin');
+            $pin = $existingPin ?? Group::generateUniquePin($tournament->id);
+
+            $group->markers()->attach($markerId, ['id' => (string) Str::uuid(), 'marker_pin' => $pin]);
 
             UserRole::firstOrCreate([
-                'user_id' => $validated['marker_id'],
+                'user_id' => $markerId,
                 'tournament_id' => $tournament->id,
                 'role' => 'marker',
             ]);
         }
-
-        $group = $tournament->groups()->create($groupData);
 
         if (! empty($validated['player_ids'])) {
             Player::where('tournament_id', $tournament->id)
@@ -101,6 +118,8 @@ class GroupController extends Controller
             'hole_start' => 'integer|min:1|max:18',
             'hole_end' => 'integer|min:1|max:18',
             'marker_id' => 'nullable|uuid|exists:users,id',
+            'marker_ids' => 'nullable|array',
+            'marker_ids.*' => 'uuid|exists:users,id',
             'marker_phone' => 'nullable|string|max:50',
             'player_ids' => 'nullable|array',
             'player_ids.*' => 'uuid|exists:players,id',
@@ -120,19 +139,35 @@ class GroupController extends Controller
             'marker_phone' => $validated['marker_phone'] ?? null,
         ];
 
-        if (! empty($validated['marker_id'])) {
-            $groupData['marker_id'] = $validated['marker_id'];
-
-            UserRole::firstOrCreate([
-                'user_id' => $validated['marker_id'],
-                'tournament_id' => $tournament->id,
-                'role' => 'marker',
-            ]);
-        } elseif ($request->has('marker_id')) {
+        // Legacy marker_id support
+        $markerIds = !empty($validated['marker_ids']) ? $validated['marker_ids'] : (!empty($validated['marker_id']) ? [$validated['marker_id']] : []);
+        if (!empty($markerIds)) {
+            $groupData['marker_id'] = $markerIds[0]; // keep first as legacy
+        } elseif ($request->has('marker_id') || $request->has('marker_ids')) {
             $groupData['marker_id'] = null;
         }
 
         $group->update($groupData);
+
+        // Sync markers via pivot
+        $syncData = [];
+        foreach ($markerIds as $markerId) {
+            $existingPin = \DB::table('group_marker')
+                ->join('groups', 'groups.id', '=', 'group_marker.group_id')
+                ->where('groups.tournament_id', $tournament->id)
+                ->where('group_marker.user_id', $markerId)
+                ->value('group_marker.marker_pin');
+            $pin = $existingPin ?? Group::generateUniquePin($tournament->id);
+
+            $syncData[$markerId] = ['id' => (string) Str::uuid(), 'marker_pin' => $pin];
+
+            UserRole::firstOrCreate([
+                'user_id' => $markerId,
+                'tournament_id' => $tournament->id,
+                'role' => 'marker',
+            ]);
+        }
+        $group->markers()->sync($syncData);
 
         // Unassign all current players from this group
         $group->players()->update(['group_id' => null]);

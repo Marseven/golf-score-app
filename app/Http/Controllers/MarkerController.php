@@ -25,31 +25,55 @@ class MarkerController extends Controller
         ]);
 
         if (! empty($validated['pin'])) {
-            // Try to find a group by PIN
-            $group = Group::where('marker_pin', $validated['pin'])
-                ->whereHas('tournament', fn ($q) => $q->whereIn('status', ['published', 'active']))
+            // Try to find marker by PIN in pivot table
+            $pivotEntry = \DB::table('group_marker')
+                ->where('marker_pin', $validated['pin'])
                 ->first();
 
-            if ($group) {
-                // Store the marker context: all groups this marker handles
-                $markerGroups = Group::where('marker_pin', $validated['pin'])
+            if (!$pivotEntry) {
+                // Fallback: try legacy marker_pin on groups table
+                $pivotEntry = Group::where('marker_pin', $validated['pin'])
                     ->whereHas('tournament', fn ($q) => $q->whereIn('status', ['published', 'active']))
-                    ->pluck('id')
-                    ->toArray();
-
-                $request->session()->put('marker_group_ids', $markerGroups);
-                $request->session()->put('marker_tournament_id', $group->tournament_id);
-
-                if (count($markerGroups) === 1) {
-                    $request->session()->put('marker_group_id', $group->id);
-                    $request->session()->put('marker_group_code', $group->code);
-                    return redirect()->route('marqueur.scoring', $group);
+                    ->first();
+                if ($pivotEntry) {
+                    $request->session()->put('marker_group_ids', [$pivotEntry->id]);
+                    $request->session()->put('marker_group_id', $pivotEntry->id);
+                    $request->session()->put('marker_group_code', $pivotEntry->code);
+                    $request->session()->put('marker_tournament_id', $pivotEntry->tournament_id);
+                    $request->session()->put('marker_user_id', $pivotEntry->marker_id);
+                    return redirect()->route('marqueur.scoring', $pivotEntry);
                 }
-
-                return redirect()->route('marqueur.groups');
+                return back()->withErrors(['pin' => 'PIN invalide.']);
             }
 
-            return back()->withErrors(['pin' => 'PIN invalide.']);
+            $markerId = $pivotEntry->user_id;
+
+            // Find all groups for this marker via pivot
+            $markerGroups = \DB::table('group_marker')
+                ->where('user_id', $markerId)
+                ->join('groups', 'groups.id', '=', 'group_marker.group_id')
+                ->whereIn('groups.tournament_id', function ($q) {
+                    $q->select('id')->from('tournaments')->whereIn('status', ['published', 'active']);
+                })
+                ->pluck('groups.id')
+                ->toArray();
+
+            $firstGroup = Group::find($markerGroups[0] ?? null);
+            if (!$firstGroup) {
+                return back()->withErrors(['pin' => 'PIN invalide.']);
+            }
+
+            $request->session()->put('marker_group_ids', $markerGroups);
+            $request->session()->put('marker_tournament_id', $firstGroup->tournament_id);
+            $request->session()->put('marker_user_id', $markerId);
+
+            if (count($markerGroups) === 1) {
+                $request->session()->put('marker_group_id', $firstGroup->id);
+                $request->session()->put('marker_group_code', $firstGroup->code);
+                return redirect()->route('marqueur.scoring', $firstGroup);
+            }
+
+            return redirect()->route('marqueur.groups');
         }
 
         if (! empty($validated['code'])) {
@@ -85,20 +109,16 @@ class MarkerController extends Controller
             ->orderBy('tee_time')
             ->get();
 
-        // Calculate scoring progress for each group based on marker's hole range
-        $groups->each(function ($group) {
-            $playerCount = $group->players->count();
+        // Calculate scoring progress based on current marker's hole range
+        $markerUserId = $request->session()->get('marker_user_id');
+        $currentMarker = $markerUserId ? \App\Models\User::find($markerUserId) : null;
+        $markerHoleStart = $currentMarker->hole_start ?? 1;
+        $markerHoleEnd = $currentMarker->hole_end ?? 18;
 
-            // Get hole range from the marker user
-            $holeStart = 1;
-            $holeEnd = 18;
-            if ($group->marker_id) {
-                $marker = \App\Models\User::find($group->marker_id);
-                if ($marker) {
-                    $holeStart = $marker->hole_start ?? 1;
-                    $holeEnd = $marker->hole_end ?? 18;
-                }
-            }
+        $groups->each(function ($group) use ($markerHoleStart, $markerHoleEnd) {
+            $playerCount = $group->players->count();
+            $holeStart = $markerHoleStart;
+            $holeEnd = $markerHoleEnd;
 
             $holesQuery = $group->tournament->holes()
                 ->whereBetween('number', [$holeStart, $holeEnd]);
@@ -162,11 +182,12 @@ class MarkerController extends Controller
             }
         }
 
-        // Filter holes by the marker's hole range (from the user who is the marker)
+        // Filter holes by the current marker's hole range
         $holeStart = 1;
         $holeEnd = 18;
-        if ($group->marker_id) {
-            $marker = \App\Models\User::find($group->marker_id);
+        $markerUserId = request()->session()->get('marker_user_id');
+        if ($markerUserId) {
+            $marker = \App\Models\User::find($markerUserId);
             if ($marker) {
                 $holeStart = $marker->hole_start ?? 1;
                 $holeEnd = $marker->hole_end ?? 18;

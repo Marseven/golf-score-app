@@ -47,6 +47,7 @@ class TournamentController extends Controller
             'categories',
             'groups.players.category',
             'groups.marker',
+            'groups.markers',
             'groups.category',
             'groups.course',
             'players.category',
