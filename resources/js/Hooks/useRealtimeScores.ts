@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { router } from "@inertiajs/react";
 
 declare global {
@@ -7,23 +7,9 @@ declare global {
   }
 }
 
-const POLL_INTERVAL = 5_000; // 5 seconds
-
 export function useRealtimeScores(tournamentId?: string) {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isReloading = useRef(false);
-
-  const refresh = useCallback(() => {
-    if (isReloading.current) return;
-    isReloading.current = true;
-    router.reload({
-      onFinish: () => {
-        isReloading.current = false;
-        setLastUpdate(new Date());
-      },
-    });
-  }, []);
+  const intervalRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!tournamentId) return;
@@ -31,23 +17,28 @@ export function useRealtimeScores(tournamentId?: string) {
     // Try WebSocket via Echo
     if (window.Echo) {
       window.Echo.channel(`tournament.${tournamentId}`)
-        .listen('.score.updated', refresh);
+        .listen('.score.updated', () => {
+          router.reload();
+          setLastUpdate(new Date());
+        });
 
       return () => {
         window.Echo.leave(`tournament.${tournamentId}`);
       };
     }
 
-    // Fallback: polling
-    pollRef.current = setInterval(refresh, POLL_INTERVAL);
+    // Fallback: polling every 5 seconds
+    intervalRef.current = window.setInterval(() => {
+      router.reload();
+      setLastUpdate(new Date());
+    }, 5000);
 
     return () => {
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
+      if (intervalRef.current) {
+        window.clearInterval(intervalRef.current);
       }
     };
-  }, [tournamentId, refresh]);
+  }, [tournamentId]);
 
   return { lastUpdate };
 }
