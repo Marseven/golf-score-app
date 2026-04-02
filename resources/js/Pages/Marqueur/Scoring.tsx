@@ -111,6 +111,13 @@ export default function MarkerScoring({ group, groupCode, players, holes, existi
         saveHole(currentHole);
         if (scoreConfirmationEnabled) {
             setShowConfirmModal(true);
+        } else {
+            // Redirect to groups or login
+            if (hasMultipleGroups) {
+                window.location.href = route('marqueur.groups');
+            } else {
+                window.location.href = route('marqueur.login');
+            }
         }
     };
 

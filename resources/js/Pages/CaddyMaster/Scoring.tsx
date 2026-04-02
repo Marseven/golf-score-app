@@ -110,6 +110,8 @@ export default function CaddyMasterScoring({ group, groupCode, players, holes, e
         saveHole(currentHole);
         if (scoreConfirmationEnabled) {
             setShowConfirmModal(true);
+        } else {
+            window.location.href = route('caddie-master.dashboard');
         }
     };
 
