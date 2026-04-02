@@ -53,7 +53,7 @@ class Group extends Model
             'phase' => 'integer',
             'hole_start' => 'integer',
             'hole_end' => 'integer',
-            'tee_date' => 'date',
+            'tee_date' => 'date:Y-m-d',
             'scores_confirmed_at' => 'datetime',
         ];
     }

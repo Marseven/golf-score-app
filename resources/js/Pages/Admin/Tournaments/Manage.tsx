@@ -972,7 +972,7 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses }
     const [showMarkerForm, setShowMarkerForm] = useState(false);
     const [activePhase, setActivePhase] = useState(1);
     const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
-    const [bulkMarkerId, setBulkMarkerId] = useState('');
+    const [bulkMarkerIds, setBulkMarkerIds] = useState<string[]>([]);
     const [bulkCourseId, setBulkCourseId] = useState('');
     const [viewingGroup, setViewingGroup] = useState<Group | null>(null);
     const { confirm, confirmDialog } = useConfirm();
@@ -1301,31 +1301,37 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses }
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                            <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1">Affecter un marqueur</label>
-                            <div className="flex gap-2">
-                                <select value={bulkMarkerId} onChange={(e) => setBulkMarkerId(e.target.value)} className="flex-1 bg-surface border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none">
-                                    <option value="">Choisir un marqueur</option>
-                                    {availableMarkers.map((m) => <option key={m.id} value={m.id}>{m.name} — Trous {(m as any).hole_start ?? 1}-{(m as any).hole_end ?? 18}</option>)}
-                                </select>
-                                <button
-                                    type="button"
-                                    disabled={!bulkMarkerId}
-                                    onClick={() => {
-                                        selectedGroupIds.forEach((gid) => {
-                                            const g = groups.find((gr) => gr.id === gid);
-                                            if (!g) return;
-                                            router.put(route('groups.update', [tournament.id, gid]), {
-                                                tee_time: g.tee_time, tee_date: g.tee_date ? String(g.tee_date).substring(0, 10) : '', phase: g.phase, category_id: g.category_id ?? '',
-                                                course_id: g.course_id ?? '', marker_id: bulkMarkerId, marker_phone: g.marker_phone ?? '', player_ids: g.players?.map((p) => p.id) ?? [],
-                                            }, { preserveScroll: true });
-                                        });
-                                        setSelectedGroupIds([]); setBulkMarkerId('');
-                                    }}
-                                    className="px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium disabled:opacity-40 whitespace-nowrap"
-                                >
-                                    Affecter
-                                </button>
+                            <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1">Affecter des marqueurs</label>
+                            <div className="flex flex-wrap gap-1.5 mb-2">
+                                {availableMarkers.map((m) => {
+                                    const sel = bulkMarkerIds.includes(m.id);
+                                    return (
+                                        <button key={m.id} type="button" onClick={() => setBulkMarkerIds((prev) => sel ? prev.filter((id) => id !== m.id) : [...prev, m.id])}
+                                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${sel ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-surface border border-border text-muted-foreground hover:text-foreground'}`}>
+                                            <div className={`w-2 h-2 rounded-full ${sel ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
+                                            {m.name} <span className="px-1 rounded bg-amber-500/10 text-amber-400 text-[9px] font-bold">{(m as any).hole_start ?? 1}-{(m as any).hole_end ?? 18}</span>
+                                        </button>
+                                    );
+                                })}
                             </div>
+                            <button
+                                type="button"
+                                disabled={bulkMarkerIds.length === 0}
+                                onClick={() => {
+                                    selectedGroupIds.forEach((gid) => {
+                                        const g = groups.find((gr) => gr.id === gid);
+                                        if (!g) return;
+                                        router.put(route('groups.update', [tournament.id, gid]), {
+                                            tee_time: g.tee_time, tee_date: g.tee_date ? String(g.tee_date).substring(0, 10) : '', phase: g.phase, category_id: g.category_id ?? '',
+                                            course_id: g.course_id ?? '', marker_ids: bulkMarkerIds, marker_phone: g.marker_phone ?? '', player_ids: g.players?.map((p) => p.id) ?? [],
+                                        }, { preserveScroll: true });
+                                    });
+                                    setSelectedGroupIds([]); setBulkMarkerIds([]);
+                                }}
+                                className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-medium disabled:opacity-40"
+                            >
+                                Affecter aux {selectedGroupIds.length} groupe{selectedGroupIds.length > 1 ? 's' : ''}
+                            </button>
                         </div>
                         {courses.length > 0 && (
                             <div>
