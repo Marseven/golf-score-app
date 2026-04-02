@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Head, Link } from '@inertiajs/react';
-import { Trophy, X, Pause, Play, Maximize, Minimize } from 'lucide-react';
+import { Trophy, X, Pause, Play, Maximize, Minimize, ZoomIn, ZoomOut } from 'lucide-react';
 import { buildLeaderboard } from '@/Lib/scoring';
 import type { PenaltyData } from '@/Lib/scoring';
 import { countryCodeToFlag } from '@/Lib/countries';
@@ -74,6 +74,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
     const [animKey, setAnimKey] = useState(0);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
+    const [zoom, setZoom] = useState(100);
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Only include categories that have players
@@ -158,8 +159,15 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                 }
             `}</style>
 
-            <div ref={containerRef} className="fixed inset-0 flex flex-col overflow-hidden" style={{
+            <div ref={containerRef} className="fixed inset-0 overflow-hidden" style={{
                 background: 'linear-gradient(135deg, #0a0f1a 0%, #0d1520 40%, #091215 100%)',
+            }}>
+            <div className="flex flex-col h-full" style={{
+                transform: `scale(${zoom / 100})`,
+                transformOrigin: 'top center',
+                width: `${10000 / zoom}%`,
+                height: `${10000 / zoom}%`,
+                marginLeft: `${(100 - 10000 / zoom) / 2}%`,
             }}>
                 {/* Ambient light effects */}
                 <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-emerald-500/[0.03] rounded-full blur-[150px] pointer-events-none" />
@@ -175,6 +183,13 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
 
                 {/* Controls */}
                 <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+                    <button onClick={() => setZoom((z) => Math.max(50, z - 10))} className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all backdrop-blur-sm border border-white/5" title="Réduire">
+                        <ZoomOut className="w-4 h-4 text-white/40" />
+                    </button>
+                    <span className="text-[10px] text-white/30 font-mono w-8 text-center">{zoom}%</span>
+                    <button onClick={() => setZoom((z) => Math.min(150, z + 10))} className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all backdrop-blur-sm border border-white/5" title="Agrandir">
+                        <ZoomIn className="w-4 h-4 text-white/40" />
+                    </button>
                     <button onClick={() => setIsPaused(!isPaused)} className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all backdrop-blur-sm border border-white/5">
                         {isPaused ? <Play className="w-4 h-4 text-white/40" /> : <Pause className="w-4 h-4 text-white/40" />}
                     </button>
@@ -187,9 +202,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                 <header className="relative px-12 pt-8 pb-4">
                     <div className="flex items-end justify-between">
                         <div className="flex items-center gap-6" style={{ animation: 'tvFadeUp 0.6s ease-out both' }}>
-                            <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05))' }}>
-                                <img src={logoUrl || '/images/logo.png'} alt="" className="w-12 h-12 object-contain" />
-                            </div>
+                            <img src={sponsorLogoUrl || '/eramet-comilog.jpeg'} alt="Partenaire" className="h-14 object-contain" style={{ mixBlendMode: 'screen' }} />
                             <div>
                                 <h1 className="font-display text-4xl text-white tracking-tight leading-none">{tournament?.name ?? ''}</h1>
                                 <p className="text-base text-white/30 mt-1.5 font-medium">{tournament?.club}{dateStr && ` — ${dateStr}`}</p>
@@ -197,11 +210,11 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                         </div>
 
                         <div className="flex items-center gap-6" style={{ animation: 'tvFadeUp 0.6s ease-out 0.1s both' }}>
-                            {sponsorLogoUrl && (
-                                <img src={sponsorLogoUrl} alt="Sponsor" className="h-12 object-contain opacity-60" />
-                            )}
                             <div className="text-right">
                                 <div className="text-3xl font-black text-white/20 tabular-nums leading-none">{timeStr}</div>
+                            </div>
+                            <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05))' }}>
+                                <img src={logoUrl || '/images/logo.png'} alt="" className="w-12 h-12 object-contain" />
                             </div>
                         </div>
                     </div>
@@ -324,6 +337,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                     </div>
                     <span className="text-xs text-white/15 font-medium tracking-wider">Made with Love by JOBS</span>
                 </footer>
+            </div>
             </div>
         </>
     );

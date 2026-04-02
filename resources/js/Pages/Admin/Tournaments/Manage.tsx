@@ -64,6 +64,7 @@ const allTabs: TabDef[] = [
 // --- Dashboard Tab ---
 function DashboardTab({ tournament, players, groups, scores }: { tournament: Tournament; players: Player[]; groups: Group[]; scores: Score[] }) {
     const [showQRModal, setShowQRModal] = useState(false);
+    const [showResetConfirm, setShowResetConfirm] = useState(false);
     const qrCanvasRef = useRef<HTMLCanvasElement>(null);
     const syncedCount = scores.filter((s) => s.synced).length;
     const totalHoles = players.length * 18;
@@ -210,6 +211,58 @@ function DashboardTab({ tournament, players, groups, scores }: { tournament: Tou
                                 <Download className="w-4 h-4" />
                                 Télécharger PNG
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Reset scores */}
+            {scores.length > 0 && (
+                <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 flex items-center justify-between">
+                    <div>
+                        <p className="text-sm font-semibold text-foreground">Réinitialiser le tournoi</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Supprimer tous les scores, pénalités et cuts ({scores.length} scores)</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setShowResetConfirm(true)}
+                        className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl text-xs font-semibold transition-colors border border-red-500/20"
+                    >
+                        <Trash2 className="w-3.5 h-3.5 inline mr-1.5" />Réinitialiser
+                    </button>
+                </div>
+            )}
+
+            {/* Reset confirmation modal */}
+            {showResetConfirm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+                    <div className="absolute inset-0 bg-black/50" onClick={() => setShowResetConfirm(false)} />
+                    <div className="relative w-full max-w-sm bg-sidebar border border-border rounded-2xl shadow-xl p-6">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center mb-4">
+                                <AlertTriangle className="w-6 h-6 text-red-500" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-foreground mb-2">Réinitialiser le tournoi ?</h3>
+                            <p className="text-sm text-muted-foreground mb-6">Cette action supprimera <strong>{scores.length} scores</strong>, toutes les pénalités et les cuts appliqués. Cette action est irréversible.</p>
+                            <div className="flex gap-3 w-full">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowResetConfirm(false)}
+                                    className="flex-1 px-4 py-2.5 text-sm font-medium text-muted-foreground bg-surface border border-border rounded-xl hover:bg-surface-hover transition-colors"
+                                >
+                                    Annuler
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        router.delete(route('scores.reset', tournament.id), { preserveScroll: true });
+                                        setShowResetConfirm(false);
+                                    }}
+                                    className="flex-1 px-4 py-2.5 text-sm font-medium bg-red-500 hover:bg-red-600 text-white rounded-xl transition-colors"
+                                >
+                                    Tout supprimer
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

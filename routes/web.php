@@ -113,6 +113,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('export/pdf', [ExportController::class, 'pdf'])->name('export.pdf');
         Route::get('export/excel', [ExportController::class, 'excel'])->name('export.excel');
         Route::put('scores', [TournamentController::class, 'updateScores'])->name('scores.update');
+        Route::delete('scores', [TournamentController::class, 'resetScores'])->name('scores.reset');
         Route::post('penalties', [TournamentController::class, 'storePenalty'])->name('penalties.store');
         Route::post('groups/{group}/regenerate-pin', [GroupController::class, 'regeneratePin'])->name('groups.regeneratePin');
         Route::delete('penalties/{penalty}', [TournamentController::class, 'destroyPenalty'])->name('penalties.destroy');

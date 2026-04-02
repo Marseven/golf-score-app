@@ -350,6 +350,29 @@ class TournamentController extends Controller
         return back()->with('success', 'Scores mis à jour.');
     }
 
+    public function resetScores(Tournament $tournament)
+    {
+        $count = $tournament->scores()->count();
+        $tournament->scores()->delete();
+        $tournament->penalties()->delete();
+
+        // Reset group confirmations
+        $tournament->groups()->update([
+            'scores_confirmed_at' => null,
+            'confirmed_by_name' => null,
+        ]);
+
+        // Reset player cuts
+        $tournament->players()->update(['cut_after_phase' => null]);
+
+        // Reset cut applied_at
+        $tournament->cuts()->update(['applied_at' => null]);
+
+        broadcast(new ScoreUpdated($tournament->id))->toOthers();
+
+        return back()->with('success', "{$count} scores supprimés. Tournoi réinitialisé.");
+    }
+
     public function storePenalty(Request $request, Tournament $tournament)
     {
         $validated = $request->validate([
