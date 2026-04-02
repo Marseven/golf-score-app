@@ -29,6 +29,7 @@ interface SettingsData {
     // Tournaments
     default_currency: string;
     default_scoring_mode: string;
+    score_confirmation_enabled: boolean;
 }
 
 interface Props {
@@ -434,6 +435,7 @@ function TournamentsTab({ settings }: { settings: SettingsData }) {
         section: 'tournaments',
         default_currency: settings.default_currency,
         default_scoring_mode: settings.default_scoring_mode,
+        score_confirmation_enabled: settings.score_confirmation_enabled,
     });
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -465,6 +467,19 @@ function TournamentsTab({ settings }: { settings: SettingsData }) {
                 ]}
                 error={form.errors.default_scoring_mode}
             />
+            <div className="flex items-center justify-between px-1 py-3 border-t border-border mt-4">
+                <div>
+                    <p className="text-sm font-medium text-foreground">Confirmation des scores</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Le marqueur doit confirmer les scores en fin de parcours</p>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => form.setData('score_confirmation_enabled', !form.data.score_confirmation_enabled)}
+                    className={`relative w-12 h-7 rounded-full transition-colors ${form.data.score_confirmation_enabled ? 'bg-primary' : 'bg-surface border border-border'}`}
+                >
+                    <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${form.data.score_confirmation_enabled ? 'translate-x-5' : ''}`} />
+                </button>
+            </div>
             <SaveButton processing={form.processing} />
         </form>
     );

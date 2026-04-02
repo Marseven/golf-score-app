@@ -4,7 +4,8 @@
       "Bash(npx vite:*)",
       "Read(//var/folders/v8/9mwqvvbj6hv_c6q7rvs1qv3r0000gp/T/TemporaryItems/NSIRD_screencaptureui_ZODxfE//**)",
       "Read(//private/var/folders/v8/9mwqvvbj6hv_c6q7rvs1qv3r0000gp/T/**)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(mdfind \"kMDItemFSName == ''''*09.35*''''\")"
     ]
   }
 }

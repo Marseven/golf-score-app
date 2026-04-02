@@ -101,7 +101,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                 setAnimKey((k) => k + 1);
                 return next === 'all' ? null : next;
             });
-        }, 2000);
+        }, 20000);
         return () => clearInterval(interval);
     }, [isPaused, categories?.length]);
 
@@ -129,7 +129,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
 
     const activeCatName = activeCategoryId ? categories?.find((c) => c.id === activeCategoryId)?.name ?? 'Classement Général' : 'Classement Général';
     const timeStr = currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    const dateStr = tournament?.start_date ? new Date(tournament.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+    const dateStr = currentTime.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
     return (
         <>
@@ -166,7 +166,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                 <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-blue-500/[0.03] rounded-full blur-[150px] pointer-events-none" />
 
                 {/* Watermark logo */}
-                <img src={logoUrl || '/images/logo.png'} alt="" className="absolute inset-0 m-auto w-[400px] h-[400px] object-contain opacity-[0.02] pointer-events-none select-none" />
+                <img src="/logo.jpeg" alt="" className="absolute inset-0 m-auto w-[500px] h-[500px] object-contain opacity-[0.06] pointer-events-none select-none" style={{ mixBlendMode: 'screen' }} />
 
                 {/* Close button */}
                 <Link href={route('classement')} className="fixed top-4 left-4 z-50 w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all backdrop-blur-sm border border-white/5">

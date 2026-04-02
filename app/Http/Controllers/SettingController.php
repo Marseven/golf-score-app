@@ -45,6 +45,9 @@ class SettingController extends Controller
                 // Tournaments defaults
                 'default_currency' => Setting::getValue('default_currency', 'XAF'),
                 'default_scoring_mode' => Setting::getValue('default_scoring_mode', 'stroke_play'),
+
+                // Features
+                'score_confirmation_enabled' => Setting::getValue('score_confirmation_enabled', '0') === '1',
             ],
         ]);
     }
@@ -111,10 +114,12 @@ class SettingController extends Controller
                 $validated = $request->validate([
                     'default_currency' => 'required|in:XAF,EUR,USD',
                     'default_scoring_mode' => 'required|in:stroke_play,stableford,both',
+                    'score_confirmation_enabled' => 'boolean',
                 ]);
 
                 Setting::setValue('default_currency', $validated['default_currency']);
                 Setting::setValue('default_scoring_mode', $validated['default_scoring_mode']);
+                Setting::setValue('score_confirmation_enabled', !empty($validated['score_confirmation_enabled']) ? '1' : '0');
                 break;
         }
 

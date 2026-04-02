@@ -14,6 +14,7 @@ interface Props {
     tournamentId: string;
     categoryPars: CategoryPar[];
     hasMultipleGroups?: boolean;
+    scoreConfirmationEnabled?: boolean;
 }
 
 function getScoreLabel(score: number, par: number) {
@@ -56,7 +57,7 @@ function PlayerScoreCard({ player, score, par, onIncrement, onDecrement, disable
     );
 }
 
-export default function MarkerScoring({ group, groupCode, players, holes, existingScores, tournamentId, categoryPars, hasMultipleGroups }: Props) {
+export default function MarkerScoring({ group, groupCode, players, holes, existingScores, tournamentId, categoryPars, hasMultipleGroups, scoreConfirmationEnabled }: Props) {
     const [currentHole, setCurrentHole] = useState(0);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [confirmedName, setConfirmedName] = useState('');
@@ -108,7 +109,9 @@ export default function MarkerScoring({ group, groupCode, players, holes, existi
 
     const handleFinish = () => {
         saveHole(currentHole);
-        setShowConfirmModal(true);
+        if (scoreConfirmationEnabled) {
+            setShowConfirmModal(true);
+        }
     };
 
     const handleConfirmScores = () => {
@@ -174,7 +177,7 @@ export default function MarkerScoring({ group, groupCode, players, holes, existi
                 </div>
 
                 {/* Confirmed banner */}
-                {isConfirmed && (
+                {scoreConfirmationEnabled && isConfirmed && (
                     <div className="px-4 py-3 flex items-center gap-2 bg-emerald-500/10 border-b border-emerald-500/20">
                         <Shield className="w-4 h-4 text-emerald-400" />
                         <span className="text-xs font-medium text-emerald-400">
@@ -215,14 +218,14 @@ export default function MarkerScoring({ group, groupCode, players, holes, existi
                             par={getParForPlayer(hole, player)}
                             onIncrement={() => updateScore(idx, currentHole, 1)}
                             onDecrement={() => updateScore(idx, currentHole, -1)}
-                            disabled={isConfirmed}
+                            disabled={scoreConfirmationEnabled && isConfirmed}
                         />
                     ))}
                 </div>
 
                 {/* Bottom button */}
                 <div className="sticky bottom-0 p-4 bg-gradient-to-t from-background via-background to-transparent pt-8">
-                    {isConfirmed ? (
+                    {scoreConfirmationEnabled && isConfirmed ? (
                         <div className="w-full h-14 rounded-xl bg-emerald-500/20 flex items-center justify-center gap-2 text-emerald-400 font-semibold">
                             <CheckCircle2 className="w-5 h-5" />
                             Scores confirmés

@@ -16,13 +16,15 @@ class AdminController extends Controller
     {
         $user = auth()->user();
         $isAdmin = $user->isAdmin();
+        $hasGlobalCaptain = $user->hasRole('captain');
 
-        if ($isAdmin) {
+        if ($isAdmin || $hasGlobalCaptain) {
+            // Admin or global captain: see all tournaments
             $tournaments = Tournament::withCount('players', 'groups')
                 ->latest()
                 ->get();
         } else {
-            // Captain: only tournaments where user has a scoped role
+            // Scoped captain: only tournaments where user has a scoped role
             $tournamentIds = $user->roles()
                 ->whereNotNull('tournament_id')
                 ->pluck('tournament_id');

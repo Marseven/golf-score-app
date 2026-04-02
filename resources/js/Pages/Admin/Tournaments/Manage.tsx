@@ -2186,7 +2186,7 @@ function FlashMessages() {
 // --- Scores Tab ---
 function ScoresTab({ tournament, players, holes, scores, categories, categoryPars, courses, penalties }: { tournament: Tournament; players: Player[]; holes: Hole[]; scores: Score[]; categories: Category[]; categoryPars: CategoryPar[]; courses: Course[]; penalties: Penalty[] }) {
     const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
-    const [filterCourseId, setFilterCourseId] = useState<string>('default');
+    const [filterCourseId, setFilterCourseId] = useState<string>('');
     const [editedScores, setEditedScores] = useState<Record<string, number>>({});
     const [saving, setSaving] = useState(false);
     const [showPenaltyForm, setShowPenaltyForm] = useState(false);
@@ -2211,13 +2211,23 @@ function ScoresTab({ tournament, players, holes, scores, categories, categoryPar
         return groups;
     }, [holes, courses]);
 
+    // Determine effective course filter
+    const effectiveCourseId = useMemo(() => {
+        if (filterCourseId) return filterCourseId;
+        // Auto-select: prefer default holes (no course_id), else first course
+        if (courseOptions.length > 0) return courseOptions[0].id;
+        return 'default';
+    }, [filterCourseId, courseOptions]);
+
     // Filter holes by selected course
     const sortedHoles = useMemo(() => {
-        const filtered = filterCourseId === 'default'
+        const filtered = effectiveCourseId === 'default'
             ? holes.filter((h) => !h.course_id)
-            : holes.filter((h) => h.course_id === filterCourseId);
+            : holes.filter((h) => h.course_id === effectiveCourseId);
+        // If no match, show all holes
+        if (filtered.length === 0) return [...holes].sort((a, b) => a.number - b.number);
         return [...filtered].sort((a, b) => a.number - b.number);
-    }, [holes, filterCourseId]);
+    }, [holes, effectiveCourseId]);
 
     const holeNumbers = useMemo(() => sortedHoles.map((h) => h.number), [sortedHoles]);
 
@@ -2362,7 +2372,7 @@ function ScoresTab({ tournament, players, holes, scores, categories, categoryPar
                             <button
                                 key={c.id}
                                 onClick={() => setFilterCourseId(c.id)}
-                                className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${filterCourseId === c.id ? 'bg-violet-500 text-white shadow-sm shadow-violet-500/25' : 'bg-surface text-muted-foreground hover:bg-surface-hover hover:text-foreground border border-border'}`}
+                                className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${effectiveCourseId === c.id ? 'bg-violet-500 text-white shadow-sm shadow-violet-500/25' : 'bg-surface text-muted-foreground hover:bg-surface-hover hover:text-foreground border border-border'}`}
                             >
                                 <MapPin className="w-3 h-3 inline mr-1 -mt-0.5" />{c.label}
                             </button>

@@ -6,6 +6,7 @@ use App\Events\ScoreUpdated;
 use App\Models\Group;
 use App\Models\Player;
 use App\Models\Score;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -208,6 +209,7 @@ class MarkerController extends Controller
         // Check if marker has multiple groups (show back to groups button)
         $markerGroupIds = request()->session()->get('marker_group_ids', []);
         $hasMultipleGroups = count($markerGroupIds) > 1;
+        $scoreConfirmationEnabled = Setting::getValue('score_confirmation_enabled', '0') === '1';
 
         return Inertia::render('Marqueur/Scoring', [
             'group' => $group,
@@ -218,6 +220,7 @@ class MarkerController extends Controller
             'tournamentId' => $group->tournament_id,
             'categoryPars' => $categoryPars,
             'hasMultipleGroups' => $hasMultipleGroups,
+            'scoreConfirmationEnabled' => $scoreConfirmationEnabled,
         ]);
     }
 

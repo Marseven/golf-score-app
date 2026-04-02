@@ -6,6 +6,7 @@ use App\Events\ScoreUpdated;
 use App\Models\Group;
 use App\Models\Player;
 use App\Models\Score;
+use App\Models\Setting;
 use App\Models\Tournament;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -128,6 +129,8 @@ class CaddyMasterController extends Controller
             ->whereIn('hole_id', $holes->pluck('id'))
             ->get(['category_id', 'hole_id', 'par']);
 
+        $scoreConfirmationEnabled = Setting::getValue('score_confirmation_enabled', '0') === '1';
+
         return Inertia::render('CaddyMaster/Scoring', [
             'group' => $group,
             'groupCode' => $group->code,
@@ -136,6 +139,7 @@ class CaddyMasterController extends Controller
             'existingScores' => $scores,
             'tournamentId' => $group->tournament_id,
             'categoryPars' => $categoryPars,
+            'scoreConfirmationEnabled' => $scoreConfirmationEnabled,
         ]);
     }
 
