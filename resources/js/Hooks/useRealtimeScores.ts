@@ -7,7 +7,7 @@ declare global {
   }
 }
 
-const POLL_INTERVAL = 30_000; // 30 seconds
+const POLL_INTERVAL = 10_000; // 10 seconds
 
 export function useRealtimeScores(tournamentId?: string) {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
@@ -16,13 +16,15 @@ export function useRealtimeScores(tournamentId?: string) {
   useEffect(() => {
     if (!tournamentId) return;
 
+    const refresh = () => {
+      router.reload();
+      setLastUpdate(new Date());
+    };
+
     // Try WebSocket via Echo
     if (window.Echo) {
       window.Echo.channel(`tournament.${tournamentId}`)
-        .listen('.score.updated', () => {
-          router.reload({ only: ['scores', 'players'] });
-          setLastUpdate(new Date());
-        });
+        .listen('.score.updated', refresh);
 
       return () => {
         window.Echo.leave(`tournament.${tournamentId}`);
@@ -30,10 +32,7 @@ export function useRealtimeScores(tournamentId?: string) {
     }
 
     // Fallback: polling when Echo is not available
-    pollRef.current = setInterval(() => {
-      router.reload({ only: ['scores', 'players'] });
-      setLastUpdate(new Date());
-    }, POLL_INTERVAL);
+    pollRef.current = setInterval(refresh, POLL_INTERVAL);
 
     return () => {
       if (pollRef.current) {
