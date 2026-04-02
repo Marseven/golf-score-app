@@ -502,7 +502,7 @@ function TournamentTab({ tournament, players, categories, cuts }: { tournament: 
                                                             router.post(route('tournaments.applyPhaseCut', tournament.id), { after_phase: 1, cuts: [{ category_id: cat.id, qualified_count: cutCounts[`1:${cat.id}`] ?? defaultCut }] }, { preserveScroll: true });
                                                         }
                                                     }}
-                                                    disabled={catPlayers === 0}
+                                                    disabled={false}
                                                     className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
                                                 >
                                                     <Scissors className="w-3 h-3 inline mr-1" />Appliquer
@@ -546,7 +546,7 @@ function TournamentTab({ tournament, players, categories, cuts }: { tournament: 
                                                                     router.post(route('tournaments.applyPhaseCut', tournament.id), { after_phase: afterPhase, cuts: [{ category_id: cat.id, qualified_count: cutCounts[`${afterPhase}:${cat.id}`] ?? defaultCut }] }, { preserveScroll: true });
                                                                 }
                                                             }}
-                                                            disabled={catPlayers === 0}
+                                                            disabled={false}
                                                             className="px-2.5 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-[10px] font-medium transition-colors disabled:opacity-50"
                                                         >
                                                             <Scissors className="w-3 h-3 inline mr-0.5" />Appliquer
@@ -971,6 +971,9 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses }
     const [showQR, setShowQR] = useState<string | null>(null);
     const [showMarkerForm, setShowMarkerForm] = useState(false);
     const [activePhase, setActivePhase] = useState(1);
+    const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+    const [bulkMarkerId, setBulkMarkerId] = useState('');
+    const [bulkCourseId, setBulkCourseId] = useState('');
     const { confirm, confirmDialog } = useConfirm();
     const form = useForm({ tee_time: '08:00', tee_date: '', phase: 1, category_id: '' as string, course_id: '' as string, marker_id: '', marker_phone: '', player_ids: [] as string[] });
     const markerForm = useForm({ name: '', email: '', password: '', hole_start: 1, hole_end: 18 });
@@ -1271,138 +1274,194 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses }
                     </div>
                 </form>
             )}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {filteredGroups.map((group) => (
-                    <div key={group.id} className="glass-card p-0 overflow-hidden">
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-                            <div className="flex items-center gap-3">
-                                <span className="text-lg font-bold text-foreground">{group.code}</span>
-                                {tournament.phase_count > 1 && (
-                                    <span className="px-2 py-0.5 rounded-md bg-violet-500/20 text-violet-400 text-[10px] font-bold">P{group.phase ?? 1}</span>
-                                )}
-                                {group.category && (
-                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium ${categoryColors[group.category.name] ?? 'bg-surface-hover text-foreground'}`}>{group.category.short_name}</span>
-                                )}
-                                {group.course && (
-                                    <span className="px-2 py-0.5 rounded-md bg-violet-500/10 text-violet-400 text-[10px] font-medium"><MapPin className="w-2.5 h-2.5 inline -mt-0.5 mr-0.5" />{group.course.name}</span>
-                                )}
-                                {group.marker && ((group.marker as any).hole_start !== 1 || (group.marker as any).hole_end !== 18) && (
-                                    <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 text-[10px] font-medium">Trous {(group.marker as any).hole_start}-{(group.marker as any).hole_end}</span>
-                                )}
-                                <div className="flex items-center gap-1.5 text-muted-foreground">
-                                    <Clock className="w-3.5 h-3.5" />
-                                    <span className="text-xs">
-                                        {group.tee_date && `${new Date(group.tee_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} · `}
-                                        {group.tee_time}
-                                    </span>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button onClick={() => copyCode(group.code)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-hover transition-colors">
-                                    <span className="text-xs font-mono text-muted-foreground">{group.code}</span>
-                                    <Copy className="w-3 h-3 text-muted-foreground" />
-                                </button>
-                                <button onClick={() => startEdit(group)} className="p-1.5 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-foreground transition-colors">
-                                    <Pencil className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => handleDelete(group.id, group.code)} className="p-1.5 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-destructive transition-colors">
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Marker info + PIN + Link (always visible) */}
-                        <div className="px-5 py-3 border-b border-border space-y-3">
-                            {group.marker ? (
-                                <div className="flex items-center gap-2">
-                                    <UserCheck className="w-4 h-4 text-primary" />
-                                    <span className="text-sm text-foreground">{group.marker.name}</span>
-                                    <span className="text-xs text-muted-foreground">({group.marker.email})</span>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-2">
-                                    <Target className="w-4 h-4 text-muted-foreground" />
-                                    <span className="text-xs text-muted-foreground italic">Aucun marqueur assigne</span>
-                                </div>
-                            )}
-
-                            {group.marker_token && (
-                                <div className="flex flex-wrap items-center gap-3">
-                                    {group.marker_pin && (
-                                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                                            <Hash className="w-4 h-4 text-amber-400" />
-                                            <span className="text-lg font-mono font-black text-amber-400 tracking-widest">{group.marker_pin}</span>
-                                        </div>
-                                    )}
-                                    <button
-                                        onClick={() => copyMarkerLink(group.marker_token!)}
-                                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium transition-colors border border-primary/20"
-                                    >
-                                        <LinkIcon className="w-3.5 h-3.5" />
-                                        {copiedToken === group.marker_token ? 'Copie !' : 'Copier le lien marqueur'}
-                                    </button>
-                                    <button
-                                        onClick={() => setShowQR(showQR === group.id ? null : group.id)}
-                                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors border ${showQR === group.id ? 'bg-primary/20 text-primary border-primary/20' : 'bg-surface hover:bg-surface-hover text-muted-foreground hover:text-foreground border-border'}`}
-                                    >
-                                        <QrCode className="w-3.5 h-3.5" />
-                                        QR Code
-                                    </button>
-                                </div>
-                            )}
-
-                            {group.marker_phone && group.marker_token && (
-                                <a
-                                    href={`https://wa.me/${group.marker_phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Bonjour, votre PIN marqueur: ${group.marker_pin}. Accès scoring: ${getMarkerUrl(group.marker_token)}`)}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-medium transition-colors border border-emerald-500/20"
-                                >
-                                    <Send className="w-3.5 h-3.5" />
-                                    WhatsApp
-                                </a>
-                            )}
-                        </div>
-
-                        {/* QR Code inline */}
-                        {showQR === group.id && group.marker_token && (
-                            <div className="px-5 py-4 border-b border-border flex flex-col items-center gap-3 bg-surface/30">
-                                <div className="bg-white p-3 rounded-xl" data-qr-group={group.id}>
-                                    <QRCodeSVG
-                                        value={getMarkerUrl(group.marker_token)}
-                                        size={180}
-                                        level="M"
-                                        bgColor="#ffffff"
-                                        fgColor="#000000"
-                                    />
-                                </div>
-                                <p className="text-[10px] text-muted-foreground font-mono break-all max-w-[220px] text-center">{getMarkerUrl(group.marker_token)}</p>
-                                <button
-                                    onClick={() => downloadQR(group)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-hover text-muted-foreground text-xs font-medium transition-colors"
-                                >
-                                    <Download className="w-3.5 h-3.5" />
-                                    Telecharger PNG
-                                </button>
-                            </div>
-                        )}
-
-                        <ul className="divide-y divide-white/5">
-                            {group.players?.length ? group.players.map((player) => (
-                                <li key={player.id} className="flex items-center justify-between px-5 py-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-2.5 h-2.5 rounded-full ${categoryDotColors[player.category?.name ?? ''] ?? 'bg-gray-500'}`} />
-                                        <span className="text-sm font-medium text-foreground">{player.name}</span>
-                                    </div>
-                                    <span className="text-xs text-muted-foreground font-mono">HC {player.handicap}</span>
-                                </li>
-                            )) : (
-                                <li className="px-5 py-4 text-xs text-muted-foreground italic">Aucun joueur</li>
-                            )}
-                        </ul>
+            {/* Bulk actions */}
+            {selectedGroupIds.length > 0 && (
+                <div className="glass-card !p-3 flex flex-wrap items-center gap-3">
+                    <span className="text-xs font-semibold text-foreground">{selectedGroupIds.length} groupe{selectedGroupIds.length > 1 ? 's' : ''} sélectionné{selectedGroupIds.length > 1 ? 's' : ''}</span>
+                    <div className="flex items-center gap-2">
+                        <select value={bulkMarkerId} onChange={(e) => setBulkMarkerId(e.target.value)} className="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none">
+                            <option value="">Marqueur...</option>
+                            {availableMarkers.map((m) => <option key={m.id} value={m.id}>{m.name} ({(m as any).hole_start}-{(m as any).hole_end})</option>)}
+                        </select>
+                        <button
+                            type="button"
+                            disabled={!bulkMarkerId}
+                            onClick={() => {
+                                selectedGroupIds.forEach((gid) => {
+                                    const g = groups.find((g) => g.id === gid);
+                                    if (!g) return;
+                                    router.put(route('groups.update', [tournament.id, gid]), {
+                                        tee_time: g.tee_time, tee_date: g.tee_date ? String(g.tee_date).substring(0, 10) : '', phase: g.phase, category_id: g.category_id ?? '',
+                                        course_id: g.course_id ?? '', marker_id: bulkMarkerId, marker_phone: g.marker_phone ?? '', player_ids: g.players?.map((p) => p.id) ?? [],
+                                    }, { preserveScroll: true });
+                                });
+                                setSelectedGroupIds([]); setBulkMarkerId('');
+                            }}
+                            className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium disabled:opacity-50"
+                        >
+                            Affecter
+                        </button>
                     </div>
-                ))}
-            </div>
+                    {courses.length > 0 && (
+                        <div className="flex items-center gap-2">
+                            <select value={bulkCourseId} onChange={(e) => setBulkCourseId(e.target.value)} className="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none">
+                                <option value="">Parcours...</option>
+                                <option value="__default__">Parcours principal</option>
+                                {courses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            </select>
+                            <button
+                                type="button"
+                                disabled={!bulkCourseId}
+                                onClick={() => {
+                                    const courseVal = bulkCourseId === '__default__' ? '' : bulkCourseId;
+                                    selectedGroupIds.forEach((gid) => {
+                                        const g = groups.find((g) => g.id === gid);
+                                        if (!g) return;
+                                        router.put(route('groups.update', [tournament.id, gid]), {
+                                            tee_time: g.tee_time, tee_date: g.tee_date ? String(g.tee_date).substring(0, 10) : '', phase: g.phase, category_id: g.category_id ?? '',
+                                            course_id: courseVal, marker_id: g.marker_id ?? '', marker_phone: g.marker_phone ?? '', player_ids: g.players?.map((p) => p.id) ?? [],
+                                        }, { preserveScroll: true });
+                                    });
+                                    setSelectedGroupIds([]); setBulkCourseId('');
+                                }}
+                                className="px-3 py-1.5 bg-violet-500 text-white rounded-lg text-xs font-medium disabled:opacity-50"
+                            >
+                                Affecter
+                            </button>
+                        </div>
+                    )}
+                    <button type="button" onClick={() => setSelectedGroupIds([])} className="ml-auto text-xs text-muted-foreground hover:text-foreground">Désélectionner</button>
+                </div>
+            )}
+
+            <DataTable data={filteredGroups} searchKeys={['code']} searchPlaceholder="Rechercher un groupe..." defaultPerPage={10}>
+                {(paginatedGroups) => (
+                    <div className="glass-card !p-0 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="border-b border-border">
+                                        <th className="px-4 py-3 w-10">
+                                            <input type="checkbox" checked={paginatedGroups.length > 0 && paginatedGroups.every((g) => selectedGroupIds.includes(g.id))} onChange={(e) => {
+                                                if (e.target.checked) { setSelectedGroupIds((prev) => [...new Set([...prev, ...paginatedGroups.map((g) => g.id)])]); }
+                                                else { setSelectedGroupIds((prev) => prev.filter((id) => !paginatedGroups.some((g) => g.id === id))); }
+                                            }} className="rounded border-border" />
+                                        </th>
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Code</th>
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Départ</th>
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Marqueur</th>
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Joueurs</th>
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Parcours</th>
+                                        <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">PIN</th>
+                                        <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-border/50">
+                                    {paginatedGroups.length === 0 ? (
+                                        <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-muted-foreground italic">Aucun groupe</td></tr>
+                                    ) : paginatedGroups.map((group) => (
+                                        <tr key={group.id} className={`hover:bg-surface/50 transition-colors ${selectedGroupIds.includes(group.id) ? 'bg-primary/5' : ''}`}>
+                                            <td className="px-4 py-3">
+                                                <input type="checkbox" checked={selectedGroupIds.includes(group.id)} onChange={(e) => {
+                                                    setSelectedGroupIds((prev) => e.target.checked ? [...prev, group.id] : prev.filter((id) => id !== group.id));
+                                                }} className="rounded border-border" />
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-bold text-foreground font-mono">{group.code}</span>
+                                                    {tournament.phase_count > 1 && <span className="px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-400 text-[10px] font-bold">P{group.phase ?? 1}</span>}
+                                                    {group.category && <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${categoryColors[group.category.name] ?? 'bg-surface-hover text-foreground'}`}>{group.category.short_name}</span>}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                                    <Clock className="w-3 h-3" />
+                                                    {group.tee_date && <span>{new Date(group.tee_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} · </span>}
+                                                    <span>{group.tee_time}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                {group.marker ? (
+                                                    <div>
+                                                        <span className="text-sm font-medium text-foreground">{group.marker.name}</span>
+                                                        {((group.marker as any).hole_start !== 1 || (group.marker as any).hole_end !== 18) && (
+                                                            <span className="ml-1.5 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 text-[10px] font-bold">{(group.marker as any).hole_start}-{(group.marker as any).hole_end}</span>
+                                                        )}
+                                                    </div>
+                                                ) : <span className="text-xs text-muted-foreground/50 italic">—</span>}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span className="text-sm text-foreground">{group.players?.length ?? 0}</span>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                {group.course ? (
+                                                    <span className="px-2 py-0.5 rounded bg-violet-500/10 text-violet-400 text-[10px] font-medium">{group.course.name}</span>
+                                                ) : <span className="text-[10px] text-muted-foreground/50">Principal</span>}
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                {group.marker_pin && (
+                                                    <button onClick={() => { navigator.clipboard.writeText(group.marker_pin!); setCopiedToken(group.id); setTimeout(() => setCopiedToken(null), 2000); }} className="px-2 py-1 rounded bg-surface hover:bg-surface-hover text-xs font-mono text-foreground transition-colors">
+                                                        {copiedToken === group.id ? '✓' : group.marker_pin}
+                                                    </button>
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button onClick={() => setShowQR(showQR === group.id ? null : group.id)} className="p-1.5 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-foreground transition-colors" title="QR Code">
+                                                        <QrCode className="w-4 h-4" />
+                                                    </button>
+                                                    <button onClick={() => startEdit(group)} className="p-1.5 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-foreground transition-colors" title="Modifier">
+                                                        <Pencil className="w-4 h-4" />
+                                                    </button>
+                                                    <button onClick={() => handleDelete(group.id, group.code)} className="p-1.5 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-destructive transition-colors" title="Supprimer">
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+            </DataTable>
+
+            {/* QR Code modal */}
+            {showQR && (() => {
+                const group = groups.find((g) => g.id === showQR);
+                if (!group || !group.marker_token) return null;
+                const markerUrl = getMarkerUrl(group.marker_token);
+                return (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+                        <div className="absolute inset-0 bg-black/50" onClick={() => setShowQR(null)} />
+                        <div className="relative w-full max-w-sm bg-sidebar border border-border rounded-2xl shadow-xl p-6">
+                            <button onClick={() => setShowQR(null)} className="absolute top-4 right-4 p-1 rounded-lg text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+                            <div className="flex flex-col items-center text-center">
+                                <h3 className="text-lg font-bold text-foreground mb-1">{group.code}</h3>
+                                {group.marker_pin && <p className="text-2xl font-mono font-black text-amber-400 tracking-widest mb-4">PIN: {group.marker_pin}</p>}
+                                <div className="bg-white p-3 rounded-xl mb-3" data-qr-group={group.id}>
+                                    <QRCodeSVG value={markerUrl} size={180} level="M" />
+                                </div>
+                                <p className="text-[10px] text-muted-foreground font-mono break-all mb-4">{markerUrl}</p>
+                                <div className="flex gap-2 w-full">
+                                    <button onClick={() => copyMarkerLink(group.marker_token!)} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-primary/10 text-primary rounded-xl text-xs font-medium hover:bg-primary/20">
+                                        <LinkIcon className="w-3 h-3" />{copiedToken === group.marker_token ? 'Copié !' : 'Copier lien'}
+                                    </button>
+                                    <button onClick={() => downloadQR(group)} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-surface border border-border text-foreground rounded-xl text-xs font-medium hover:bg-surface-hover">
+                                        <Download className="w-3 h-3" />PNG
+                                    </button>
+                                    {group.marker_phone && (
+                                        <a href={`https://wa.me/${group.marker_phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`PIN marqueur: ${group.marker_pin}. Lien: ${markerUrl}`)}`} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-500/10 text-emerald-400 rounded-xl text-xs font-medium hover:bg-emerald-500/20">
+                                            <Send className="w-3 h-3" />WhatsApp
+                                        </a>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
             {confirmDialog}
         </div>
     );
