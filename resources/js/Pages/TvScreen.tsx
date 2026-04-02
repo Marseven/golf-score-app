@@ -202,7 +202,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                 <header className="relative px-12 pt-8 pb-4">
                     <div className="flex items-end justify-between">
                         <div className="flex items-center gap-6" style={{ animation: 'tvFadeUp 0.6s ease-out both' }}>
-                            <img src={sponsorLogoUrl || '/eramet-comilog.jpeg'} alt="Partenaire" className="h-14 object-contain" style={{ mixBlendMode: 'screen' }} />
+                            <img src={sponsorLogoUrl || '/Eramet-Comilog-120 (1).png'} alt="Partenaire" className="h-14 object-contain" />
                             <div>
                                 <h1 className="font-display text-4xl text-white tracking-tight leading-none">{tournament?.name ?? ''}</h1>
                                 <p className="text-base text-white/30 mt-1.5 font-medium">{tournament?.club}{dateStr && ` — ${dateStr}`}</p>

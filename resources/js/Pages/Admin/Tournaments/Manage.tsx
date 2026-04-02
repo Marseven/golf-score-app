@@ -2384,16 +2384,28 @@ function ScoresTab({ tournament, players, holes, scores, categories, categoryPar
                         </div>
                     </div>
                 </div>
-                {hasChanges && (
-                    <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 shadow-lg shadow-primary/25 disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                        <Save className="w-4 h-4" />
-                        {saving ? 'Sauvegarde...' : 'Enregistrer les modifications'}
-                    </button>
-                )}
+                <div className="flex items-center gap-2">
+                    {scores.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => { if (window.confirm(`Supprimer les ${scores.length} scores ? Cette action est irréversible.`)) { router.delete(route('scores.reset', tournament.id), { preserveScroll: true }); } }}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 text-red-500 rounded-xl text-sm font-medium hover:bg-red-500/20 border border-red-500/20 transition-colors"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            Vider
+                        </button>
+                    )}
+                    {hasChanges && (
+                        <button
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 shadow-lg shadow-primary/25 disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                            <Save className="w-4 h-4" />
+                            {saving ? 'Sauvegarde...' : 'Enregistrer'}
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Filters */}
