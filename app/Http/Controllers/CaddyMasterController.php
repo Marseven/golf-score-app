@@ -77,16 +77,47 @@ class CaddyMasterController extends Controller
 
         $players = $group->players()->with('category')->get();
 
-        // Get holes that belong to the players' categories in this group
+        // Get holes for this group's players
+        // 1) Try category_hole pivot (if categories have specific holes assigned)
         $categoryIds = $players->pluck('category_id')->filter()->unique();
         $categoryHoleIds = DB::table('category_hole')
             ->whereIn('category_id', $categoryIds)
             ->pluck('hole_id')
             ->unique();
-        $holes = $group->tournament->holes()
-            ->whereIn('id', $categoryHoleIds)
-            ->orderBy('number')
-            ->get();
+
+        if ($categoryHoleIds->isNotEmpty()) {
+            $holes = $group->tournament->holes()
+                ->whereIn('id', $categoryHoleIds)
+                ->orderBy('number')
+                ->get();
+        } else {
+            // 2) Fallback: use holes from the category's course, or default course (no course_id)
+            $courseIds = $players->pluck('category.course_id')->filter()->unique();
+            if ($courseIds->isNotEmpty()) {
+                $holes = $group->tournament->holes()
+                    ->whereIn('course_id', $courseIds)
+                    ->orderBy('number')
+                    ->get();
+            } else {
+                // 3) Fallback: default course holes (course_id is null)
+                $holes = $group->tournament->holes()
+                    ->whereNull('course_id')
+                    ->orderBy('number')
+                    ->get();
+            }
+
+            // 4) Last resort: all tournament holes
+            if ($holes->isEmpty()) {
+                $holes = $group->tournament->holes()
+                    ->orderBy('number')
+                    ->get();
+            }
+        }
+
+        // Filter holes by the group's hole range
+        $holeStart = $group->hole_start ?? 1;
+        $holeEnd = $group->hole_end ?? 18;
+        $holes = $holes->filter(fn ($h) => $h->number >= $holeStart && $h->number <= $holeEnd)->values();
 
         $scores = Score::whereIn('player_id', $players->pluck('id'))
             ->whereIn('hole_id', $holes->pluck('id'))

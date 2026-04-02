@@ -55,6 +55,7 @@ class LeaderboardController extends Controller
             'categories' => $tournament->categories,
             'cuts' => $tournament->cuts()->with('category')->get(),
             'categoryPars' => $categoryPars,
+            'penalties' => $tournament->penalties()->get(['player_id', 'strokes', 'phase']),
         ]);
     }
 
@@ -93,6 +94,7 @@ class LeaderboardController extends Controller
             'categories' => $tournament->categories,
             'cuts' => $tournament->cuts()->with('category')->get(),
             'categoryPars' => $categoryPars,
+            'penalties' => $tournament->penalties()->get(['player_id', 'strokes', 'phase']),
             'logoUrl' => $logoUrl,
             'sponsorLogoUrl' => $sponsorLogoUrl,
         ]);

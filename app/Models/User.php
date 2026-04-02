@@ -43,6 +43,8 @@ class User extends Authenticatable
         'password',
         'google_id',
         'avatar_path',
+        'hole_start',
+        'hole_end',
     ];
 
     /**

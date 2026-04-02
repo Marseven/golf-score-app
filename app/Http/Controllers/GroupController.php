@@ -21,6 +21,9 @@ class GroupController extends Controller
             'tee_date' => 'nullable|date',
             'phase' => 'integer|min:1|max:4',
             'category_id' => 'nullable|uuid|exists:categories,id',
+            'course_id' => 'nullable|uuid|exists:courses,id',
+            'hole_start' => 'integer|min:1|max:18',
+            'hole_end' => 'integer|min:1|max:18',
             'marker_id' => 'nullable|uuid|exists:users,id',
             'marker_phone' => 'nullable|string|max:50',
             'player_ids' => 'nullable|array',
@@ -30,12 +33,10 @@ class GroupController extends Controller
         $phase = $validated['phase'] ?? 1;
         $categoryId = $validated['category_id'] ?? null;
 
-        // Validate player eligibility
         if (! empty($validated['player_ids'])) {
             $playersQuery = Player::where('tournament_id', $tournament->id)
                 ->whereIn('id', $validated['player_ids']);
 
-            // If category is set, validate all players belong to it
             if ($categoryId) {
                 $wrongCategory = (clone $playersQuery)->where('category_id', '!=', $categoryId)->count();
                 if ($wrongCategory > 0) {
@@ -43,7 +44,6 @@ class GroupController extends Controller
                 }
             }
 
-            // If phase > 1, validate players are not cut before this phase
             if ($phase > 1) {
                 $cutPlayers = (clone $playersQuery)->where(function ($q) use ($phase) {
                     $q->whereNotNull('cut_after_phase')
@@ -63,6 +63,9 @@ class GroupController extends Controller
             'tee_date' => $validated['tee_date'] ?? null,
             'phase' => $phase,
             'category_id' => $categoryId,
+            'course_id' => $validated['course_id'] ?? null,
+            'hole_start' => $validated['hole_start'] ?? 1,
+            'hole_end' => $validated['hole_end'] ?? 18,
             'marker_phone' => $validated['marker_phone'] ?? null,
         ];
 
@@ -94,6 +97,9 @@ class GroupController extends Controller
             'tee_date' => 'nullable|date',
             'phase' => 'integer|min:1|max:4',
             'category_id' => 'nullable|uuid|exists:categories,id',
+            'course_id' => 'nullable|uuid|exists:courses,id',
+            'hole_start' => 'integer|min:1|max:18',
+            'hole_end' => 'integer|min:1|max:18',
             'marker_id' => 'nullable|uuid|exists:users,id',
             'marker_phone' => 'nullable|string|max:50',
             'player_ids' => 'nullable|array',
@@ -108,6 +114,9 @@ class GroupController extends Controller
             'tee_date' => $validated['tee_date'] ?? null,
             'phase' => $phase,
             'category_id' => $categoryId,
+            'course_id' => $validated['course_id'] ?? null,
+            'hole_start' => $validated['hole_start'] ?? $group->hole_start,
+            'hole_end' => $validated['hole_end'] ?? $group->hole_end,
             'marker_phone' => $validated['marker_phone'] ?? null,
         ];
 
@@ -163,12 +172,16 @@ class GroupController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
             'password' => ['required', Password::min(6)],
+            'hole_start' => 'integer|min:1|max:18',
+            'hole_end' => 'integer|min:1|max:18',
         ]);
 
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
+            'hole_start' => $validated['hole_start'] ?? 1,
+            'hole_end' => $validated['hole_end'] ?? 18,
         ]);
 
         UserRole::create([

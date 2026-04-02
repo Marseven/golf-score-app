@@ -193,6 +193,11 @@ class Tournament extends Model
         return $this->hasMany(UserRole::class);
     }
 
+    public function penalties(): HasMany
+    {
+        return $this->hasMany(Penalty::class);
+    }
+
     public static function generateUniqueCaddieMasterPin(): string
     {
         do {

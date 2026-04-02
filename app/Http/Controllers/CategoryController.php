@@ -17,6 +17,7 @@ class CategoryController extends Controller
             'registration_fee' => 'numeric|min:0',
             'course_id' => 'nullable|uuid|exists:courses,id',
             'handicap_coefficient' => 'numeric|min:0|max:2',
+            'max_phases' => 'nullable|integer|min:1|max:4',
         ]);
 
         $tournament->categories()->create($validated);
@@ -33,6 +34,7 @@ class CategoryController extends Controller
             'registration_fee' => 'numeric|min:0',
             'course_id' => 'nullable|uuid|exists:courses,id',
             'handicap_coefficient' => 'numeric|min:0|max:2',
+            'max_phases' => 'nullable|integer|min:1|max:4',
         ]);
 
         $category->update($validated);

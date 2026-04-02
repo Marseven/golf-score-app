@@ -10,14 +10,28 @@ class MarkerMiddleware
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (! $request->session()->has('marker_group_id')) {
-            if ($request->wantsJson()) {
-                return response()->json(['message' => 'Unauthenticated'], 401);
-            }
+        $groupIds = $request->session()->get('marker_group_ids', []);
+        $singleGroupId = $request->session()->get('marker_group_id');
 
-            return redirect()->route('marqueur.login');
+        // Allow access if the group is in the marker's list of groups
+        $group = $request->route('group');
+        $requestedGroupId = $group ? (is_string($group) ? $group : $group->id) : null;
+
+        if ($requestedGroupId && in_array($requestedGroupId, $groupIds)) {
+            // Update current group in session
+            $request->session()->put('marker_group_id', $requestedGroupId);
+            return $next($request);
         }
 
-        return $next($request);
+        // Fallback: check single group id
+        if ($singleGroupId) {
+            return $next($request);
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        return redirect()->route('marqueur.login');
     }
 }

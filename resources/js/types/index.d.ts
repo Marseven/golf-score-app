@@ -62,6 +62,7 @@ export interface Category {
     color: string;
     registration_fee: number;
     handicap_coefficient?: number;
+    max_phases?: number | null;
 }
 
 export interface Hole {
@@ -80,10 +81,14 @@ export interface Group {
     tournament_id: string;
     phase: number;
     category_id: string | null;
+    course_id: string | null;
     category?: Category | null;
+    course?: Course | null;
     code: string;
     tee_time: string;
     tee_date: string | null;
+    hole_start: number;
+    hole_end: number;
     marker_id: string | null;
     marker_phone: string | null;
     marker_token: string | null;
@@ -119,6 +124,7 @@ export interface Player {
     user_id: string | null;
     name: string;
     gender: 'M' | 'F' | null;
+    nationality: string | null;
     email: string | null;
     phone: string | null;
     handicap: number;
@@ -169,4 +175,17 @@ export interface Payment {
     metadata: Record<string, any> | null;
     created_at?: string;
     player?: Player;
+}
+
+export interface Penalty {
+    id: string;
+    tournament_id: string;
+    player_id: string;
+    strokes: number;
+    reason: string;
+    phase: number;
+    created_by: string | null;
+    created_at?: string;
+    player?: Player;
+    creator?: User;
 }

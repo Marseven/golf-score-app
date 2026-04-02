@@ -32,6 +32,7 @@ class Group extends Model
         'tournament_id',
         'phase',
         'category_id',
+        'course_id',
         'code',
         'tee_time',
         'marker_id',
@@ -39,6 +40,8 @@ class Group extends Model
         'marker_token',
         'marker_pin',
         'tee_date',
+        'hole_start',
+        'hole_end',
         'scores_confirmed_at',
         'confirmed_by_name',
     ];
@@ -47,6 +50,8 @@ class Group extends Model
     {
         return [
             'phase' => 'integer',
+            'hole_start' => 'integer',
+            'hole_end' => 'integer',
             'tee_date' => 'date',
             'scores_confirmed_at' => 'datetime',
         ];
@@ -59,7 +64,32 @@ class Group extends Model
                 $group->marker_token = Str::random(64);
             }
             if (! $group->marker_pin && $group->tournament_id) {
+                // Reuse existing PIN if this marker already has groups in this tournament
+                if ($group->marker_id) {
+                    $existingPin = static::where('tournament_id', $group->tournament_id)
+                        ->where('marker_id', $group->marker_id)
+                        ->whereNotNull('marker_pin')
+                        ->value('marker_pin');
+                    if ($existingPin) {
+                        $group->marker_pin = $existingPin;
+                        return;
+                    }
+                }
                 $group->marker_pin = static::generateUniquePin($group->tournament_id);
+            }
+        });
+
+        static::updating(function (Group $group) {
+            // When marker changes, sync the PIN
+            if ($group->isDirty('marker_id') && $group->marker_id) {
+                $existingPin = static::where('tournament_id', $group->tournament_id)
+                    ->where('marker_id', $group->marker_id)
+                    ->where('id', '!=', $group->id)
+                    ->whereNotNull('marker_pin')
+                    ->value('marker_pin');
+                if ($existingPin) {
+                    $group->marker_pin = $existingPin;
+                }
             }
         });
     }
@@ -71,7 +101,11 @@ class Group extends Model
     {
         do {
             $pin = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
-        } while (static::where('tournament_id', $tournamentId)->where('marker_pin', $pin)->exists());
+            // Ensure no other marker already uses this PIN in this tournament
+        } while (static::where('tournament_id', $tournamentId)
+            ->where('marker_pin', $pin)
+            ->whereNotNull('marker_id')
+            ->exists());
 
         return $pin;
     }
@@ -98,6 +132,11 @@ class Group extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(Course::class);
     }
 
     /**

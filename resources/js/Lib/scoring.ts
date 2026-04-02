@@ -2,6 +2,7 @@ export interface PlayerData {
   id: string;
   name: string;
   handicap: number;
+  nationality?: string | null;
   category_id: string | null;
   cut_after_phase?: number | null;
   category?: {
@@ -38,6 +39,12 @@ export interface CategoryData {
   handicap_coefficient?: number;
 }
 
+export interface PenaltyData {
+  player_id: string;
+  strokes: number;
+  phase: number;
+}
+
 export interface LeaderboardEntry {
   player: PlayerData;
   categoryName: string;
@@ -49,6 +56,7 @@ export interface LeaderboardEntry {
   netStablefordPoints: number;
   playingHandicap: number;
   holesPlayed: number;
+  penaltyStrokes: number;
 }
 
 export function calculateStablefordPoints(strokes: number, par: number): number {
@@ -77,7 +85,8 @@ export function buildLeaderboard(
   categories?: CategoryData[],
   phase?: number,
   scoreAggregation?: 'cumulative' | 'separate',
-  categoryPars?: { category_id: string; hole_id: string; par: number }[]
+  categoryPars?: { category_id: string; hole_id: string; par: number }[],
+  penalties?: PenaltyData[]
 ): LeaderboardEntry[] {
   const holeMap = new Map(holes.map((h) => [h.id, h]));
   const categoryMap = new Map(
@@ -129,6 +138,18 @@ export function buildLeaderboard(
     );
   }
 
+  // Build penalty lookup by player
+  const penaltiesByPlayer = new Map<string, number>();
+  if (penalties) {
+    for (const p of penalties) {
+      if (phase !== undefined) {
+        if (scoreAggregation === 'separate' && p.phase !== phase) continue;
+        if (scoreAggregation !== 'separate' && p.phase > phase) continue;
+      }
+      penaltiesByPlayer.set(p.player_id, (penaltiesByPlayer.get(p.player_id) ?? 0) + p.strokes);
+    }
+  }
+
   const entries: LeaderboardEntry[] = filtered.map((player) => {
     const playerScores = scoresByPlayer.get(player.id) || [];
     let totalStrokes = 0;
@@ -158,6 +179,9 @@ export function buildLeaderboard(
       );
     }
 
+    const penaltyStrokes = penaltiesByPlayer.get(player.id) ?? 0;
+    totalStrokes += penaltyStrokes;
+
     return {
       player,
       categoryName: player.category?.name ?? "",
@@ -166,9 +190,10 @@ export function buildLeaderboard(
       totalPar,
       strokeToPar: totalStrokes - totalPar,
       stablefordPoints,
-      netStablefordPoints,
+      netStablefordPoints: Math.max(0, netStablefordPoints - penaltyStrokes),
       playingHandicap,
       holesPlayed: playerScores.length,
+      penaltyStrokes,
     };
   });
 

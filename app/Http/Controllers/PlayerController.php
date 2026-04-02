@@ -17,6 +17,7 @@ class PlayerController extends Controller
             'group_id' => 'nullable|uuid|exists:groups,id',
             'email' => 'nullable|email',
             'phone' => 'nullable|string|max:20',
+            'nationality' => 'nullable|string|max:3',
         ]);
 
         $tournament->players()->create($validated);
@@ -33,6 +34,7 @@ class PlayerController extends Controller
             'group_id' => 'nullable|uuid|exists:groups,id',
             'email' => 'nullable|email',
             'phone' => 'nullable|string|max:20',
+            'nationality' => 'nullable|string|max:3',
         ]);
 
         $player->update($validated);

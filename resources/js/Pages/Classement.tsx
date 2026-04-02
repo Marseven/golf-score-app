@@ -4,7 +4,9 @@ import PublicLayout from '@/Layouts/PublicLayout';
 import { Trophy, Download, Share2, FileText, Tv, Image, Loader2, ChevronDown, QrCode, X, FileSpreadsheet, MoreHorizontal } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { buildLeaderboard } from '@/Lib/scoring';
+import type { PenaltyData } from '@/Lib/scoring';
 import { categoryColors } from '@/Lib/category-colors';
+import { countryCodeToFlag } from '@/Lib/countries';
 import { useRealtimeScores } from '@/Hooks/useRealtimeScores';
 import type { Tournament, Player, Score, Hole, Category, Cut, CategoryPar } from '@/types';
 
@@ -16,6 +18,7 @@ interface Props {
     categories: Category[];
     cuts: Cut[];
     categoryPars: CategoryPar[];
+    penalties?: PenaltyData[];
 }
 
 type ScoringMode = 'stroke' | 'stableford';
@@ -27,7 +30,7 @@ function PositionBadge({ position }: { position: number }) {
     return <span className="w-8 h-8 rounded-lg bg-surface-hover text-muted-foreground flex items-center justify-center text-sm font-bold">{position}</span>;
 }
 
-export default function Classement({ tournament, players, scores, holes, categories, cuts, categoryPars }: Props) {
+export default function Classement({ tournament, players, scores, holes, categories, cuts, categoryPars, penalties }: Props) {
     const { auth } = usePage().props as any;
     const user = auth?.user;
     const { lastUpdate } = useRealtimeScores(tournament?.id);
@@ -55,7 +58,8 @@ export default function Classement({ tournament, players, scores, holes, categor
         categories,
         activePhase,
         tournament?.score_aggregation,
-        categoryPars
+        categoryPars,
+        penalties
     );
 
     const buildWhatsAppText = () => {
@@ -264,6 +268,7 @@ export default function Classement({ tournament, players, scores, holes, categor
                                     <PositionBadge position={position} />
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-2">
+                                            {entry.player.nationality && <span className="text-base leading-none">{countryCodeToFlag(entry.player.nationality)}</span>}
                                             <p className="text-sm font-semibold text-foreground truncate">{entry.player.name}</p>
                                             {isCut && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">CUT P{entry.player.cut_after_phase}</span>}
                                         </div>

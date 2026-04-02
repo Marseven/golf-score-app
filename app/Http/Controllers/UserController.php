@@ -22,6 +22,8 @@ class UserController extends Controller
                 'email' => $user->email,
                 'created_at' => $user->created_at,
                 'roles' => $user->roles->pluck('role')->unique()->values(),
+                'hole_start' => $user->hole_start ?? 1,
+                'hole_end' => $user->hole_end ?? 18,
             ];
         });
 
@@ -38,12 +40,16 @@ class UserController extends Controller
             'password' => ['required', Password::defaults()],
             'roles' => 'array',
             'roles.*' => 'in:admin,captain,marker',
+            'hole_start' => 'integer|min:1|max:18',
+            'hole_end' => 'integer|min:1|max:18',
         ]);
 
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
+            'hole_start' => $validated['hole_start'] ?? 1,
+            'hole_end' => $validated['hole_end'] ?? 18,
         ]);
 
         if (! empty($validated['roles'])) {
@@ -67,11 +73,15 @@ class UserController extends Controller
             'password' => ['nullable', Password::defaults()],
             'roles' => 'array',
             'roles.*' => 'in:admin,captain,marker',
+            'hole_start' => 'integer|min:1|max:18',
+            'hole_end' => 'integer|min:1|max:18',
         ]);
 
         $user->update([
             'name' => $validated['name'],
             'email' => $validated['email'],
+            'hole_start' => $validated['hole_start'] ?? $user->hole_start,
+            'hole_end' => $validated['hole_end'] ?? $user->hole_end,
         ]);
 
         if (! empty($validated['password'])) {

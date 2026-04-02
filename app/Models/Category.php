@@ -36,6 +36,7 @@ class Category extends Model
         'color',
         'registration_fee',
         'handicap_coefficient',
+        'max_phases',
     ];
 
     protected function casts(): array
@@ -43,6 +44,7 @@ class Category extends Model
         return [
             'registration_fee' => 'decimal:2',
             'handicap_coefficient' => 'decimal:2',
+            'max_phases' => 'integer',
         ];
     }
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Events\ScoreUpdated;
 use App\Models\Cut;
+use App\Models\Penalty;
 use App\Models\Player;
 use App\Models\Score;
 use App\Models\Tournament;
@@ -28,10 +29,11 @@ class TournamentController extends Controller
 
     public function show(Tournament $tournament)
     {
-        // Ensure Cut records exist for all categories and phases
-        $maxPhase = max(1, $tournament->phase_count - 1);
+        // Ensure Cut records exist for all categories and their phases
         foreach ($tournament->categories as $category) {
-            for ($phase = 1; $phase <= $maxPhase; $phase++) {
+            $catMaxPhases = $category->max_phases ?? $tournament->phase_count;
+            $maxCutPhase = max(1, $catMaxPhases - 1);
+            for ($phase = 1; $phase <= $maxCutPhase; $phase++) {
                 Cut::firstOrCreate([
                     'tournament_id' => $tournament->id,
                     'category_id' => $category->id,
@@ -46,8 +48,9 @@ class TournamentController extends Controller
             'groups.players.category',
             'groups.marker',
             'groups.category',
+            'groups.course',
             'players.category',
-            'players.group',
+            'players.group.course',
             'players.payments',
             'holes',
             'cuts.category',
@@ -64,11 +67,13 @@ class TournamentController extends Controller
 
         $markers = User::whereHas('roles', fn ($q) => $q->where('role', 'marker')
             ->where(fn ($q2) => $q2->whereNull('tournament_id')->orWhere('tournament_id', $tournament->id))
-        )->orderBy('name')->get(['id', 'name', 'email']);
+        )->orderBy('name')->get(['id', 'name', 'email', 'hole_start', 'hole_end']);
 
         $categoryPars = DB::table('category_hole')
             ->whereIn('hole_id', $tournament->holes()->pluck('holes.id'))
             ->get(['category_id', 'hole_id', 'par']);
+
+        $penalties = $tournament->penalties()->with('player', 'creator')->latest()->get();
 
         return Inertia::render('Admin/Tournaments/Manage', [
             'tournament' => $tournament,
@@ -83,6 +88,7 @@ class TournamentController extends Controller
             'payments' => $payments,
             'markers' => $markers,
             'categoryPars' => $categoryPars,
+            'penalties' => $penalties,
         ]);
     }
 
@@ -310,23 +316,18 @@ class TournamentController extends Controller
             'scores' => 'required|array',
             'scores.*.player_id' => 'required|uuid|exists:players,id',
             'scores.*.hole_id' => 'required|uuid|exists:holes,id',
-            'scores.*.strokes' => 'required|integer|min:1|max:18',
+            'scores.*.strokes' => 'required|integer|min:1',
             'scores.*.phase' => 'integer|min:1',
         ]);
 
-        // Build a lookup of allowed hole IDs per player (based on their category)
-        $playerIds = collect($validated['scores'])->pluck('player_id')->unique();
-        $players = Player::with('category.holes')->whereIn('id', $playerIds)->get()->keyBy('id');
+        $tournamentHoleIds = $tournament->holes()->pluck('id')->toArray();
+        $tournamentPlayerIds = $tournament->players()->pluck('id')->toArray();
 
         foreach ($validated['scores'] as $scoreData) {
-            $player = $players->get($scoreData['player_id']);
-            if (!$player || !$player->category) {
+            if (!in_array($scoreData['player_id'], $tournamentPlayerIds)) {
                 continue;
             }
-
-            // Only allow holes that belong to the player's category
-            $allowedHoleIds = $player->category->holes->pluck('id')->toArray();
-            if (!in_array($scoreData['hole_id'], $allowedHoleIds)) {
+            if (!in_array($scoreData['hole_id'], $tournamentHoleIds)) {
                 continue;
             }
 
@@ -346,6 +347,35 @@ class TournamentController extends Controller
         broadcast(new ScoreUpdated($tournament->id))->toOthers();
 
         return back()->with('success', 'Scores mis à jour.');
+    }
+
+    public function storePenalty(Request $request, Tournament $tournament)
+    {
+        $validated = $request->validate([
+            'player_id' => 'required|uuid|exists:players,id',
+            'strokes' => 'required|integer|min:1|max:10',
+            'reason' => 'required|string|max:255',
+            'phase' => 'integer|min:1',
+        ]);
+
+        $tournament->penalties()->create([
+            ...$validated,
+            'phase' => $validated['phase'] ?? 1,
+            'created_by' => $request->user()->id,
+        ]);
+
+        return back()->with('success', 'Pénalité ajoutée.');
+    }
+
+    public function destroyPenalty(Tournament $tournament, Penalty $penalty)
+    {
+        if ($penalty->tournament_id !== $tournament->id) {
+            abort(403);
+        }
+
+        $penalty->delete();
+
+        return back()->with('success', 'Pénalité supprimée.');
     }
 
     public function destroy(Tournament $tournament)

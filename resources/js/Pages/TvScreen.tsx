@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import { Trophy, X, Pause, Play, Maximize, Minimize } from 'lucide-react';
 import { buildLeaderboard } from '@/Lib/scoring';
+import type { PenaltyData } from '@/Lib/scoring';
+import { countryCodeToFlag } from '@/Lib/countries';
 import { categoryDotColors, categoryColors } from '@/Lib/category-colors';
 import { useRealtimeScores } from '@/Hooks/useRealtimeScores';
 import type { Tournament, Player, Score, Hole, Category, Cut, CategoryPar } from '@/types';
@@ -14,27 +16,74 @@ interface Props {
     categories: Category[];
     cuts: Cut[];
     categoryPars: CategoryPar[];
+    penalties?: PenaltyData[];
     logoUrl?: string | null;
     sponsorLogoUrl?: string | null;
 }
 
-function PositionCell({ position }: { position: number }) {
-    if (position === 1) return <span className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center text-2xl">🥇</span>;
-    if (position === 2) return <span className="w-10 h-10 rounded-xl bg-slate-400/20 flex items-center justify-center text-2xl">🥈</span>;
-    if (position === 3) return <span className="w-10 h-10 rounded-xl bg-amber-700/20 flex items-center justify-center text-2xl">🥉</span>;
-    return <span className="w-10 h-10 rounded-xl bg-white/10 text-muted-foreground flex items-center justify-center text-lg font-bold">{position}</span>;
+function PositionBadge({ position }: { position: number }) {
+    if (position === 1) return (
+        <div className="relative w-14 h-14 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-lg shadow-amber-500/30" />
+            <span className="relative text-2xl">🥇</span>
+        </div>
+    );
+    if (position === 2) return (
+        <div className="relative w-14 h-14 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-slate-300 to-slate-500 shadow-lg shadow-slate-400/20" />
+            <span className="relative text-2xl">🥈</span>
+        </div>
+    );
+    if (position === 3) return (
+        <div className="relative w-14 h-14 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-600 to-amber-800 shadow-lg shadow-amber-700/20" />
+            <span className="relative text-2xl">🥉</span>
+        </div>
+    );
+    return (
+        <div className="w-14 h-14 rounded-2xl bg-white/[0.06] border border-white/[0.08] flex items-center justify-center">
+            <span className="text-2xl font-black text-white/50 tabular-nums">{position}</span>
+        </div>
+    );
 }
 
-export default function TvScreen({ tournament, players, scores, holes, categories, cuts, categoryPars, logoUrl, sponsorLogoUrl }: Props) {
+function ScoreBadge({ strokeToPar, holesPlayed }: { strokeToPar: number; holesPlayed: number }) {
+    if (holesPlayed === 0) return <span className="text-white/20 text-2xl font-bold">—</span>;
+    const isUnder = strokeToPar < 0;
+    const isEven = strokeToPar === 0;
+    const sign = strokeToPar > 0 ? '+' : '';
+    const display = isEven ? 'E' : `${sign}${strokeToPar}`;
+
+    return (
+        <div className={`inline-flex items-center justify-center min-w-[72px] px-4 py-2 rounded-xl text-2xl font-black tabular-nums ${
+            isUnder
+                ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30'
+                : isEven
+                    ? 'bg-white/10 text-white ring-1 ring-white/10'
+                    : 'bg-red-500/20 text-red-400 ring-1 ring-red-500/30'
+        }`}>
+            {display}
+        </div>
+    );
+}
+
+export default function TvScreen({ tournament, players, scores, holes, categories, cuts, categoryPars, penalties, logoUrl, sponsorLogoUrl }: Props) {
     useRealtimeScores(tournament?.id);
     const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
     const [isPaused, setIsPaused] = useState(false);
     const [animKey, setAnimKey] = useState(0);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [currentTime, setCurrentTime] = useState(new Date());
     const containerRef = useRef<HTMLDivElement>(null);
 
     const catIdsRef = useRef<string[]>([]);
     catIdsRef.current = ['all', ...(categories?.map((c) => c.id) ?? [])];
+
+    // Live clock
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 30000);
+        return () => clearInterval(timer);
+    }, []);
 
     useEffect(() => {
         if (isPaused || !categories?.length) return;
@@ -70,103 +119,192 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
         category: p.category ?? categories.find((c) => c.id === p.category_id) ?? null,
     }));
 
-    const allEntries = buildLeaderboard(playersWithCategory, scores, holes, activeCategoryId ?? undefined, 'stroke', categories, undefined, undefined, categoryPars);
-    // Hide cut players completely on TV
+    const allEntries = buildLeaderboard(playersWithCategory, scores, holes, activeCategoryId ?? undefined, 'stroke', categories, undefined, undefined, categoryPars, penalties);
     const leaderboard = allEntries.filter((entry) => entry.player.cut_after_phase == null).slice(0, 10);
 
-    const now = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    const activeCatName = activeCategoryId ? categories?.find((c) => c.id === activeCategoryId)?.name ?? 'Tous' : 'Tous';
+    const activeCatName = activeCategoryId ? categories?.find((c) => c.id === activeCategoryId)?.name ?? 'Classement Général' : 'Classement Général';
+    const timeStr = currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = tournament?.start_date ? new Date(tournament.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
 
     return (
         <>
             <Head title="Écran TV" />
-            <div ref={containerRef} className="fixed inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 flex flex-col overflow-hidden">
-                <img src={logoUrl || '/images/logo.png'} alt="" className="absolute inset-0 m-auto w-[500px] h-[500px] object-contain opacity-[0.04] pointer-events-none select-none" />
-                <Link href={route('classement')} className="fixed top-4 left-4 z-50 w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
-                    <X className="w-5 h-5 text-white/60" />
+            <style>{`
+                @keyframes tvSlideIn {
+                    from { opacity: 0; transform: translateX(-40px); }
+                    to { opacity: 1; transform: translateX(0); }
+                }
+                @keyframes tvFadeUp {
+                    from { opacity: 0; transform: translateY(20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                @keyframes pulseGlow {
+                    0%, 100% { opacity: 0.4; }
+                    50% { opacity: 0.8; }
+                }
+                @keyframes tickerScroll {
+                    from { transform: translateX(0); }
+                    to { transform: translateX(-50%); }
+                }
+                .tv-row { animation: tvSlideIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+                .tv-leader-glow {
+                    background: linear-gradient(90deg, rgba(245,158,11,0.12) 0%, rgba(245,158,11,0.04) 40%, transparent 100%);
+                    border-left: 3px solid rgba(245,158,11,0.6);
+                }
+            `}</style>
+
+            <div ref={containerRef} className="fixed inset-0 flex flex-col overflow-hidden" style={{
+                background: 'linear-gradient(135deg, #0a0f1a 0%, #0d1520 40%, #091215 100%)',
+            }}>
+                {/* Ambient light effects */}
+                <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-emerald-500/[0.03] rounded-full blur-[150px] pointer-events-none" />
+                <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-blue-500/[0.03] rounded-full blur-[150px] pointer-events-none" />
+
+                {/* Watermark logo */}
+                <img src={logoUrl || '/images/logo.png'} alt="" className="absolute inset-0 m-auto w-[400px] h-[400px] object-contain opacity-[0.02] pointer-events-none select-none" />
+
+                {/* Close button */}
+                <Link href={route('classement')} className="fixed top-4 left-4 z-50 w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all backdrop-blur-sm border border-white/5">
+                    <X className="w-5 h-5 text-white/40" />
                 </Link>
 
-                <header className="flex items-center justify-between px-16 py-8">
-                    <div className="flex items-center gap-5">
-                        <div className="w-14 h-14 rounded-2xl bg-amber-500/20 flex items-center justify-center overflow-hidden">
-                            {logoUrl ? (
-                                <img src={logoUrl} alt="" className="w-10 h-10 object-contain" />
-                            ) : (
-                                <Trophy className="w-8 h-8 text-amber-400" />
-                            )}
-                        </div>
-                        <div>
-                            <h1 className="text-3xl font-black text-white tracking-tight">{tournament?.name ?? ''}</h1>
-                            <p className="text-base text-white/50">
-                                {tournament?.club} &bull; {tournament?.start_date ? new Date(tournament.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}
-                                {tournament?.end_date && tournament.end_date !== tournament.start_date && (
-                                    <> – {new Date(tournament.end_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</>
+                {/* Controls */}
+                <div className="fixed top-4 right-4 z-50 flex items-center gap-2">
+                    <button onClick={() => setIsPaused(!isPaused)} className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all backdrop-blur-sm border border-white/5">
+                        {isPaused ? <Play className="w-4 h-4 text-white/40" /> : <Pause className="w-4 h-4 text-white/40" />}
+                    </button>
+                    <button onClick={toggleFullscreen} className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all backdrop-blur-sm border border-white/5">
+                        {isFullscreen ? <Minimize className="w-4 h-4 text-white/40" /> : <Maximize className="w-4 h-4 text-white/40" />}
+                    </button>
+                </div>
+
+                {/* Header */}
+                <header className="relative px-12 pt-8 pb-4">
+                    <div className="flex items-end justify-between">
+                        <div className="flex items-center gap-6" style={{ animation: 'tvFadeUp 0.6s ease-out both' }}>
+                            <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05))' }}>
+                                {logoUrl ? (
+                                    <img src={logoUrl} alt="" className="w-12 h-12 object-contain" />
+                                ) : (
+                                    <Trophy className="w-9 h-9 text-amber-400/80" />
                                 )}
-                            </p>
+                            </div>
+                            <div>
+                                <h1 className="font-display text-4xl text-white tracking-tight leading-none">{tournament?.name ?? ''}</h1>
+                                <p className="text-base text-white/30 mt-1.5 font-medium">{tournament?.club}{dateStr && ` — ${dateStr}`}</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-6" style={{ animation: 'tvFadeUp 0.6s ease-out 0.1s both' }}>
+                            {sponsorLogoUrl && (
+                                <img src={sponsorLogoUrl} alt="Sponsor" className="h-12 object-contain opacity-60" />
+                            )}
+                            <div className="text-right">
+                                <div className="text-3xl font-black text-white/20 tabular-nums leading-none">{timeStr}</div>
+                            </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                        {sponsorLogoUrl && (
-                            <img src={sponsorLogoUrl} alt="Sponsor" className="w-16 h-16 object-contain" />
-                        )}
-                        <span className="text-lg font-semibold text-white/80">{activeCatName}</span>
-                        <button onClick={() => setIsPaused(!isPaused)} className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
-                            {isPaused ? <Play className="w-5 h-5 text-white/60" /> : <Pause className="w-5 h-5 text-white/60" />}
-                        </button>
-                        <button onClick={toggleFullscreen} className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
-                            {isFullscreen ? <Minimize className="w-5 h-5 text-white/60" /> : <Maximize className="w-5 h-5 text-white/60" />}
-                        </button>
+
+                    {/* Active category indicator */}
+                    <div className="mt-5 flex items-center gap-4" style={{ animation: 'tvFadeUp 0.6s ease-out 0.15s both' }}>
+                        <div className="h-px flex-1 bg-gradient-to-r from-emerald-500/30 to-transparent" />
+                        <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                            <span className="text-sm font-bold text-white/60 uppercase tracking-[0.2em]">{activeCatName}</span>
+                        </div>
+                        <div className="h-px flex-1 bg-gradient-to-l from-emerald-500/30 to-transparent" />
                     </div>
                 </header>
 
-                <div className="flex items-center justify-center gap-8 py-4">
-                    <button onClick={() => { setActiveCategoryId(null); setIsPaused(true); setAnimKey((k) => k + 1); }} className="flex flex-col items-center gap-2 group">
-                        <div className={`rounded-full transition-all duration-300 ${!activeCategoryId ? 'w-4 h-4 bg-white scale-125 shadow-lg' : 'w-3 h-3 bg-white/30 group-hover:scale-110'}`} />
-                        <span className={`text-xs font-medium transition-colors ${!activeCategoryId ? 'text-white' : 'text-white/30 group-hover:text-white/50'}`}>Tous</span>
+                {/* Category dots */}
+                <div className="flex items-center justify-center gap-6 py-3">
+                    <button onClick={() => { setActiveCategoryId(null); setIsPaused(true); setAnimKey((k) => k + 1); }} className="group flex flex-col items-center gap-1.5">
+                        <div className={`rounded-full transition-all duration-500 ${!activeCategoryId ? 'w-3.5 h-3.5 bg-white shadow-lg shadow-white/20' : 'w-2.5 h-2.5 bg-white/20 group-hover:bg-white/40'}`} />
+                        <span className={`text-[10px] font-semibold tracking-wider uppercase transition-colors ${!activeCategoryId ? 'text-white/70' : 'text-white/20 group-hover:text-white/40'}`}>Tous</span>
                     </button>
                     {categories?.map((cat) => {
                         const isActive = activeCategoryId === cat.id;
                         return (
-                            <button key={cat.id} onClick={() => { setActiveCategoryId(cat.id); setIsPaused(true); setAnimKey((k) => k + 1); }} className="flex flex-col items-center gap-2 group">
-                                <div className={`rounded-full transition-all duration-300 ${isActive ? `w-4 h-4 ${categoryDotColors[cat.name] ?? 'bg-white'} scale-125 shadow-lg` : `w-3 h-3 ${categoryDotColors[cat.name] ?? 'bg-white'}/40 group-hover:scale-110`}`} />
-                                <span className={`text-xs font-medium transition-colors ${isActive ? 'text-white' : 'text-white/30 group-hover:text-white/50'}`}>{cat.short_name}</span>
+                            <button key={cat.id} onClick={() => { setActiveCategoryId(cat.id); setIsPaused(true); setAnimKey((k) => k + 1); }} className="group flex flex-col items-center gap-1.5">
+                                <div className={`rounded-full transition-all duration-500 ${isActive ? `w-3.5 h-3.5 ${categoryDotColors[cat.name] ?? 'bg-white'} shadow-lg` : `w-2.5 h-2.5 ${categoryDotColors[cat.name] ?? 'bg-white'} opacity-30 group-hover:opacity-60`}`} />
+                                <span className={`text-[10px] font-semibold tracking-wider uppercase transition-colors ${isActive ? 'text-white/70' : 'text-white/20 group-hover:text-white/40'}`}>{cat.short_name}</span>
                             </button>
                         );
                     })}
                 </div>
 
-                <div className="flex-1 px-16 py-4 overflow-hidden">
-                    <div className="h-full rounded-3xl bg-white/5 border border-white/10 overflow-hidden flex flex-col">
-                        <div className="grid grid-cols-[80px_1fr_80px_100px_100px_100px] px-8 py-4 border-b border-white/10">
-                            <span className="text-xs font-semibold text-white/40 uppercase tracking-widest">Pos</span>
-                            <span className="text-xs font-semibold text-white/40 uppercase tracking-widest">Joueur</span>
-                            <span className="text-xs font-semibold text-white/40 uppercase tracking-widest text-center">HC</span>
-                            <span className="text-xs font-semibold text-white/40 uppercase tracking-widest text-center">Trous</span>
-                            <span className="text-xs font-semibold text-white/40 uppercase tracking-widest text-center">Total</span>
-                            <span className="text-xs font-semibold text-white/40 uppercase tracking-widest text-right">Score</span>
+                {/* Leaderboard */}
+                <div className="flex-1 px-12 pb-2 overflow-hidden">
+                    <div className="h-full flex flex-col" key={animKey}>
+                        {/* Column headers */}
+                        <div className="grid grid-cols-[80px_1fr_70px_90px_90px_100px] items-center px-6 py-3">
+                            <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em]">Pos</span>
+                            <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em]">Joueur</span>
+                            <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-center">Nat.</span>
+                            <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-center">Trous</span>
+                            <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-center">Coups</span>
+                            <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-right">Score</span>
                         </div>
-                        <div className="flex-1 overflow-hidden" key={animKey}>
+
+                        {/* Rows */}
+                        <div className="flex-1 overflow-hidden rounded-2xl border border-white/[0.06]" style={{ background: 'rgba(255,255,255,0.02)' }}>
                             {leaderboard.length === 0 && (
                                 <div className="flex items-center justify-center h-full">
-                                    <p className="text-lg text-white/30">Aucun score enregistre</p>
+                                    <div className="text-center">
+                                        <Trophy className="w-12 h-12 text-white/10 mx-auto mb-3" />
+                                        <p className="text-lg text-white/20 font-medium">En attente des scores</p>
+                                    </div>
                                 </div>
                             )}
                             {leaderboard.map((entry, idx) => {
                                 const position = idx + 1;
-                                const scoreColor = entry.strokeToPar < 0 ? 'text-emerald-400' : entry.strokeToPar === 0 ? 'text-white' : 'text-red-400';
-                                const sign = entry.strokeToPar > 0 ? '+' : '';
+                                const isLeader = position === 1;
+                                const isTop3 = position <= 3;
+
                                 return (
-                                    <div key={entry.player.id} className={`grid grid-cols-[80px_1fr_80px_100px_100px_100px] items-center px-8 py-4 border-b border-white/5 ${position === 1 ? 'bg-gradient-to-r from-amber-500/15 to-transparent' : ''}`} style={{ animation: `fadeSlideIn 0.4s ease-out ${idx * 0.08}s both` }}>
-                                        <div><PositionCell position={position} /></div>
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-3 h-3 rounded-full ${categoryDotColors[entry.categoryName] ?? 'bg-gray-500'}`} />
-                                            <span className="text-lg font-semibold text-white">{entry.player.name}</span>
-                                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${categoryColors[entry.categoryName] ?? 'bg-white/10 text-white'}`}>{entry.categoryName}</span>
+                                    <div
+                                        key={entry.player.id}
+                                        className={`tv-row grid grid-cols-[80px_1fr_70px_90px_90px_100px] items-center px-6 py-3 border-b border-white/[0.04] transition-colors ${isLeader ? 'tv-leader-glow' : isTop3 ? 'bg-white/[0.02]' : 'hover:bg-white/[0.02]'}`}
+                                        style={{ animationDelay: `${idx * 0.06}s` }}
+                                    >
+                                        {/* Position */}
+                                        <div><PositionBadge position={position} /></div>
+
+                                        {/* Player */}
+                                        <div className="flex items-center gap-4 min-w-0">
+                                            <div className={`w-1.5 h-10 rounded-full ${categoryDotColors[entry.categoryName] ?? 'bg-gray-500'}`} />
+                                            <div className="min-w-0">
+                                                <p className={`font-bold truncate leading-tight ${isLeader ? 'text-xl text-white' : 'text-lg text-white/90'}`}>{entry.player.name}</p>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${categoryColors[entry.categoryName] ?? 'bg-white/10 text-white/50'}`}>{entry.categoryName}</span>
+                                                    {entry.penaltyStrokes > 0 && (
+                                                        <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] font-bold">+{entry.penaltyStrokes} PEN</span>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
-                                        <span className="text-base text-white/40 text-center font-mono">{entry.playingHandicap || '—'}</span>
-                                        <span className="text-base text-white/60 text-center">{entry.holesPlayed} trous</span>
-                                        <span className="text-xl font-bold text-white text-center">{entry.totalStrokes}</span>
-                                        <span className={`text-xl font-bold ${scoreColor} text-right`}>{entry.strokeToPar === 0 ? 'E' : `${sign}${entry.strokeToPar}`}</span>
+
+                                        {/* Nationality */}
+                                        <div className="text-center">
+                                            <span className="text-2xl">{entry.player.nationality ? countryCodeToFlag(entry.player.nationality) : ''}</span>
+                                        </div>
+
+                                        {/* Holes played */}
+                                        <div className="text-center">
+                                            <span className={`text-lg tabular-nums ${entry.holesPlayed >= 18 ? 'text-emerald-400 font-bold' : 'text-white/40 font-medium'}`}>
+                                                {entry.holesPlayed}<span className="text-white/20">/18</span>
+                                            </span>
+                                        </div>
+
+                                        {/* Total strokes */}
+                                        <div className="text-center">
+                                            <span className="text-xl font-black text-white tabular-nums">{entry.holesPlayed > 0 ? entry.totalStrokes : '—'}</span>
+                                        </div>
+
+                                        {/* Score to par */}
+                                        <div className="flex justify-end">
+                                            <ScoreBadge strokeToPar={entry.strokeToPar} holesPlayed={entry.holesPlayed} />
+                                        </div>
                                     </div>
                                 );
                             })}
@@ -174,12 +312,16 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                     </div>
                 </div>
 
-                <footer className="flex items-center justify-between px-16 py-6">
-                    <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-sm text-white/50">Mise à jour en temps réel &bull; {now}</span>
+                {/* Footer */}
+                <footer className="px-12 py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="relative">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                            <div className="absolute inset-0 w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                        </div>
+                        <span className="text-xs text-white/30 font-medium tracking-wide">LIVE</span>
                     </div>
-                    <span className="text-sm text-white/30">Made with Love by JOBS</span>
+                    <span className="text-xs text-white/15 font-medium tracking-wider">Made with Love by JOBS</span>
                 </footer>
             </div>
         </>

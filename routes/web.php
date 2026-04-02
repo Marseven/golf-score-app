@@ -48,6 +48,7 @@ Route::get('/paiement/{payment}/status', [PaymentController::class, 'status'])->
 Route::get('/marqueur', [MarkerController::class, 'login'])->name('marqueur.login');
 Route::post('/marqueur', [MarkerController::class, 'authenticate'])->name('marqueur.authenticate');
 Route::get('/marqueur/s/{token}', [MarkerController::class, 'scoringByToken'])->name('marqueur.token');
+Route::get('/marqueur/groupes', [MarkerController::class, 'groups'])->name('marqueur.groups');
 Route::get('/marqueur/scoring/{group}', [MarkerController::class, 'scoring'])->name('marqueur.scoring')->middleware('marker');
 Route::post('/marqueur/scoring/{group}/save', [MarkerController::class, 'saveScores'])->name('marqueur.save')->middleware('marker');
 Route::post('/marqueur/scoring/{group}/confirm', [MarkerController::class, 'confirmScores'])->name('marqueur.confirm')->middleware('marker');
@@ -112,6 +113,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('export/pdf', [ExportController::class, 'pdf'])->name('export.pdf');
         Route::get('export/excel', [ExportController::class, 'excel'])->name('export.excel');
         Route::put('scores', [TournamentController::class, 'updateScores'])->name('scores.update');
+        Route::post('penalties', [TournamentController::class, 'storePenalty'])->name('penalties.store');
+        Route::delete('penalties/{penalty}', [TournamentController::class, 'destroyPenalty'])->name('penalties.destroy');
     });
 
     // Admin-only: registrations management

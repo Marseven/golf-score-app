@@ -34,6 +34,7 @@ class Player extends Model
         'user_id',
         'name',
         'gender',
+        'nationality',
         'email',
         'phone',
         'handicap',

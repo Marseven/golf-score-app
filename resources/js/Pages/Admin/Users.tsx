@@ -3,6 +3,7 @@ import { Head, useForm, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Users, UserCheck, Plus, Pencil, Trash2, X, Save, Shield, Eye, EyeOff } from 'lucide-react';
 import { useConfirm } from '@/Components/ConfirmDialog';
+import DataTable from '@/Components/DataTable';
 
 interface UserItem {
     id: string;
@@ -10,6 +11,8 @@ interface UserItem {
     email: string;
     created_at: string;
     roles: string[];
+    hole_start: number;
+    hole_end: number;
 }
 
 interface Props {
@@ -51,7 +54,12 @@ function UserTable({ users, onEdit, onDelete }: {
                         {users.map((user) => (
                             <tr key={user.id} className="hover:bg-surface/50 transition-colors">
                                 <td className="px-5 py-3.5">
-                                    <span className="text-sm font-medium text-foreground">{user.name}</span>
+                                    <div>
+                                        <span className="text-sm font-medium text-foreground">{user.name}</span>
+                                        {user.roles.includes('marker') && (user.hole_start !== 1 || user.hole_end !== 18) && (
+                                            <span className="ml-2 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-500 text-[10px] font-bold">Trous {user.hole_start}-{user.hole_end}</span>
+                                        )}
+                                    </div>
                                 </td>
                                 <td className="px-5 py-3.5">
                                     <span className="text-sm text-muted-foreground">{user.email}</span>
@@ -116,6 +124,8 @@ export default function AdminUsers({ users }: Props) {
         email: '',
         password: '',
         roles: [] as string[],
+        hole_start: 1,
+        hole_end: 18,
     });
 
     // Filter: markers = users with ONLY 'marker' role (or marker among roles)
@@ -147,6 +157,8 @@ export default function AdminUsers({ users }: Props) {
             email: user.email,
             password: '',
             roles: [...user.roles],
+            hole_start: user.hole_start ?? 1,
+            hole_end: user.hole_end ?? 18,
         });
         form.clearErrors();
         setShowPassword(false);
@@ -249,31 +261,15 @@ export default function AdminUsers({ users }: Props) {
                 ))}
             </div>
 
-            {currentList.length === 0 ? (
-                <div className="glass-card text-center py-16">
-                    <div className="w-14 h-14 rounded-2xl bg-surface flex items-center justify-center mx-auto mb-4">
-                        {isMarkerTab
-                            ? <UserCheck className="w-7 h-7 text-muted-foreground/40" />
-                            : <Users className="w-7 h-7 text-muted-foreground/40" />
-                        }
+            <DataTable data={currentList} searchKeys={['name', 'email']} searchPlaceholder="Rechercher par nom ou email...">
+                {(paginatedData) => paginatedData.length === 0 ? (
+                    <div className="text-center py-12">
+                        <p className="text-sm text-muted-foreground">Aucun résultat</p>
                     </div>
-                    <h3 className="text-base font-semibold text-foreground mb-2">
-                        {isMarkerTab ? 'Aucun marqueur' : 'Aucun utilisateur'}
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-6">
-                        {isMarkerTab ? 'Ajoutez des marqueurs pour la saisie des scores.' : 'Ajoutez des utilisateurs pour gérer les accès.'}
-                    </p>
-                    <button
-                        onClick={openCreate}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors"
-                    >
-                        <Plus className="w-4 h-4" />
-                        {isMarkerTab ? 'Ajouter un marqueur' : 'Ajouter un utilisateur'}
-                    </button>
-                </div>
-            ) : (
-                <UserTable users={currentList} onEdit={openEdit} onDelete={handleDelete} />
-            )}
+                ) : (
+                    <UserTable users={paginatedData} onEdit={openEdit} onDelete={handleDelete} />
+                )}
+            </DataTable>
 
             {/* Create/Edit Modal */}
             {showModal && (
@@ -384,6 +380,39 @@ export default function AdminUsers({ users }: Props) {
                                 <div className="flex items-center gap-2 px-3 py-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
                                     <UserCheck className="w-4 h-4 text-emerald-500" />
                                     <span className="text-sm text-emerald-600 dark:text-emerald-400">Rôle marqueur attribué automatiquement</span>
+                                </div>
+                            )}
+
+                            {/* Hole range — shown for markers */}
+                            {(editingIsMarker || form.data.roles.includes('marker')) && (
+                                <div>
+                                    <label className="text-sm text-muted-foreground block mb-1.5">Trous assignés</label>
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex-1">
+                                            <label className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Du trou</label>
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                max={18}
+                                                value={form.data.hole_start}
+                                                onChange={(e) => form.setData('hole_start', Number(e.target.value))}
+                                                className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground text-center text-lg font-bold focus:border-primary focus:outline-none transition-colors"
+                                            />
+                                        </div>
+                                        <span className="text-muted-foreground font-medium mt-4">à</span>
+                                        <div className="flex-1">
+                                            <label className="text-[10px] text-muted-foreground uppercase tracking-wider block mb-1">Au trou</label>
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                max={18}
+                                                value={form.data.hole_end}
+                                                onChange={(e) => form.setData('hole_end', Number(e.target.value))}
+                                                className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground text-center text-lg font-bold focus:border-primary focus:outline-none transition-colors"
+                                            />
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground mt-1.5">Le marqueur ne pourra saisir que les scores des trous {form.data.hole_start} à {form.data.hole_end}</p>
                                 </div>
                             )}
 

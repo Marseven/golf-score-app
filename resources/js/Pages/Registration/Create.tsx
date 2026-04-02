@@ -2,6 +2,7 @@ import { Head, useForm, usePage } from '@inertiajs/react';
 import PublicLayout from '@/Layouts/PublicLayout';
 import PhoneInput from '@/Components/PhoneInput';
 import { Target, Loader2, UserPlus, Smartphone, Banknote } from 'lucide-react';
+import { countries, countryCodeToFlag } from '@/Lib/countries';
 import type { Tournament, Category } from '@/types';
 
 interface Props {
@@ -17,6 +18,7 @@ export default function RegistrationCreate({ tournament, categories }: Props) {
         name: user?.name ?? '',
         email: user?.email ?? '',
         phone: '',
+        nationality: '',
         handicap: '',
         category_id: '',
         payment_method: '' as '' | 'ebilling' | 'cash',
@@ -93,6 +95,21 @@ export default function RegistrationCreate({ tournament, categories }: Props) {
                                 onChange={(value) => form.setData('phone', value)}
                                 error={form.errors.phone}
                             />
+
+                            <div>
+                                <label className="block text-sm font-medium text-foreground mb-1.5">Nationalité</label>
+                                <select
+                                    value={form.data.nationality}
+                                    onChange={(e) => form.setData('nationality', e.target.value)}
+                                    className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground focus:border-primary focus:outline-none transition-colors"
+                                >
+                                    <option value="">Sélectionner un pays</option>
+                                    {countries.map(([code, name]) => (
+                                        <option key={code} value={code}>{countryCodeToFlag(code)} {name}</option>
+                                    ))}
+                                </select>
+                                {form.errors.nationality && <p className="mt-1.5 text-sm text-destructive">{form.errors.nationality}</p>}
+                            </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-foreground mb-1.5">Handicap *</label>

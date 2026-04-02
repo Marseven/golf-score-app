@@ -3,6 +3,7 @@ import { Head, useForm, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Contact, Plus, Pencil, Trash2, X, Save, Search, Upload, Download } from 'lucide-react';
 import { useConfirm } from '@/Components/ConfirmDialog';
+import DataTable from '@/Components/DataTable';
 import type { Member } from '@/types';
 
 interface Props {
@@ -153,116 +154,69 @@ export default function AdminMembers({ members }: Props) {
                 </div>
             </div>
 
-            {/* Search */}
-            <div className="relative mb-4">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Rechercher par nom, code, email..."
-                    className="w-full bg-surface border border-border rounded-xl pl-10 pr-4 py-3 text-sm text-foreground focus:border-primary focus:outline-none transition-colors"
-                />
-            </div>
-
-            {filteredMembers.length === 0 ? (
-                <div className="glass-card text-center py-16">
-                    <div className="w-14 h-14 rounded-2xl bg-surface flex items-center justify-center mx-auto mb-4">
-                        <Contact className="w-7 h-7 text-muted-foreground/40" />
-                    </div>
-                    <h3 className="text-base font-semibold text-foreground mb-2">
-                        {searchQuery ? 'Aucun résultat' : 'Aucun membre'}
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-6">
-                        {searchQuery ? 'Essayez avec d\'autres termes de recherche.' : 'Ajoutez des membres du club pour les gérer.'}
-                    </p>
-                    {!searchQuery && (
-                        <button
-                            onClick={openCreate}
-                            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Ajouter un membre
-                        </button>
-                    )}
-                </div>
-            ) : (
-                <div className="glass-card !p-0 overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-border">
-                                    <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Code</th>
-                                    <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Nom</th>
-                                    <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3 hidden sm:table-cell">Email</th>
-                                    <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Handicap</th>
-                                    <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Classification</th>
-                                    <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Statut</th>
-                                    <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border">
-                                {filteredMembers.map((member) => (
-                                    <tr key={member.id} className="hover:bg-surface/50 transition-colors">
-                                        <td className="px-5 py-3.5">
-                                            <span className="text-xs font-mono text-muted-foreground">{member.member_code}</span>
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            <span className="text-sm font-medium text-foreground">{member.first_name} {member.last_name}</span>
-                                        </td>
-                                        <td className="px-5 py-3.5 hidden sm:table-cell">
-                                            <span className="text-sm text-muted-foreground">{member.email || '-'}</span>
-                                        </td>
-                                        <td className="px-5 py-3.5 text-center">
-                                            <span className="text-sm font-medium text-foreground">{member.handicap_index}</span>
-                                        </td>
-                                        <td className="px-5 py-3.5 text-center">
-                                            {member.category_type === 'professional' ? (
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 ring-1 ring-emerald-500/20">
-                                                    PRO
-                                                </span>
-                                            ) : (
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-500/10 text-blue-500 dark:text-blue-400 ring-1 ring-blue-500/20">
-                                                    AM
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-5 py-3.5 text-center">
-                                            {member.status === 'active' ? (
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 ring-1 ring-emerald-500/20">
-                                                    Actif
-                                                </span>
-                                            ) : (
-                                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-gray-500/10 text-gray-500 dark:text-gray-400 ring-1 ring-gray-500/20">
-                                                    Inactif
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            <div className="flex items-center justify-end gap-1">
-                                                <button
-                                                    onClick={() => openEdit(member)}
-                                                    className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
-                                                    title="Modifier"
-                                                >
-                                                    <Pencil className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(member)}
-                                                    className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-surface transition-colors"
-                                                    title="Supprimer"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </td>
+            <DataTable data={members} searchKeys={['first_name', 'last_name', 'member_code', 'email']} searchPlaceholder="Rechercher par nom, code, email...">
+                {(paginatedData) => (
+                    <div className="glass-card !p-0 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="border-b border-border">
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Code</th>
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Nom</th>
+                                        <th className="text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3 hidden sm:table-cell">Email</th>
+                                        <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Handicap</th>
+                                        <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Classification</th>
+                                        <th className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Statut</th>
+                                        <th className="text-right text-xs font-medium text-muted-foreground uppercase tracking-wider px-5 py-3">Actions</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="divide-y divide-border">
+                                    {paginatedData.map((member) => (
+                                        <tr key={member.id} className="hover:bg-surface/50 transition-colors">
+                                            <td className="px-5 py-3.5">
+                                                <span className="text-xs font-mono text-muted-foreground">{member.member_code}</span>
+                                            </td>
+                                            <td className="px-5 py-3.5">
+                                                <span className="text-sm font-medium text-foreground">{member.first_name} {member.last_name}</span>
+                                            </td>
+                                            <td className="px-5 py-3.5 hidden sm:table-cell">
+                                                <span className="text-sm text-muted-foreground">{member.email || '-'}</span>
+                                            </td>
+                                            <td className="px-5 py-3.5 text-center">
+                                                <span className="text-sm font-medium text-foreground">{member.handicap_index}</span>
+                                            </td>
+                                            <td className="px-5 py-3.5 text-center">
+                                                {member.category_type === 'professional' ? (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 ring-1 ring-emerald-500/20">PRO</span>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-500/10 text-blue-500 dark:text-blue-400 ring-1 ring-blue-500/20">AM</span>
+                                                )}
+                                            </td>
+                                            <td className="px-5 py-3.5 text-center">
+                                                {member.status === 'active' ? (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-500 dark:text-emerald-400 ring-1 ring-emerald-500/20">Actif</span>
+                                                ) : (
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-gray-500/10 text-gray-500 dark:text-gray-400 ring-1 ring-gray-500/20">Inactif</span>
+                                                )}
+                                            </td>
+                                            <td className="px-5 py-3.5">
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <button onClick={() => openEdit(member)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface transition-colors" title="Modifier">
+                                                        <Pencil className="w-4 h-4" />
+                                                    </button>
+                                                    <button onClick={() => handleDelete(member)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-surface transition-colors" title="Supprimer">
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
+            </DataTable>
 
             {/* Create/Edit Modal */}
             {showModal && (

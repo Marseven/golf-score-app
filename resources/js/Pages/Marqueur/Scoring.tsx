@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, Wifi, WifiOff, Minus, Plus, LogOut, Menu, RefreshCw, AlertTriangle, CheckCircle2, Shield } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Wifi, WifiOff, Minus, Plus, LogOut, ArrowLeft, Menu, RefreshCw, AlertTriangle, CheckCircle2, Shield } from 'lucide-react';
 import { categoryDotColors } from '@/Lib/category-colors';
 import { useOfflineScores } from '@/Hooks/useOfflineScores';
 import type { Player, Hole, Group, Score, CategoryPar } from '@/types';
@@ -13,6 +13,7 @@ interface Props {
     existingScores: Record<string, Score[]>;
     tournamentId: string;
     categoryPars: CategoryPar[];
+    hasMultipleGroups?: boolean;
 }
 
 function getScoreLabel(score: number, par: number) {
@@ -55,7 +56,7 @@ function PlayerScoreCard({ player, score, par, onIncrement, onDecrement, disable
     );
 }
 
-export default function MarkerScoring({ group, groupCode, players, holes, existingScores, tournamentId, categoryPars }: Props) {
+export default function MarkerScoring({ group, groupCode, players, holes, existingScores, tournamentId, categoryPars, hasMultipleGroups }: Props) {
     const [currentHole, setCurrentHole] = useState(0);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [confirmedName, setConfirmedName] = useState('');
@@ -135,7 +136,13 @@ export default function MarkerScoring({ group, groupCode, players, holes, existi
             <div className="min-h-screen bg-background flex flex-col">
                 {/* Top bar */}
                 <div className="sticky top-0 z-40 bg-card border-b border-white/10 px-4 py-3 flex items-center justify-between">
-                    <button className="p-2 rounded-lg hover:bg-white/10"><Menu className="w-5 h-5 text-foreground" /></button>
+                    {hasMultipleGroups ? (
+                        <Link href={route('marqueur.groups')} className="p-2 rounded-lg hover:bg-white/10">
+                            <ArrowLeft className="w-5 h-5 text-foreground" />
+                        </Link>
+                    ) : (
+                        <div className="w-9" />
+                    )}
                     <div className="text-center">
                         <p className="text-sm font-bold text-foreground">{groupCode}</p>
                         <p className="text-xs text-muted-foreground">
