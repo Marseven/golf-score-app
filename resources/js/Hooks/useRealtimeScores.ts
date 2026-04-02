@@ -7,7 +7,7 @@ declare global {
   }
 }
 
-const POLL_INTERVAL = 10_000; // 10 seconds
+const POLL_INTERVAL = 5_000; // 5 seconds
 
 export function useRealtimeScores(tournamentId?: string) {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
