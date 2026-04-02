@@ -154,24 +154,18 @@ class CaddyMasterController extends Controller
             'scores' => 'required|array',
             'scores.*.player_id' => 'required|uuid|exists:players,id',
             'scores.*.hole_id' => 'required|uuid|exists:holes,id',
-            'scores.*.strokes' => 'required|integer|min:1|max:18',
+            'scores.*.strokes' => 'required|integer|min:1',
         ]);
 
         $phase = $group->phase;
-
-        // Build a lookup of allowed hole IDs per player (based on their category)
-        $playerIds = collect($validated['scores'])->pluck('player_id')->unique();
-        $players = Player::with('category.holes')->whereIn('id', $playerIds)->get()->keyBy('id');
+        $tournamentHoleIds = $group->tournament->holes()->pluck('id')->toArray();
+        $tournamentPlayerIds = $group->tournament->players()->pluck('id')->toArray();
 
         foreach ($validated['scores'] as $scoreData) {
-            $player = $players->get($scoreData['player_id']);
-            if (!$player || !$player->category) {
+            if (!in_array($scoreData['player_id'], $tournamentPlayerIds)) {
                 continue;
             }
-
-            // Only allow holes that belong to the player's category
-            $allowedHoleIds = $player->category->holes->pluck('id')->toArray();
-            if (!in_array($scoreData['hole_id'], $allowedHoleIds)) {
+            if (!in_array($scoreData['hole_id'], $tournamentHoleIds)) {
                 continue;
             }
 

@@ -14,13 +14,15 @@ export function useRealtimeScores(tournamentId?: string) {
   useEffect(() => {
     if (!tournamentId) return;
 
+    const refresh = () => {
+      router.reload();
+      setLastUpdate(new Date());
+    };
+
     // Try WebSocket via Echo
     if (window.Echo) {
       window.Echo.channel(`tournament.${tournamentId}`)
-        .listen('.score.updated', () => {
-          router.reload();
-          setLastUpdate(new Date());
-        });
+        .listen('.score.updated', refresh);
 
       return () => {
         window.Echo.leave(`tournament.${tournamentId}`);
@@ -28,10 +30,7 @@ export function useRealtimeScores(tournamentId?: string) {
     }
 
     // Fallback: polling every 5 seconds
-    intervalRef.current = window.setInterval(() => {
-      router.reload();
-      setLastUpdate(new Date());
-    }, 5000);
+    intervalRef.current = window.setInterval(refresh, 5000);
 
     return () => {
       if (intervalRef.current) {

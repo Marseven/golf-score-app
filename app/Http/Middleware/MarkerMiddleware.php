@@ -18,7 +18,6 @@ class MarkerMiddleware
         $requestedGroupId = $group ? (is_string($group) ? $group : $group->id) : null;
 
         if ($requestedGroupId && in_array($requestedGroupId, $groupIds)) {
-            // Update current group in session
             $request->session()->put('marker_group_id', $requestedGroupId);
             return $next($request);
         }
@@ -28,8 +27,9 @@ class MarkerMiddleware
             return $next($request);
         }
 
-        if ($request->wantsJson()) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
+        // For JSON/AJAX requests, return 401 instead of redirect
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['message' => 'Session expirée'], 401);
         }
 
         return redirect()->route('marqueur.login');

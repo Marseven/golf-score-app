@@ -119,12 +119,16 @@ export function useOfflineScores({ groupId, phase, players, holes, existingScore
                 body: JSON.stringify({ scores: scoresPayload }),
             });
 
-            if (response.ok) {
+            const contentType = response.headers.get('content-type') || '';
+            if (response.ok && contentType.includes('application/json')) {
                 await deletePendingScores(pending.map((p) => p.key));
                 const count = await getPendingCount(groupId);
                 setPendingCount(count);
                 setSyncStatus('idle');
                 setLastSyncTime(new Date());
+            } else if (response.ok && !contentType.includes('application/json')) {
+                // Server returned HTML (probably a redirect) — scores not saved
+                setSyncStatus('error');
             } else if (response.status === 419) {
                 // CSRF token expired — refresh page cookie silently
                 await fetch(csrfRefreshUrl, { credentials: 'same-origin' }).catch(() => {});
@@ -145,7 +149,7 @@ export function useOfflineScores({ groupId, phase, players, holes, existingScore
         (playerIdx: number, holeIdx: number, delta: number) => {
             setScores((prev) => {
                 const next = prev.map((row) => [...row]);
-                next[playerIdx][holeIdx] = Math.min(18, Math.max(1, next[playerIdx][holeIdx] + delta));
+                next[playerIdx][holeIdx] = Math.max(1, next[playerIdx][holeIdx] + delta);
                 return next;
             });
         },
