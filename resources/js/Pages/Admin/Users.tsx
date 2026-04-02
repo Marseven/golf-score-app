@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Head, useForm, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
-import { Users, UserCheck, Plus, Pencil, Trash2, X, Save, Shield, Eye, EyeOff } from 'lucide-react';
+import { Users, UserCheck, Plus, Pencil, Trash2, X, Save, Shield, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { useConfirm } from '@/Components/ConfirmDialog';
 import DataTable from '@/Components/DataTable';
 
@@ -30,10 +30,11 @@ const userRoles = [
     { value: 'captain', label: 'Capitaine' },
 ];
 
-function UserTable({ users, onEdit, onDelete }: {
+function UserTable({ users, onEdit, onDelete, onRegeneratePin }: {
     users: UserItem[];
     onEdit: (user: UserItem) => void;
     onDelete: (user: UserItem) => void;
+    onRegeneratePin: (user: UserItem) => void;
 }) {
     if (users.length === 0) return null;
 
@@ -87,6 +88,15 @@ function UserTable({ users, onEdit, onDelete }: {
                                 </td>
                                 <td className="px-5 py-3.5">
                                     <div className="flex items-center justify-end gap-1">
+                                        {user.roles.includes('marker') && (
+                                            <button
+                                                onClick={() => onRegeneratePin(user)}
+                                                className="p-1.5 rounded-lg text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 transition-colors"
+                                                title="Régénérer PIN"
+                                            >
+                                                <RefreshCw className="w-4 h-4" />
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() => onEdit(user)}
                                             className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface transition-colors"
@@ -267,7 +277,7 @@ export default function AdminUsers({ users }: Props) {
                         <p className="text-sm text-muted-foreground">Aucun résultat</p>
                     </div>
                 ) : (
-                    <UserTable users={paginatedData} onEdit={openEdit} onDelete={handleDelete} />
+                    <UserTable users={paginatedData} onEdit={openEdit} onDelete={handleDelete} onRegeneratePin={(user) => router.post(route('admin.users.regeneratePin', user.id), {}, { preserveScroll: true })} />
                 )}
             </DataTable>
 

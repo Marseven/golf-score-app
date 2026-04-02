@@ -144,6 +144,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/admin/users', [UserController::class, 'store'])->name('admin.users.store');
         Route::put('/admin/users/{user}', [UserController::class, 'update'])->name('admin.users.update');
         Route::delete('/admin/users/{user}', [UserController::class, 'destroy'])->name('admin.users.destroy');
+        Route::post('/admin/users/{user}/regenerate-pin', [UserController::class, 'regeneratePin'])->name('admin.users.regeneratePin');
     });
 });
 

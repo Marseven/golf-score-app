@@ -101,7 +101,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                 setAnimKey((k) => k + 1);
                 return next === 'all' ? null : next;
             });
-        }, 8000);
+        }, 2000);
         return () => clearInterval(interval);
     }, [isPaused, categories?.length]);
 

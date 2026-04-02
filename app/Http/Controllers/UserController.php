@@ -104,6 +104,39 @@ class UserController extends Controller
         return back()->with('success', 'Utilisateur mis à jour.');
     }
 
+    public function regeneratePin(User $user)
+    {
+        // Get all tournaments where this user is a marker
+        $tournamentIds = \DB::table('group_marker')
+            ->join('groups', 'groups.id', '=', 'group_marker.group_id')
+            ->where('group_marker.user_id', $user->id)
+            ->pluck('groups.tournament_id')
+            ->unique();
+
+        $newPins = [];
+        foreach ($tournamentIds as $tid) {
+            $newPin = \App\Models\Group::generateUniquePin($tid);
+
+            // Update pivot table
+            \DB::table('group_marker')
+                ->join('groups', 'groups.id', '=', 'group_marker.group_id')
+                ->where('groups.tournament_id', $tid)
+                ->where('group_marker.user_id', $user->id)
+                ->update(['group_marker.marker_pin' => $newPin]);
+
+            // Update legacy marker_pin
+            \App\Models\Group::where('tournament_id', $tid)
+                ->where('marker_id', $user->id)
+                ->update(['marker_pin' => $newPin]);
+
+            $newPins[] = $newPin;
+        }
+
+        $pinStr = implode(', ', $newPins);
+
+        return back()->with('success', "PIN régénéré pour {$user->name} : {$pinStr}");
+    }
+
     public function destroy(User $user, Request $request)
     {
         if ($user->id === $request->user()->id) {
