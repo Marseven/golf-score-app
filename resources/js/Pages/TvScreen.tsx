@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import { Trophy, X, Pause, Play, Maximize, Minimize } from 'lucide-react';
 import { buildLeaderboard } from '@/Lib/scoring';
@@ -76,8 +76,13 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
     const [currentTime, setCurrentTime] = useState(new Date());
     const containerRef = useRef<HTMLDivElement>(null);
 
+    // Only include categories that have players
+    const activeCategories = useMemo(() =>
+        (categories ?? []).filter((c) => players.some((p) => p.category_id === c.id)),
+    [categories, players]);
+
     const catIdsRef = useRef<string[]>([]);
-    catIdsRef.current = ['all', ...(categories?.map((c) => c.id) ?? [])];
+    catIdsRef.current = ['all', ...activeCategories.map((c) => c.id)];
 
     // Live clock
     useEffect(() => {
@@ -183,11 +188,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                     <div className="flex items-end justify-between">
                         <div className="flex items-center gap-6" style={{ animation: 'tvFadeUp 0.6s ease-out both' }}>
                             <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05))' }}>
-                                {logoUrl ? (
-                                    <img src={logoUrl} alt="" className="w-12 h-12 object-contain" />
-                                ) : (
-                                    <Trophy className="w-9 h-9 text-amber-400/80" />
-                                )}
+                                <img src={logoUrl || '/images/logo.png'} alt="" className="w-12 h-12 object-contain" />
                             </div>
                             <div>
                                 <h1 className="font-display text-4xl text-white tracking-tight leading-none">{tournament?.name ?? ''}</h1>
@@ -222,7 +223,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                         <div className={`rounded-full transition-all duration-500 ${!activeCategoryId ? 'w-3.5 h-3.5 bg-white shadow-lg shadow-white/20' : 'w-2.5 h-2.5 bg-white/20 group-hover:bg-white/40'}`} />
                         <span className={`text-[10px] font-semibold tracking-wider uppercase transition-colors ${!activeCategoryId ? 'text-white/70' : 'text-white/20 group-hover:text-white/40'}`}>Tous</span>
                     </button>
-                    {categories?.map((cat) => {
+                    {activeCategories.map((cat) => {
                         const isActive = activeCategoryId === cat.id;
                         return (
                             <button key={cat.id} onClick={() => { setActiveCategoryId(cat.id); setIsPaused(true); setAnimKey((k) => k + 1); }} className="group flex flex-col items-center gap-1.5">

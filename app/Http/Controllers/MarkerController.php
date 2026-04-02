@@ -89,6 +89,7 @@ class MarkerController extends Controller
             $request->session()->put('marker_group_id', $group->id);
             $request->session()->put('marker_group_code', $group->code);
             $request->session()->put('marker_tournament_id', $group->tournament_id);
+            $request->session()->put('marker_user_id', $group->marker_id);
 
             return redirect()->route('marqueur.scoring', $group);
         }
@@ -112,8 +113,8 @@ class MarkerController extends Controller
         // Calculate scoring progress based on current marker's hole range
         $markerUserId = $request->session()->get('marker_user_id');
         $currentMarker = $markerUserId ? \App\Models\User::find($markerUserId) : null;
-        $markerHoleStart = $currentMarker->hole_start ?? 1;
-        $markerHoleEnd = $currentMarker->hole_end ?? 18;
+        $markerHoleStart = $currentMarker?->hole_start ?? 1;
+        $markerHoleEnd = $currentMarker?->hole_end ?? 18;
 
         $groups->each(function ($group) use ($markerHoleStart, $markerHoleEnd) {
             $playerCount = $group->players->count();
