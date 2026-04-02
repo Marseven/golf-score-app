@@ -1438,9 +1438,14 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses }
                                             </td>
                                             <td className="px-4 py-3 text-center">
                                                 {group.marker_pin && (
-                                                    <button onClick={() => { navigator.clipboard.writeText(group.marker_pin!); setCopiedToken(group.id); setTimeout(() => setCopiedToken(null), 2000); }} className="px-2 py-1 rounded bg-surface hover:bg-surface-hover text-xs font-mono text-foreground transition-colors">
-                                                        {copiedToken === group.id ? '✓' : group.marker_pin}
-                                                    </button>
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <button onClick={() => { navigator.clipboard.writeText(group.marker_pin!); setCopiedToken(group.id); setTimeout(() => setCopiedToken(null), 2000); }} className="px-2 py-1 rounded bg-surface hover:bg-surface-hover text-xs font-mono text-foreground transition-colors">
+                                                            {copiedToken === group.id ? '✓' : group.marker_pin}
+                                                        </button>
+                                                        <button onClick={() => router.post(route('groups.regeneratePin', [tournament.id, group.id]), {}, { preserveScroll: true })} className="p-1 rounded hover:bg-surface-hover text-muted-foreground/40 hover:text-foreground transition-colors" title="Régénérer PIN">
+                                                            <RefreshCw className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </td>
                                             <td className="px-4 py-3">
@@ -1514,7 +1519,12 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses }
                                 </div>
                                 <div>
                                     <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">PIN</span>
-                                    <p className="text-lg font-mono font-black text-amber-400 mt-0.5">{g.marker_pin ?? '—'}</p>
+                                    <div className="flex items-center gap-2 mt-0.5">
+                                        <p className="text-lg font-mono font-black text-amber-400">{g.marker_pin ?? '—'}</p>
+                                        <button type="button" onClick={() => router.post(route('groups.regeneratePin', [tournament.id, g.id]), {}, { preserveScroll: true, onSuccess: () => setViewingGroup(null) })} className="p-1 rounded-lg hover:bg-surface text-muted-foreground hover:text-foreground transition-colors" title="Régénérer">
+                                            <RefreshCw className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 

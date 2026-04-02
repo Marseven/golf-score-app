@@ -228,6 +228,35 @@ class GroupController extends Controller
         return back()->with('success', 'Marqueur "'.$user->name.'" cree avec succes.');
     }
 
+    public function regeneratePin(Tournament $tournament, Group $group)
+    {
+        $newPin = Group::generateUniquePin($tournament->id);
+
+        // Update all pivot entries for markers of this group
+        \DB::table('group_marker')
+            ->where('group_id', $group->id)
+            ->update(['marker_pin' => $newPin]);
+
+        // Also update legacy marker_pin
+        $group->update(['marker_pin' => $newPin]);
+
+        // Sync the same PIN to all other groups with the same markers
+        $markerIds = \DB::table('group_marker')->where('group_id', $group->id)->pluck('user_id');
+        foreach ($markerIds as $markerId) {
+            \DB::table('group_marker')
+                ->join('groups', 'groups.id', '=', 'group_marker.group_id')
+                ->where('groups.tournament_id', $tournament->id)
+                ->where('group_marker.user_id', $markerId)
+                ->update(['group_marker.marker_pin' => $newPin]);
+
+            Group::where('tournament_id', $tournament->id)
+                ->where('marker_id', $markerId)
+                ->update(['marker_pin' => $newPin]);
+        }
+
+        return back()->with('success', 'PIN régénéré : '.$newPin);
+    }
+
     public function destroy(Tournament $tournament, Group $group)
     {
         $group->players()->update(['group_id' => null]);
