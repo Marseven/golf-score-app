@@ -147,6 +147,10 @@ class CaddyMasterController extends Controller
     {
         $tournamentId = $request->session()->get('caddie_master_tournament_id');
         if ($group->tournament_id !== $tournamentId) {
+            \Log::warning('CaddyMaster saveScores: tournament mismatch', [
+                'session_tournament' => $tournamentId,
+                'group_tournament' => $group->tournament_id,
+            ]);
             abort(403);
         }
 
@@ -160,12 +164,16 @@ class CaddyMasterController extends Controller
         $phase = $group->phase;
         $tournamentHoleIds = $group->tournament->holes()->pluck('id')->toArray();
         $tournamentPlayerIds = $group->tournament->players()->pluck('id')->toArray();
+        $saved = 0;
+        $skipped = 0;
 
         foreach ($validated['scores'] as $scoreData) {
             if (!in_array($scoreData['player_id'], $tournamentPlayerIds)) {
+                $skipped++;
                 continue;
             }
             if (!in_array($scoreData['hole_id'], $tournamentHoleIds)) {
+                $skipped++;
                 continue;
             }
 
@@ -180,15 +188,23 @@ class CaddyMasterController extends Controller
                     'synced' => true,
                 ]
             );
+            $saved++;
         }
+
+        \Log::info('CaddyMaster saveScores', [
+            'group' => $group->code,
+            'received' => count($validated['scores']),
+            'saved' => $saved,
+            'skipped' => $skipped,
+        ]);
 
         broadcast(new ScoreUpdated($group->tournament_id))->toOthers();
 
         if ($request->wantsJson()) {
-            return response()->json(['success' => true]);
+            return response()->json(['success' => true, 'saved' => $saved, 'skipped' => $skipped]);
         }
 
-        return back()->with('success', 'Scores enregistrés.');
+        return back()->with('success', "Scores enregistrés ({$saved} sauvés).");
     }
 
     public function confirmScores(Request $request, Group $group)
