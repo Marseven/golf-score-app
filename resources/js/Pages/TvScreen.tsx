@@ -247,6 +247,9 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
 
                     {/* Active category indicator */}
                     <div className="mt-5 flex items-center gap-4" style={{ animation: 'tvFadeUp 0.6s ease-out 0.15s both' }}>
+                        <div className="bg-white rounded-lg px-3 py-1.5">
+                            <img src={sponsorLogoUrl || '/Eramet-Comilog-120 (1).png'} alt="Partenaire" className="h-6 object-contain" />
+                        </div>
                         <div className="h-[2px] flex-1 bg-gradient-to-r from-white/20 via-white/10 to-transparent" />
                         <div className="flex items-center gap-3">
                             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -361,10 +364,6 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                                 <div className="absolute inset-0 w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                             </div>
                             <span className="text-xs text-white/30 font-medium tracking-wide">LIVE</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <span className="text-[10px] text-white/20 uppercase tracking-wider">Avec le soutien de</span>
-                            <img src={sponsorLogoUrl || '/Eramet-Comilog-120 (1).png'} alt="Partenaire" className="h-8 object-contain" />
                         </div>
                         <span className="text-xs text-white/15 font-medium tracking-wider">Made with Love by JOBS</span>
                     </div>
