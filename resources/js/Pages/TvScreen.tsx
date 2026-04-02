@@ -70,12 +70,14 @@ function ScoreBadge({ strokeToPar, holesPlayed }: { strokeToPar: number; holesPl
 export default function TvScreen({ tournament, players, scores, holes, categories, cuts, categoryPars, penalties, logoUrl, sponsorLogoUrl }: Props) {
     useRealtimeScores(tournament?.id);
     const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+    const [currentPage, setCurrentPage] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
     const [animKey, setAnimKey] = useState(0);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [zoom, setZoom] = useState(100);
     const containerRef = useRef<HTMLDivElement>(null);
+    const perPage = 10;
 
     // Only include categories that have players
     const activeCategories = useMemo(() =>
@@ -91,20 +93,51 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
         return () => clearInterval(timer);
     }, []);
 
+    // Build full leaderboard for current category to know total pages
+    const playersWithCategory = useMemo(() => players.map((p) => ({
+        ...p,
+        category: p.category ?? categories.find((c) => c.id === p.category_id) ?? null,
+    })), [players, categories]);
+
+    const fullLeaderboard = useMemo(() =>
+        buildLeaderboard(playersWithCategory, scores, holes, activeCategoryId ?? undefined, 'stroke', categories, undefined, undefined, categoryPars, penalties)
+            .filter((entry) => entry.player.cut_after_phase == null),
+    [playersWithCategory, scores, holes, activeCategoryId, categories, categoryPars, penalties]);
+
+    const totalPages = Math.max(1, Math.ceil(fullLeaderboard.length / perPage));
+
+    // Auto-rotation: paginate within category, then switch
+    const rotationRef = useRef({ catIdx: 0, page: 0 });
+
     useEffect(() => {
         if (isPaused || !categories?.length) return;
         const interval = setInterval(() => {
             const ids = catIdsRef.current;
-            setActiveCategoryId((prev) => {
-                const currentIdx = prev === null ? 0 : ids.indexOf(prev);
-                const nextIdx = (currentIdx + 1) % ids.length;
-                const next = ids[nextIdx];
+            const r = rotationRef.current;
+
+            // Get current category's total entries
+            const currentCatId = ids[r.catIdx] === 'all' ? undefined : ids[r.catIdx];
+            const entries = buildLeaderboard(playersWithCategory, scores, holes, currentCatId, 'stroke', categories, undefined, undefined, categoryPars, penalties)
+                .filter((e) => e.player.cut_after_phase == null);
+            const catTotalPages = Math.max(1, Math.ceil(entries.length / perPage));
+
+            if (r.page + 1 < catTotalPages) {
+                // Next page in same category
+                r.page += 1;
+                setCurrentPage(r.page);
                 setAnimKey((k) => k + 1);
-                return next === 'all' ? null : next;
-            });
+            } else {
+                // Move to next category, page 0
+                r.page = 0;
+                r.catIdx = (r.catIdx + 1) % ids.length;
+                const next = ids[r.catIdx];
+                setCurrentPage(0);
+                setActiveCategoryId(next === 'all' ? null : next);
+                setAnimKey((k) => k + 1);
+            }
         }, 20000);
         return () => clearInterval(interval);
-    }, [isPaused, categories?.length]);
+    }, [isPaused, categories?.length, playersWithCategory, scores, holes, categoryPars, penalties]);
 
     const toggleFullscreen = useCallback(() => {
         if (!document.fullscreenElement) {
@@ -120,13 +153,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
         return () => document.removeEventListener('fullscreenchange', handler);
     }, []);
 
-    const playersWithCategory = players.map((p) => ({
-        ...p,
-        category: p.category ?? categories.find((c) => c.id === p.category_id) ?? null,
-    }));
-
-    const allEntries = buildLeaderboard(playersWithCategory, scores, holes, activeCategoryId ?? undefined, 'stroke', categories, undefined, undefined, categoryPars, penalties);
-    const leaderboard = allEntries.filter((entry) => entry.player.cut_after_phase == null).slice(0, 10);
+    const leaderboard = fullLeaderboard.slice(currentPage * perPage, (currentPage + 1) * perPage);
 
     const activeCatName = activeCategoryId ? categories?.find((c) => c.id === activeCategoryId)?.name ?? 'Classement Général' : 'Classement Général';
     const timeStr = currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -202,7 +229,9 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                 <header className="relative px-12 pt-8 pb-4">
                     <div className="flex items-end justify-between">
                         <div className="flex items-center gap-6" style={{ animation: 'tvFadeUp 0.6s ease-out both' }}>
-                            <img src={sponsorLogoUrl || '/Eramet-Comilog-120 (1).png'} alt="Partenaire" className="h-14 object-contain" />
+                            <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05))' }}>
+                                <img src={logoUrl || '/images/logo.png'} alt="" className="w-12 h-12 object-contain" />
+                            </div>
                             <div>
                                 <h1 className="font-display text-4xl text-white tracking-tight leading-none">{tournament?.name ?? ''}</h1>
                                 <p className="text-base text-white/30 mt-1.5 font-medium">{tournament?.club}{dateStr && ` — ${dateStr}`}</p>
@@ -213,33 +242,30 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                             <div className="text-right">
                                 <div className="text-3xl font-black text-white/20 tabular-nums leading-none">{timeStr}</div>
                             </div>
-                            <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05))' }}>
-                                <img src={logoUrl || '/images/logo.png'} alt="" className="w-12 h-12 object-contain" />
-                            </div>
                         </div>
                     </div>
 
                     {/* Active category indicator */}
                     <div className="mt-5 flex items-center gap-4" style={{ animation: 'tvFadeUp 0.6s ease-out 0.15s both' }}>
-                        <div className="h-px flex-1 bg-gradient-to-r from-emerald-500/30 to-transparent" />
+                        <div className="h-[2px] flex-1 bg-gradient-to-r from-white/20 via-white/10 to-transparent" />
                         <div className="flex items-center gap-3">
                             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                            <span className="text-sm font-bold text-white/60 uppercase tracking-[0.2em]">{activeCatName}</span>
+                            <span className="text-sm font-bold text-white/60 uppercase tracking-[0.2em]">{activeCatName}{totalPages > 1 && ` (${currentPage + 1}/${totalPages})`}</span>
                         </div>
-                        <div className="h-px flex-1 bg-gradient-to-l from-emerald-500/30 to-transparent" />
+                        <div className="h-[2px] flex-1 bg-gradient-to-l from-white/20 via-white/10 to-transparent" />
                     </div>
                 </header>
 
                 {/* Category dots */}
                 <div className="flex items-center justify-center gap-6 py-3">
-                    <button onClick={() => { setActiveCategoryId(null); setIsPaused(true); setAnimKey((k) => k + 1); }} className="group flex flex-col items-center gap-1.5">
+                    <button onClick={() => { setActiveCategoryId(null); setCurrentPage(0); rotationRef.current = { catIdx: 0, page: 0 }; setIsPaused(true); setAnimKey((k) => k + 1); }} className="group flex flex-col items-center gap-1.5">
                         <div className={`rounded-full transition-all duration-500 ${!activeCategoryId ? 'w-3.5 h-3.5 bg-white shadow-lg shadow-white/20' : 'w-2.5 h-2.5 bg-white/20 group-hover:bg-white/40'}`} />
                         <span className={`text-[10px] font-semibold tracking-wider uppercase transition-colors ${!activeCategoryId ? 'text-white/70' : 'text-white/20 group-hover:text-white/40'}`}>Tous</span>
                     </button>
                     {activeCategories.map((cat) => {
                         const isActive = activeCategoryId === cat.id;
                         return (
-                            <button key={cat.id} onClick={() => { setActiveCategoryId(cat.id); setIsPaused(true); setAnimKey((k) => k + 1); }} className="group flex flex-col items-center gap-1.5">
+                            <button key={cat.id} onClick={() => { setActiveCategoryId(cat.id); setCurrentPage(0); const idx = catIdsRef.current.indexOf(cat.id); rotationRef.current = { catIdx: idx >= 0 ? idx : 0, page: 0 }; setIsPaused(true); setAnimKey((k) => k + 1); }} className="group flex flex-col items-center gap-1.5">
                                 <div className={`rounded-full transition-all duration-500 ${isActive ? `w-3.5 h-3.5 ${categoryDotColors[cat.name] ?? 'bg-white'} shadow-lg` : `w-2.5 h-2.5 ${categoryDotColors[cat.name] ?? 'bg-white'} opacity-30 group-hover:opacity-60`}`} />
                                 <span className={`text-[10px] font-semibold tracking-wider uppercase transition-colors ${isActive ? 'text-white/70' : 'text-white/20 group-hover:text-white/40'}`}>{cat.short_name}</span>
                             </button>
@@ -271,7 +297,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                                 </div>
                             )}
                             {leaderboard.map((entry, idx) => {
-                                const position = idx + 1;
+                                const position = currentPage * perPage + idx + 1;
                                 const isLeader = position === 1;
                                 const isTop3 = position <= 3;
 
@@ -327,15 +353,21 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                 </div>
 
                 {/* Footer */}
-                <footer className="px-12 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="relative">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                            <div className="absolute inset-0 w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                <footer className="px-12 py-3">
+                    <div className="flex items-center justify-between border-t border-white/10 pt-3">
+                        <div className="flex items-center gap-3">
+                            <div className="relative">
+                                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                                <div className="absolute inset-0 w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                            </div>
+                            <span className="text-xs text-white/30 font-medium tracking-wide">LIVE</span>
                         </div>
-                        <span className="text-xs text-white/30 font-medium tracking-wide">LIVE</span>
+                        <div className="flex items-center gap-3">
+                            <span className="text-[10px] text-white/20 uppercase tracking-wider">Avec le soutien de</span>
+                            <img src={sponsorLogoUrl || '/Eramet-Comilog-120 (1).png'} alt="Partenaire" className="h-8 object-contain" />
+                        </div>
+                        <span className="text-xs text-white/15 font-medium tracking-wider">Made with Love by JOBS</span>
                     </div>
-                    <span className="text-xs text-white/15 font-medium tracking-wider">Made with Love by JOBS</span>
                 </footer>
             </div>
             </div>
