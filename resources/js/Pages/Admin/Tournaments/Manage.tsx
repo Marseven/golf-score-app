@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import { ArrowLeft, Settings, BarChart3, Trophy, Users, Target, MapPin, Save, Plus, Trash2, Pencil, X, Check, RefreshCw, Clock, Copy, UserPlus, Send, FileText, FileSpreadsheet, QrCode, Flag, Tag, UserCheck, CreditCard, LinkIcon, Download, Hash, Upload, Scissors, ClipboardList, AlertTriangle, ChevronRight } from 'lucide-react';
@@ -2337,15 +2337,33 @@ function LeaderboardTab({ tournament, players, scores, holes, categories, catego
                         <tbody className="divide-y divide-border/30">
                             {leaderboard.map((entry, idx) => {
                                 const isWithdrawn = !!entry.player.is_withdrawn;
-                                const position = isWithdrawn ? null : idx + 1;
+                                const isCut = entry.player.cut_after_phase != null;
+                                const position = (isWithdrawn || isCut) ? null : idx + 1;
                                 const isTop3 = position != null && position <= 3;
                                 const strokeToPar = entry.strokeToPar;
 
+                                const prevEntry = idx > 0 ? leaderboard[idx - 1] : null;
+                                const showCutLine = isCut && prevEntry && prevEntry.player.cut_after_phase == null && !prevEntry.player.is_withdrawn;
+
                                 return (
-                                    <tr key={entry.player.id} className={`transition-colors ${isWithdrawn ? 'opacity-40' : isTop3 ? 'bg-amber-500/[0.03]' : 'hover:bg-surface/30'}`}>
+                                    <React.Fragment key={entry.player.id}>
+                                    {showCutLine && (
+                                        <tr>
+                                            <td colSpan={20} className="py-1">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex-1 h-0.5 bg-red-500/50" />
+                                                    <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Ligne de cut</span>
+                                                    <div className="flex-1 h-0.5 bg-red-500/50" />
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                    <tr className={`transition-colors ${isWithdrawn ? 'opacity-40' : isCut ? 'opacity-40' : isTop3 ? 'bg-amber-500/[0.03]' : 'hover:bg-surface/30'}`}>
                                         <td className="px-4 py-3">
                                             {isWithdrawn ? (
                                                 <span className="px-2 py-1 rounded bg-red-500/20 text-red-400 text-[10px] font-black">DIS</span>
+                                            ) : isCut ? (
+                                                <span className="px-2 py-1 rounded bg-red-500/10 text-red-400/60 text-[10px] font-black">CUT</span>
                                             ) : position! <= 3 ? (
                                                 <span className="text-lg">{position === 1 ? '🥇' : position === 2 ? '🥈' : '🥉'}</span>
                                             ) : (
@@ -2395,6 +2413,7 @@ function LeaderboardTab({ tournament, players, scores, holes, categories, catego
                                             ) : <span className="text-muted-foreground/20">—</span>}
                                         </td>
                                     </tr>
+                                    </React.Fragment>
                                 );
                             })}
                         </tbody>

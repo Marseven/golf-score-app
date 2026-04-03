@@ -101,11 +101,15 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
 
     const fullLeaderboard = useMemo(() =>
         buildLeaderboard(playersWithCategory, scores, holes, activeCategoryId ?? undefined, 'stroke', categories, undefined, undefined, categoryPars, penalties)
-            .filter((entry) => entry.player.cut_after_phase == null)
             .sort((a, b) => {
                 // Withdrawn players go to the bottom
                 if (a.player.is_withdrawn && !b.player.is_withdrawn) return 1;
                 if (!a.player.is_withdrawn && b.player.is_withdrawn) return -1;
+                // Cut players after non-cut players
+                const aCut = a.player.cut_after_phase != null;
+                const bCut = b.player.cut_after_phase != null;
+                if (aCut && !bCut) return 1;
+                if (!aCut && bCut) return -1;
                 return 0;
             }),
     [playersWithCategory, scores, holes, activeCategoryId, categories, categoryPars, penalties]);
@@ -127,8 +131,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
             const d = dataRef.current;
 
             const currentCatId = ids[r.catIdx] === 'all' ? undefined : ids[r.catIdx];
-            const entries = buildLeaderboard(d.playersWithCategory, d.scores, d.holes, currentCatId, 'stroke', d.categories, undefined, undefined, d.categoryPars, d.penalties)
-                .filter((e) => e.player.cut_after_phase == null);
+            const entries = buildLeaderboard(d.playersWithCategory, d.scores, d.holes, currentCatId, 'stroke', d.categories, undefined, undefined, d.categoryPars, d.penalties);
             const catTotalPages = Math.max(1, Math.ceil(entries.length / perPage));
 
             if (r.page + 1 < catTotalPages) {
@@ -346,20 +349,34 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                             )}
                             {leaderboard.map((entry, idx) => {
                                 const isWithdrawn = !!entry.player.is_withdrawn;
-                                const position = isWithdrawn ? null : currentPage * perPage + idx + 1;
+                                const isCut = entry.player.cut_after_phase != null;
+                                const position = (isWithdrawn || isCut) ? null : currentPage * perPage + idx + 1;
                                 const isLeader = position === 1;
                                 const isTop3 = position != null && position <= 3;
 
+                                // Show cut line before first cut player
+                                const prevEntry = idx > 0 ? leaderboard[idx - 1] : null;
+                                const showCutLine = isCut && prevEntry && prevEntry.player.cut_after_phase == null && !prevEntry.player.is_withdrawn;
+
                                 return (
+                                    <div key={entry.player.id}>
+                                    {showCutLine && (
+                                        <div className="flex items-center gap-3 px-6 py-1.5">
+                                            <div className="flex-1 h-[2px] bg-gradient-to-r from-red-500/50 to-transparent" />
+                                            <span className="text-[10px] font-black text-red-400 uppercase tracking-widest">Ligne de cut</span>
+                                            <div className="flex-1 h-[2px] bg-gradient-to-l from-red-500/50 to-transparent" />
+                                        </div>
+                                    )}
                                     <div
-                                        key={entry.player.id}
-                                        className={`tv-row grid items-center px-6 py-3 border-b border-white/[0.04] transition-colors ${isWithdrawn ? 'opacity-40' : isLeader ? 'tv-leader-glow' : isTop3 ? 'bg-white/[0.02]' : 'hover:bg-white/[0.02]'}`}
+                                        className={`tv-row grid items-center px-6 py-3 border-b border-white/[0.04] transition-colors ${isWithdrawn ? 'opacity-40' : isCut ? 'opacity-40' : isLeader ? 'tv-leader-glow' : isTop3 ? 'bg-white/[0.02]' : 'hover:bg-white/[0.02]'}`}
                                         style={{ gridTemplateColumns: phaseScoresMap ? `80px 1fr 70px ${Array.from({ length: currentPhase }, () => '56px').join(' ')} 70px 100px` : '80px 1fr 70px 70px 70px 100px', animationDelay: `${idx * 0.06}s` }}
                                     >
                                         {/* Position */}
                                         <div className="border-r border-white/[0.06] pr-3">
                                             {isWithdrawn ? (
                                                 <span className="w-14 h-14 rounded-2xl bg-red-500/20 flex items-center justify-center text-sm font-black text-red-400">DIS</span>
+                                            ) : isCut ? (
+                                                <span className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center text-[10px] font-black text-red-400/60">CUT</span>
                                             ) : (
                                                 <PositionBadge position={position!} />
                                             )}
@@ -424,6 +441,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                                                 <ScoreBadge strokeToPar={entry.strokeToPar} holesPlayed={entry.holesPlayed} />
                                             )}
                                         </div>
+                                    </div>
                                     </div>
                                 );
                             })}
