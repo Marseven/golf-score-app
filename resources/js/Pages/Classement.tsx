@@ -60,7 +60,11 @@ export default function Classement({ tournament, players, scores, holes, categor
         tournament?.score_aggregation,
         categoryPars,
         penalties
-    ).filter((entry) => !entry.player.is_withdrawn);
+    ).sort((a, b) => {
+        if (a.player.is_withdrawn && !b.player.is_withdrawn) return 1;
+        if (!a.player.is_withdrawn && b.player.is_withdrawn) return -1;
+        return 0;
+    });
 
     const buildWhatsAppText = () => {
         if (!tournament) return '';
@@ -250,12 +254,12 @@ export default function Classement({ tournament, players, scores, holes, categor
                 <div ref={leaderboardRef} className="space-y-2">
                     {leaderboard.map((entry, idx) => {
                         const position = idx + 1;
-                        const isTop3 = position <= 3;
+                        const isWithdrawn = !!entry.player.is_withdrawn;
+                        const isTop3 = !isWithdrawn && position <= 3;
                         const isCut = entry.player.cut_after_phase != null;
                         const scoreColor = entry.strokeToPar < 0 ? 'text-emerald-400' : entry.strokeToPar === 0 ? 'text-foreground' : 'text-red-400';
                         const sign = entry.strokeToPar > 0 ? '+' : '';
 
-                        // Determine if a cut line should be drawn after this entry
                         const currentCategoryCut = activeCategoryId
                             ? cuts?.find((c) => c.category_id === activeCategoryId && c.after_phase === (activePhase ?? 1) && !c.applied_at)
                             : null;
@@ -263,14 +267,19 @@ export default function Classement({ tournament, players, scores, holes, categor
 
                         return (
                             <div key={entry.player.id}>
-                                <div className={`glass-card flex items-center justify-between ${isCut ? 'opacity-50' : ''} ${isTop3 && !isCut ? 'bg-gradient-to-r from-amber-500/10 to-transparent' : ''}`}>
+                                <div className={`glass-card flex items-center justify-between ${isWithdrawn ? 'opacity-40' : isCut ? 'opacity-50' : ''} ${isTop3 && !isCut ? 'bg-gradient-to-r from-amber-500/10 to-transparent' : ''}`}>
                                 <div className="flex items-center gap-3 min-w-0">
-                                    <PositionBadge position={position} />
+                                    {isWithdrawn ? (
+                                        <span className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center text-[10px] font-black text-red-400">DIS</span>
+                                    ) : (
+                                        <PositionBadge position={position} />
+                                    )}
                                     <div className="min-w-0">
                                         <div className="flex items-center gap-2">
                                             {entry.player.nationality && <span className="text-base leading-none">{countryCodeToFlag(entry.player.nationality)}</span>}
-                                            <p className="text-sm font-semibold text-foreground truncate">{entry.player.name}</p>
-                                            {isCut && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">CUT P{entry.player.cut_after_phase}</span>}
+                                            <p className={`text-sm font-semibold truncate ${isWithdrawn ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{entry.player.name}</p>
+                                            {isWithdrawn && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">DISQUALIFIÉ</span>}
+                                            {!isWithdrawn && isCut && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400">CUT P{entry.player.cut_after_phase}</span>}
                                         </div>
                                         <div className="flex items-center gap-2 mt-0.5">
                                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${categoryColors[entry.categoryName] ?? 'bg-surface-hover text-foreground'}`}>
@@ -284,7 +293,9 @@ export default function Classement({ tournament, players, scores, holes, categor
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    {scoringMode === 'stableford' ? (
+                                    {isWithdrawn ? (
+                                        <p className="text-lg font-bold text-muted-foreground/30">—</p>
+                                    ) : scoringMode === 'stableford' ? (
                                         <>
                                             <p className="text-lg font-bold text-amber-400">{entry.netStablefordPoints}</p>
                                             <p className="text-xs text-muted-foreground">{entry.netStablefordPoints !== entry.stablefordPoints ? `brut ${entry.stablefordPoints}` : 'points'}</p>

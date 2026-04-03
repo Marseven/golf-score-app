@@ -101,7 +101,13 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
 
     const fullLeaderboard = useMemo(() =>
         buildLeaderboard(playersWithCategory, scores, holes, activeCategoryId ?? undefined, 'stroke', categories, undefined, undefined, categoryPars, penalties)
-            .filter((entry) => entry.player.cut_after_phase == null && !entry.player.is_withdrawn),
+            .filter((entry) => entry.player.cut_after_phase == null)
+            .sort((a, b) => {
+                // Withdrawn players go to the bottom
+                if (a.player.is_withdrawn && !b.player.is_withdrawn) return 1;
+                if (!a.player.is_withdrawn && b.player.is_withdrawn) return -1;
+                return 0;
+            }),
     [playersWithCategory, scores, holes, activeCategoryId, categories, categoryPars, penalties]);
 
     const totalPages = Math.max(1, Math.ceil(fullLeaderboard.length / perPage));
@@ -325,27 +331,35 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                                 </div>
                             )}
                             {leaderboard.map((entry, idx) => {
-                                const position = currentPage * perPage + idx + 1;
+                                const isWithdrawn = !!entry.player.is_withdrawn;
+                                const position = isWithdrawn ? null : currentPage * perPage + idx + 1;
                                 const isLeader = position === 1;
-                                const isTop3 = position <= 3;
+                                const isTop3 = position != null && position <= 3;
 
                                 return (
                                     <div
                                         key={entry.player.id}
-                                        className={`tv-row grid grid-cols-[80px_1fr_70px_90px_90px_100px] items-center px-6 py-3 border-b border-white/[0.04] transition-colors ${isLeader ? 'tv-leader-glow' : isTop3 ? 'bg-white/[0.02]' : 'hover:bg-white/[0.02]'}`}
+                                        className={`tv-row grid grid-cols-[80px_1fr_70px_90px_90px_100px] items-center px-6 py-3 border-b border-white/[0.04] transition-colors ${isWithdrawn ? 'opacity-40' : isLeader ? 'tv-leader-glow' : isTop3 ? 'bg-white/[0.02]' : 'hover:bg-white/[0.02]'}`}
                                         style={{ animationDelay: `${idx * 0.06}s` }}
                                     >
                                         {/* Position */}
-                                        <div><PositionBadge position={position} /></div>
+                                        <div>
+                                            {isWithdrawn ? (
+                                                <span className="w-14 h-14 rounded-2xl bg-red-500/20 flex items-center justify-center text-sm font-black text-red-400">DIS</span>
+                                            ) : (
+                                                <PositionBadge position={position!} />
+                                            )}
+                                        </div>
 
                                         {/* Player */}
                                         <div className="flex items-center gap-4 min-w-0">
                                             <div className={`w-1.5 h-10 rounded-full ${categoryDotColors[entry.categoryName] ?? 'bg-gray-500'}`} />
                                             <div className="min-w-0">
-                                                <p className={`font-bold truncate leading-tight ${isLeader ? 'text-xl text-white' : 'text-lg text-white/90'}`}>{entry.player.name}</p>
+                                                <p className={`font-bold truncate leading-tight ${isWithdrawn ? 'text-lg text-white/40 line-through' : isLeader ? 'text-xl text-white' : 'text-lg text-white/90'}`}>{entry.player.name}</p>
                                                 <div className="flex items-center gap-2 mt-0.5">
                                                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${categoryColors[entry.categoryName] ?? 'bg-white/10 text-white/50'}`}>{entry.categoryName}</span>
-                                                    {entry.penaltyStrokes > 0 && (
+                                                    {isWithdrawn && <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] font-bold">DISQUALIFIÉ</span>}
+                                                    {!isWithdrawn && entry.penaltyStrokes > 0 && (
                                                         <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] font-bold">+{entry.penaltyStrokes} PEN</span>
                                                     )}
                                                 </div>
@@ -359,7 +373,9 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
 
                                         {/* Holes played */}
                                         <div className="text-center">
-                                            {(() => {
+                                            {isWithdrawn ? (
+                                                <span className="text-lg text-white/20">—</span>
+                                            ) : (() => {
                                                 const maxHoles = 18 * currentPhase;
                                                 return (
                                                     <span className={`text-lg tabular-nums ${entry.holesPlayed >= maxHoles ? 'text-emerald-400 font-bold' : 'text-white/40 font-medium'}`}>
@@ -371,13 +387,17 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
 
                                         {/* Total strokes */}
                                         <div className="text-center">
-                                            <span className="text-xl font-black text-white tabular-nums">{entry.holesPlayed > 0 ? entry.totalStrokes : '—'}</span>
+                                            <span className={`text-xl font-black tabular-nums ${isWithdrawn ? 'text-white/20' : 'text-white'}`}>{isWithdrawn ? '—' : entry.holesPlayed > 0 ? entry.totalStrokes : '—'}</span>
                                         </div>
 
                                         {/* Score to par */}
                                         <div className="flex flex-col items-end gap-0.5">
-                                            <ScoreBadge strokeToPar={entry.strokeToPar} holesPlayed={entry.holesPlayed} />
-                                            {todayScores && todayScores[entry.player.id] && (() => {
+                                            {isWithdrawn ? (
+                                                <span className="text-lg text-white/20 font-bold">—</span>
+                                            ) : (
+                                                <ScoreBadge strokeToPar={entry.strokeToPar} holesPlayed={entry.holesPlayed} />
+                                            )}
+                                            {!isWithdrawn && todayScores && todayScores[entry.player.id] && (() => {
                                                 const today = todayScores[entry.player.id];
                                                 const todayToPar = today.strokes - today.par;
                                                 const sign = todayToPar > 0 ? '+' : '';
