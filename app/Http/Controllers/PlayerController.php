@@ -35,6 +35,7 @@ class PlayerController extends Controller
             'email' => 'nullable|email',
             'phone' => 'nullable|string|max:20',
             'nationality' => 'nullable|string|max:3',
+            'is_withdrawn' => 'boolean',
         ]);
 
         $player->update($validated);

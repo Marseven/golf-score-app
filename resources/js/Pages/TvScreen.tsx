@@ -101,7 +101,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
 
     const fullLeaderboard = useMemo(() =>
         buildLeaderboard(playersWithCategory, scores, holes, activeCategoryId ?? undefined, 'stroke', categories, undefined, undefined, categoryPars, penalties)
-            .filter((entry) => entry.player.cut_after_phase == null),
+            .filter((entry) => entry.player.cut_after_phase == null && !entry.player.is_withdrawn),
     [playersWithCategory, scores, holes, activeCategoryId, categories, categoryPars, penalties]);
 
     const totalPages = Math.max(1, Math.ceil(fullLeaderboard.length / perPage));

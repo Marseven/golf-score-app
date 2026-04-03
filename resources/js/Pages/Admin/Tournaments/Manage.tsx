@@ -933,7 +933,10 @@ function PlayersTab({ tournament, players, categories, groups }: { tournament: T
                                         </tr>
                                     ) : paginatedPlayers.map((player) => (
                                         <tr key={player.id} className="hover:bg-surface transition-colors">
-                                            <td className="px-6 py-4"><span className="text-sm font-medium text-foreground">{player.nationality ? countryCodeToFlag(player.nationality) + ' ' : ''}{player.name}</span></td>
+                                            <td className="px-6 py-4">
+                                                <span className={`text-sm font-medium ${player.is_withdrawn ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{player.nationality ? countryCodeToFlag(player.nationality) + ' ' : ''}{player.name}</span>
+                                                {player.is_withdrawn && <span className="ml-2 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 text-[10px] font-bold">Retiré</span>}
+                                            </td>
                                             <td className="px-6 py-4">
                                                 <span className={`px-3 py-1 rounded-lg text-xs font-medium ${categoryColors[player.category?.name ?? ''] ?? 'bg-surface-hover text-foreground'}`}>
                                                     {player.category?.name ?? '—'}
@@ -943,6 +946,17 @@ function PlayersTab({ tournament, players, categories, groups }: { tournament: T
                                             <td className="px-6 py-4"><span className="px-2 py-1 rounded-md bg-surface-hover text-xs font-mono text-foreground">{player.group?.code ?? '—'}</span></td>
                                             <td className="px-6 py-4 text-right">
                                                 <div className="flex items-center justify-end gap-1">
+                                                    <button
+                                                        onClick={async () => {
+                                                            const action = player.is_withdrawn ? 'réintégrer' : 'retirer';
+                                                            const ok = await confirm({ title: `${player.is_withdrawn ? 'Réintégrer' : 'Retirer'} ${player.name} ?`, message: player.is_withdrawn ? 'Le joueur réapparaîtra dans le classement.' : 'Le joueur sera masqué du classement et de l\'écran TV.', confirmLabel: player.is_withdrawn ? 'Réintégrer' : 'Retirer', variant: player.is_withdrawn ? 'default' : 'warning' });
+                                                            if (ok) router.put(route('players.update', [tournament.id, player.id]), { name: player.name, handicap: player.handicap, category_id: player.category_id ?? '', group_id: player.group_id ?? '', email: player.email ?? '', phone: player.phone ?? '', nationality: player.nationality ?? '', is_withdrawn: !player.is_withdrawn }, { preserveScroll: true });
+                                                        }}
+                                                        className={`p-2 rounded-lg hover:bg-surface-hover transition-colors ${player.is_withdrawn ? 'text-emerald-500' : 'text-amber-500'}`}
+                                                        title={player.is_withdrawn ? 'Réintégrer' : 'Retirer'}
+                                                    >
+                                                        {player.is_withdrawn ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
+                                                    </button>
                                                     <button onClick={() => startEdit(player)} className="p-2 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-foreground transition-colors"><Pencil className="w-4 h-4" /></button>
                                                     <button onClick={() => handleDelete(player.id, player.name)} className="p-2 rounded-lg hover:bg-surface-hover text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-4 h-4" /></button>
                                                 </div>

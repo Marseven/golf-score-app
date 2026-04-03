@@ -40,6 +40,7 @@ class Player extends Model
         'handicap',
         'registration_status',
         'cut_after_phase',
+        'is_withdrawn',
     ];
 
     /**

@@ -3,6 +3,7 @@ export interface PlayerData {
   name: string;
   handicap: number;
   nationality?: string | null;
+  is_withdrawn?: boolean;
   category_id: string | null;
   cut_after_phase?: number | null;
   category?: {

@@ -60,7 +60,7 @@ export default function Classement({ tournament, players, scores, holes, categor
         tournament?.score_aggregation,
         categoryPars,
         penalties
-    );
+    ).filter((entry) => !entry.player.is_withdrawn);
 
     const buildWhatsAppText = () => {
         if (!tournament) return '';

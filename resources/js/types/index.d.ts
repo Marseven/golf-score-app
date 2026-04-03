@@ -131,6 +131,7 @@ export interface Player {
     handicap: number;
     registration_status: 'pending' | 'approved' | 'rejected';
     cut_after_phase: number | null;
+    is_withdrawn: boolean;
     category?: Category | null;
     group?: Group | null;
     scores?: Score[];
