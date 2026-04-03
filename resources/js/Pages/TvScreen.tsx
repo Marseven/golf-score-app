@@ -310,15 +310,29 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                 <div className="flex-1 px-12 pb-2 overflow-hidden">
                     <div className="h-full flex flex-col" key={animKey}>
                         {/* Column headers */}
-                        <div className="grid grid-cols-[80px_1fr_70px_1fr_100px] items-center px-6 py-3">
-                            <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em]">Pos</span>
-                            <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em]">Joueur</span>
-                            <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-center">Nat.</span>
-                            <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-center">
-                                {phaseScoresMap ? Array.from({ length: currentPhase }, (_, i) => `R${i+1}`).join(' · ') + ' · Total' : 'Trous · Coups'}
-                            </span>
-                            <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-right">Score</span>
-                        </div>
+                        {(() => {
+                            const headerGridCols = phaseScoresMap
+                                ? `80px 1fr 70px ${Array.from({ length: currentPhase }, () => '56px').join(' ')} 70px 100px`
+                                : '80px 1fr 70px 70px 70px 100px';
+                            return (
+                                <div className="grid items-center px-6 py-3 border-b border-white/[0.08]" style={{ gridTemplateColumns: headerGridCols }}>
+                                    <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] border-r border-white/[0.06] pr-3">Pos</span>
+                                    <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] border-r border-white/[0.06] px-3">Joueur</span>
+                                    <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-center border-r border-white/[0.06] px-2">Nat.</span>
+                                    {phaseScoresMap ? (
+                                        <>
+                                            {Array.from({ length: currentPhase }, (_, i) => (
+                                                <span key={i} className="text-[10px] font-bold text-amber-400/40 uppercase tracking-wider text-center border-r border-white/[0.06] px-1">R{i + 1}</span>
+                                            ))}
+                                        </>
+                                    ) : (
+                                        <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-center border-r border-white/[0.06] px-2">Trous</span>
+                                    )}
+                                    <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-center border-r border-white/[0.06] px-2">Total</span>
+                                    <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-right pl-3">Score</span>
+                                </div>
+                            );
+                        })()}
 
                         {/* Rows */}
                         <div className="flex-1 overflow-hidden rounded-2xl border border-white/[0.06]" style={{ background: 'rgba(255,255,255,0.02)' }}>
@@ -339,11 +353,11 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                                 return (
                                     <div
                                         key={entry.player.id}
-                                        className={`tv-row grid grid-cols-[80px_1fr_70px_1fr_100px] items-center px-6 py-3 border-b border-white/[0.04] transition-colors ${isWithdrawn ? 'opacity-40' : isLeader ? 'tv-leader-glow' : isTop3 ? 'bg-white/[0.02]' : 'hover:bg-white/[0.02]'}`}
-                                        style={{ animationDelay: `${idx * 0.06}s` }}
+                                        className={`tv-row grid items-center px-6 py-3 border-b border-white/[0.04] transition-colors ${isWithdrawn ? 'opacity-40' : isLeader ? 'tv-leader-glow' : isTop3 ? 'bg-white/[0.02]' : 'hover:bg-white/[0.02]'}`}
+                                        style={{ gridTemplateColumns: phaseScoresMap ? `80px 1fr 70px ${Array.from({ length: currentPhase }, () => '56px').join(' ')} 70px 100px` : '80px 1fr 70px 70px 70px 100px', animationDelay: `${idx * 0.06}s` }}
                                     >
                                         {/* Position */}
-                                        <div>
+                                        <div className="border-r border-white/[0.06] pr-3">
                                             {isWithdrawn ? (
                                                 <span className="w-14 h-14 rounded-2xl bg-red-500/20 flex items-center justify-center text-sm font-black text-red-400">DIS</span>
                                             ) : (
@@ -352,7 +366,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                                         </div>
 
                                         {/* Player */}
-                                        <div className="flex items-center gap-4 min-w-0">
+                                        <div className="flex items-center gap-4 min-w-0 border-r border-white/[0.06] px-3">
                                             <div className={`w-1.5 h-10 rounded-full ${categoryDotColors[entry.categoryName] ?? 'bg-gray-500'}`} />
                                             <div className="min-w-0">
                                                 <p className={`font-bold truncate leading-tight ${isWithdrawn ? 'text-lg text-white/40 line-through' : isLeader ? 'text-xl text-white' : 'text-lg text-white/90'}`}>{entry.player.name}</p>
@@ -367,43 +381,43 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                                         </div>
 
                                         {/* Nationality */}
-                                        <div className="text-center">
+                                        <div className="text-center border-r border-white/[0.06] px-2">
                                             <span className="text-2xl">{entry.player.nationality ? countryCodeToFlag(entry.player.nationality) : ''}</span>
                                         </div>
 
-                                        {/* Scores inline */}
-                                        <div className="flex items-center justify-center gap-3">
-                                            {isWithdrawn ? (
-                                                <span className="text-lg text-white/20">—</span>
-                                            ) : phaseScoresMap ? (
-                                                <>
-                                                    {Array.from({ length: currentPhase }, (_, i) => {
-                                                        const phase = i + 1;
-                                                        const ps = phaseScoresMap?.[entry.player.id]?.[phase];
-                                                        if (!ps) return <span key={phase} className="text-sm text-white/15 tabular-nums w-8 text-center">—</span>;
-                                                        const toPar = ps.strokes - ps.par;
-                                                        return (
-                                                            <span key={phase} className={`text-sm font-bold tabular-nums w-8 text-center ${toPar < 0 ? 'text-emerald-400' : toPar === 0 ? 'text-white/50' : 'text-red-400'}`}>
-                                                                {ps.strokes}
-                                                            </span>
-                                                        );
-                                                    })}
-                                                    <span className="text-white/15 mx-1">|</span>
-                                                    <span className="text-xl font-black text-white tabular-nums">{entry.holesPlayed > 0 ? entry.totalStrokes : '—'}</span>
-                                                </>
+                                        {/* Phase scores / Holes */}
+                                        {isWithdrawn ? (
+                                            phaseScoresMap ? (
+                                                <>{Array.from({ length: currentPhase }, (_, i) => <div key={i} className="text-center border-r border-white/[0.06] px-1"><span className="text-sm text-white/15">—</span></div>)}</>
                                             ) : (
-                                                <>
-                                                    <span className={`text-base tabular-nums ${entry.holesPlayed >= 18 ? 'text-emerald-400 font-bold' : 'text-white/40'}`}>
-                                                        {entry.holesPlayed}<span className="text-white/20">/18</span>
-                                                    </span>
-                                                    <span className="text-white/15">·</span>
-                                                    <span className="text-xl font-black text-white tabular-nums">{entry.holesPlayed > 0 ? entry.totalStrokes : '—'}</span>
-                                                </>
-                                            )}
+                                                <div className="text-center border-r border-white/[0.06] px-2"><span className="text-sm text-white/15">—</span></div>
+                                            )
+                                        ) : phaseScoresMap ? (
+                                            <>{Array.from({ length: currentPhase }, (_, i) => {
+                                                const ps = phaseScoresMap?.[entry.player.id]?.[i + 1];
+                                                if (!ps) return <div key={i} className="text-center border-r border-white/[0.06] px-1"><span className="text-sm text-white/15 tabular-nums">—</span></div>;
+                                                const toPar = ps.strokes - ps.par;
+                                                return (
+                                                    <div key={i} className="text-center border-r border-white/[0.06] px-1">
+                                                        <span className={`text-sm font-bold tabular-nums ${toPar < 0 ? 'text-emerald-400' : toPar === 0 ? 'text-white/50' : 'text-red-400'}`}>{ps.strokes}</span>
+                                                    </div>
+                                                );
+                                            })}</>
+                                        ) : (
+                                            <div className="text-center border-r border-white/[0.06] px-2">
+                                                <span className={`text-base tabular-nums ${entry.holesPlayed >= 18 * currentPhase ? 'text-emerald-400 font-bold' : 'text-white/40'}`}>
+                                                    {entry.holesPlayed}<span className="text-white/20">/{18 * currentPhase}</span>
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Total */}
+                                        <div className="text-center border-r border-white/[0.06] px-2">
+                                            <span className={`text-xl font-black tabular-nums ${isWithdrawn ? 'text-white/15' : 'text-white'}`}>{isWithdrawn ? '—' : entry.holesPlayed > 0 ? entry.totalStrokes : '—'}</span>
                                         </div>
 
                                         {/* Score to par */}
-                                        <div className="flex flex-col items-end gap-0.5">
+                                        <div className="flex flex-col items-end gap-0.5 pl-3">
                                             {isWithdrawn ? (
                                                 <span className="text-lg text-white/20 font-bold">—</span>
                                             ) : (
