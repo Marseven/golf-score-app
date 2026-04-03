@@ -5,6 +5,7 @@ import { ArrowLeft, Settings, BarChart3, Trophy, Users, Target, MapPin, Save, Pl
 import type { Tournament, Category, Player, Group, Hole, Score, Payment, Course, Cut, CategoryPar, PageProps, Penalty } from '@/types';
 import { categoryColors, categoryDotColors } from '@/Lib/category-colors';
 import { countryCodeToFlag, countries } from '@/Lib/countries';
+import { buildLeaderboard } from '@/Lib/scoring';
 import DataTable from '@/Components/DataTable';
 import { useConfirm } from '@/Components/ConfirmDialog';
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
@@ -57,6 +58,7 @@ const allTabs: TabDef[] = [
     { id: 'groups', label: 'Groupes', icon: Target },
     { id: 'course', label: 'Parcours', icon: MapPin },
     { id: 'scores', label: 'Scores', icon: ClipboardList },
+    { id: 'leaderboard', label: 'Classement', icon: Trophy },
     { id: 'registrations', label: 'Inscriptions', icon: UserCheck, adminOnly: true },
     { id: 'payments', label: 'Paiements', icon: CreditCard, adminOnly: true },
 ];
@@ -2224,6 +2226,185 @@ function FlashMessages() {
     );
 }
 
+// --- Leaderboard Tab ---
+function LeaderboardTab({ tournament, players, scores, holes, categories, categoryPars, penalties }: { tournament: Tournament; players: Player[]; scores: Score[]; holes: Hole[]; categories: Category[]; categoryPars: CategoryPar[]; penalties: Penalty[] }) {
+    const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
+    const [filterPhase, setFilterPhase] = useState<number | undefined>(undefined);
+
+    const playersWithCategory = useMemo(() => players.map((p) => ({
+        ...p,
+        category: p.category ?? categories.find((c) => c.id === p.category_id) ?? null,
+    })), [players, categories]);
+
+    const leaderboard = useMemo(() =>
+        buildLeaderboard(playersWithCategory, scores, holes, filterCategoryId ?? undefined, 'stroke', categories, filterPhase, filterPhase !== undefined ? 'separate' : tournament.score_aggregation, categoryPars, penalties)
+            .sort((a, b) => {
+                if (a.player.is_withdrawn && !b.player.is_withdrawn) return 1;
+                if (!a.player.is_withdrawn && b.player.is_withdrawn) return -1;
+                return 0;
+            }),
+    [playersWithCategory, scores, holes, filterCategoryId, filterPhase, categories, categoryPars, penalties, tournament.score_aggregation]);
+
+    // Phase scores per player
+    const phaseScoresMap = useMemo(() => {
+        if (tournament.phase_count <= 1) return null;
+        const holeMap = new Map(holes.map((h) => [h.id, h]));
+        const map: Record<string, Record<number, { strokes: number; par: number }>> = {};
+        for (const s of scores) {
+            const hole = holeMap.get(s.hole_id);
+            if (!hole) continue;
+            if (filterCategoryId) {
+                const player = players.find((p) => p.id === s.player_id);
+                if (player?.category_id !== filterCategoryId) continue;
+            }
+            if (!map[s.player_id]) map[s.player_id] = {};
+            if (!map[s.player_id][s.phase]) map[s.player_id][s.phase] = { strokes: 0, par: 0 };
+            map[s.player_id][s.phase].strokes += s.strokes;
+            map[s.player_id][s.phase].par += hole.par;
+        }
+        return map;
+    }, [scores, holes, tournament.phase_count, filterCategoryId, players]);
+
+    const currentPhase = useMemo(() => {
+        if (!scores.length) return 1;
+        return Math.max(...scores.map((s) => s.phase));
+    }, [scores]);
+
+    // Determine phases to show for selected category
+    const maxPhases = useMemo(() => {
+        if (filterCategoryId) {
+            const cat = categories.find((c) => c.id === filterCategoryId);
+            return cat?.max_phases ?? tournament.phase_count;
+        }
+        return tournament.phase_count;
+    }, [filterCategoryId, categories, tournament.phase_count]);
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                    <Trophy className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                    <h2 className="text-lg font-bold text-foreground">Classement</h2>
+                    <p className="text-xs text-muted-foreground">{leaderboard.length} joueur{leaderboard.length !== 1 ? 's' : ''}</p>
+                </div>
+            </div>
+
+            {/* Filters */}
+            <div className="flex flex-col gap-3">
+                <div className="flex gap-1.5 overflow-x-auto pb-1">
+                    <button onClick={() => setFilterCategoryId(null)} className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${!filterCategoryId ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-surface text-muted-foreground hover:bg-surface-hover'}`}>
+                        Tous ({players.length})
+                    </button>
+                    {categories.map((cat) => (
+                        <button key={cat.id} onClick={() => { setFilterCategoryId(cat.id); if (filterPhase && filterPhase > (cat.max_phases ?? tournament.phase_count)) setFilterPhase(undefined); }} className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${filterCategoryId === cat.id ? `${categoryColors[cat.name] ?? 'bg-primary text-primary-foreground'} shadow-sm` : 'bg-surface text-muted-foreground hover:bg-surface-hover'}`}>
+                            {cat.short_name} ({players.filter((p) => p.category_id === cat.id).length})
+                        </button>
+                    ))}
+                </div>
+                {tournament.phase_count > 1 && (
+                    <div className="flex gap-1.5 overflow-x-auto pb-1">
+                        <button onClick={() => setFilterPhase(undefined)} className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${filterPhase === undefined ? 'bg-amber-500 text-white shadow-sm' : 'bg-surface text-muted-foreground hover:bg-surface-hover'}`}>
+                            Cumul
+                        </button>
+                        {Array.from({ length: maxPhases }, (_, i) => i + 1).map((p) => (
+                            <button key={p} onClick={() => setFilterPhase(p)} className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${filterPhase === p ? 'bg-amber-500 text-white shadow-sm' : 'bg-surface text-muted-foreground hover:bg-surface-hover'}`}>
+                                Phase {p}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Leaderboard table */}
+            <div className="rounded-2xl border border-border overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead>
+                            <tr className="border-b border-border bg-sidebar">
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground w-14">Pos</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground">Joueur</th>
+                                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground w-12">Nat.</th>
+                                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground">Cat.</th>
+                                {phaseScoresMap && filterPhase === undefined && Array.from({ length: Math.min(currentPhase, maxPhases) }, (_, i) => (
+                                    <th key={i} className="px-3 py-3 text-center text-xs font-semibold text-amber-400/60 w-16">R{i + 1}</th>
+                                ))}
+                                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground w-16">Total</th>
+                                <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground w-16">+/−</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/30">
+                            {leaderboard.map((entry, idx) => {
+                                const isWithdrawn = !!entry.player.is_withdrawn;
+                                const position = isWithdrawn ? null : idx + 1;
+                                const isTop3 = position != null && position <= 3;
+                                const strokeToPar = entry.strokeToPar;
+
+                                return (
+                                    <tr key={entry.player.id} className={`transition-colors ${isWithdrawn ? 'opacity-40' : isTop3 ? 'bg-amber-500/[0.03]' : 'hover:bg-surface/30'}`}>
+                                        <td className="px-4 py-3">
+                                            {isWithdrawn ? (
+                                                <span className="px-2 py-1 rounded bg-red-500/20 text-red-400 text-[10px] font-black">DIS</span>
+                                            ) : position! <= 3 ? (
+                                                <span className="text-lg">{position === 1 ? '🥇' : position === 2 ? '🥈' : '🥉'}</span>
+                                            ) : (
+                                                <span className="text-sm font-bold text-muted-foreground">{position}</span>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className={`w-2.5 h-2.5 rounded-full ${categoryDotColors[entry.categoryName] ?? 'bg-gray-500'}`} />
+                                                <span className={`text-sm font-semibold ${isWithdrawn ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                                                    {entry.player.nationality ? countryCodeToFlag(entry.player.nationality) + ' ' : ''}{entry.player.name}
+                                                </span>
+                                                {isWithdrawn && <span className="px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 text-[9px] font-bold">DISQUALIFIÉ</span>}
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <span className="text-lg">{entry.player.nationality ? countryCodeToFlag(entry.player.nationality) : ''}</span>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${categoryColors[entry.categoryName] ?? 'bg-surface-hover text-foreground'}`}>{entry.categoryName}</span>
+                                        </td>
+                                        {phaseScoresMap && filterPhase === undefined && Array.from({ length: Math.min(currentPhase, maxPhases) }, (_, i) => {
+                                            const phase = i + 1;
+                                            const ps = phaseScoresMap?.[entry.player.id]?.[phase];
+                                            if (isWithdrawn || !ps) return <td key={phase} className="px-3 py-3 text-center text-sm text-muted-foreground/20">—</td>;
+                                            const toPar = ps.strokes - ps.par;
+                                            return (
+                                                <td key={phase} className="px-3 py-3 text-center">
+                                                    <span className={`text-sm font-bold tabular-nums ${toPar < 0 ? 'text-emerald-500' : toPar === 0 ? 'text-foreground' : 'text-red-500'}`}>{ps.strokes}</span>
+                                                </td>
+                                            );
+                                        })}
+                                        <td className="px-4 py-3 text-center">
+                                            <span className={`text-sm font-black tabular-nums ${isWithdrawn ? 'text-muted-foreground/20' : 'text-foreground'}`}>{isWithdrawn ? '—' : entry.holesPlayed > 0 ? entry.totalStrokes : '—'}</span>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            {isWithdrawn ? (
+                                                <span className="text-muted-foreground/20">—</span>
+                                            ) : entry.holesPlayed > 0 ? (
+                                                <span className={`inline-flex items-center justify-center min-w-[36px] px-2 py-1 rounded-lg text-xs font-black tabular-nums ${
+                                                    strokeToPar < 0 ? 'bg-emerald-500/15 text-emerald-500' :
+                                                    strokeToPar === 0 ? 'bg-surface text-foreground/70' :
+                                                    'bg-red-500/15 text-red-500'
+                                                }`}>
+                                                    {strokeToPar === 0 ? 'E' : `${strokeToPar > 0 ? '+' : ''}${strokeToPar}`}
+                                                </span>
+                                            ) : <span className="text-muted-foreground/20">—</span>}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // --- Scores Tab ---
 function ScoresTab({ tournament, players, holes, scores, categories, categoryPars, courses, penalties }: { tournament: Tournament; players: Player[]; holes: Hole[]; scores: Score[]; categories: Category[]; categoryPars: CategoryPar[]; courses: Course[]; penalties: Penalty[] }) {
     const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
@@ -2933,6 +3114,7 @@ export default function TournamentManage({ tournament, courses, categories, play
             {activeTab === 'groups' && <GroupsTab tournament={tournament} groups={groups} markers={markers} players={players} categories={categories} courses={courses} />}
             {activeTab === 'course' && <CourseTab tournament={tournament} courses={courses} holes={holes} categories={categories} categoryPars={categoryPars} />}
             {activeTab === 'scores' && <ScoresTab tournament={tournament} players={players} holes={holes} scores={scores} categories={categories} categoryPars={categoryPars} courses={courses} penalties={penalties} />}
+            {activeTab === 'leaderboard' && <LeaderboardTab tournament={tournament} players={players} scores={scores} holes={holes} categories={categories} categoryPars={categoryPars} penalties={penalties} />}
             {activeTab === 'registrations' && <RegistrationsTab tournament={tournament} registrations={registrations} />}
             {activeTab === 'payments' && <PaymentsTab tournament={tournament} payments={payments} />}
         </AppLayout>
