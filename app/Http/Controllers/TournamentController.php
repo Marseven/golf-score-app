@@ -350,22 +350,38 @@ class TournamentController extends Controller
         return back()->with('success', 'Scores mis à jour.');
     }
 
-    public function resetScores(Tournament $tournament)
+    public function resetScores(Request $request, Tournament $tournament)
     {
+        $phase = $request->input('phase');
+
+        if ($phase) {
+            // Delete scores for specific phase only
+            $count = $tournament->scores()->where('phase', $phase)->count();
+            $tournament->scores()->where('phase', $phase)->delete();
+            $tournament->penalties()->where('phase', $phase)->delete();
+
+            // Reset confirmations for groups of this phase
+            $tournament->groups()->where('phase', $phase)->update([
+                'scores_confirmed_at' => null,
+                'confirmed_by_name' => null,
+            ]);
+
+            broadcast(new ScoreUpdated($tournament->id))->toOthers();
+
+            return back()->with('success', "{$count} scores de la Phase {$phase} supprimés.");
+        }
+
+        // Delete all scores
         $count = $tournament->scores()->count();
         $tournament->scores()->delete();
         $tournament->penalties()->delete();
 
-        // Reset group confirmations
         $tournament->groups()->update([
             'scores_confirmed_at' => null,
             'confirmed_by_name' => null,
         ]);
 
-        // Reset player cuts
         $tournament->players()->update(['cut_after_phase' => null]);
-
-        // Reset cut applied_at
         $tournament->cuts()->update(['applied_at' => null]);
 
         broadcast(new ScoreUpdated($tournament->id))->toOthers();

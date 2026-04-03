@@ -157,6 +157,29 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
 
     const leaderboard = fullLeaderboard.slice(currentPage * perPage, (currentPage + 1) * perPage);
 
+    // Current phase = highest phase that has scores
+    const currentPhase = useMemo(() => {
+        if (!scores.length) return 1;
+        return Math.max(...scores.map((s) => s.phase));
+    }, [scores]);
+
+    // Score of the day (current phase only) per player
+    const todayScores = useMemo(() => {
+        if (tournament?.phase_count === 1) return null;
+        const holeMap = new Map(holes.map((h) => [h.id, h]));
+        const map: Record<string, { strokes: number; par: number; holes: number }> = {};
+        for (const s of scores) {
+            if (s.phase !== currentPhase) continue;
+            const hole = holeMap.get(s.hole_id);
+            if (!hole) continue;
+            if (!map[s.player_id]) map[s.player_id] = { strokes: 0, par: 0, holes: 0 };
+            map[s.player_id].strokes += s.strokes;
+            map[s.player_id].par += hole.par;
+            map[s.player_id].holes++;
+        }
+        return map;
+    }, [scores, holes, currentPhase, tournament?.phase_count]);
+
     const activeCatName = activeCategoryId ? categories?.find((c) => c.id === activeCategoryId)?.name ?? 'Classement Général' : 'Classement Général';
     const timeStr = currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     const dateStr = currentTime.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -336,9 +359,14 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
 
                                         {/* Holes played */}
                                         <div className="text-center">
-                                            <span className={`text-lg tabular-nums ${entry.holesPlayed >= 18 ? 'text-emerald-400 font-bold' : 'text-white/40 font-medium'}`}>
-                                                {entry.holesPlayed}<span className="text-white/20">/18</span>
-                                            </span>
+                                            {(() => {
+                                                const maxHoles = 18 * currentPhase;
+                                                return (
+                                                    <span className={`text-lg tabular-nums ${entry.holesPlayed >= maxHoles ? 'text-emerald-400 font-bold' : 'text-white/40 font-medium'}`}>
+                                                        {entry.holesPlayed}<span className="text-white/20">/{maxHoles}</span>
+                                                    </span>
+                                                );
+                                            })()}
                                         </div>
 
                                         {/* Total strokes */}
@@ -347,8 +375,19 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                                         </div>
 
                                         {/* Score to par */}
-                                        <div className="flex justify-end">
+                                        <div className="flex flex-col items-end gap-0.5">
                                             <ScoreBadge strokeToPar={entry.strokeToPar} holesPlayed={entry.holesPlayed} />
+                                            {todayScores && todayScores[entry.player.id] && (() => {
+                                                const today = todayScores[entry.player.id];
+                                                const todayToPar = today.strokes - today.par;
+                                                const sign = todayToPar > 0 ? '+' : '';
+                                                const display = todayToPar === 0 ? 'E' : `${sign}${todayToPar}`;
+                                                return (
+                                                    <span className={`text-[10px] font-bold tabular-nums ${todayToPar < 0 ? 'text-emerald-400/60' : todayToPar === 0 ? 'text-white/30' : 'text-red-400/60'}`}>
+                                                        J{currentPhase}: {display}
+                                                    </span>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                 );

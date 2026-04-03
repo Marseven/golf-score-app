@@ -2382,16 +2382,61 @@ function ScoresTab({ tournament, players, holes, scores, categories, categoryPar
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    {scores.length > 0 && (
-                        <button
-                            type="button"
-                            onClick={() => { if (window.confirm(`Supprimer les ${scores.length} scores ? Cette action est irréversible.`)) { router.delete(route('scores.reset', tournament.id), { preserveScroll: true }); } }}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 text-red-500 rounded-xl text-sm font-medium hover:bg-red-500/20 border border-red-500/20 transition-colors"
-                        >
-                            <Trash2 className="w-4 h-4" />
-                            Vider
-                        </button>
-                    )}
+                    {scores.length > 0 && (() => {
+                        const [showResetMenu, setShowResetMenu] = useState(false);
+                        const phaseScoreCounts = tournament.phase_count > 1
+                            ? Array.from({ length: tournament.phase_count }, (_, i) => ({ phase: i + 1, count: scores.filter((s) => s.phase === i + 1).length })).filter((p) => p.count > 0)
+                            : [];
+                        return (
+                            <div className="relative">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowResetMenu(!showResetMenu)}
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 text-red-500 rounded-xl text-sm font-medium hover:bg-red-500/20 border border-red-500/20 transition-colors"
+                                >
+                                    <Trash2 className="w-4 h-4" />Vider
+                                </button>
+                                {showResetMenu && (
+                                    <>
+                                        <div className="fixed inset-0 z-40" onClick={() => setShowResetMenu(false)} />
+                                        <div className="absolute right-0 top-full mt-1 z-50 w-56 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+                                            {phaseScoreCounts.map((p) => (
+                                                <button
+                                                    key={p.phase}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (window.confirm(`Supprimer les ${p.count} scores de la Phase ${p.phase} ?`)) {
+                                                            router.delete(route('scores.reset', tournament.id), { data: { phase: p.phase }, preserveScroll: true });
+                                                        }
+                                                        setShowResetMenu(false);
+                                                    }}
+                                                    className="flex items-center justify-between w-full px-4 py-2.5 text-sm text-foreground hover:bg-surface-hover transition-colors"
+                                                >
+                                                    <span>Phase {p.phase}</span>
+                                                    <span className="text-xs text-muted-foreground">{p.count} scores</span>
+                                                </button>
+                                            ))}
+                                            <div className="border-t border-border">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (window.confirm(`Supprimer TOUS les ${scores.length} scores ? Cette action est irréversible.`)) {
+                                                            router.delete(route('scores.reset', tournament.id), { preserveScroll: true });
+                                                        }
+                                                        setShowResetMenu(false);
+                                                    }}
+                                                    className="flex items-center justify-between w-full px-4 py-2.5 text-sm text-red-500 font-medium hover:bg-red-500/10 transition-colors"
+                                                >
+                                                    <span>Tout supprimer</span>
+                                                    <span className="text-xs">{scores.length} scores</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        );
+                    })()}
                     {hasChanges && (
                         <button
                             onClick={handleSave}
