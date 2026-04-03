@@ -107,7 +107,9 @@ class MarkerController extends Controller
         }
 
         $groups = Group::whereIn('id', $groupIds)
+            ->whereHas('players') // Only groups that have players assigned
             ->with(['players.category', 'category', 'course', 'tournament'])
+            ->orderBy('phase')
             ->orderBy('tee_time')
             ->get();
 
@@ -137,8 +139,10 @@ class MarkerController extends Controller
             }
 
             $holesCount = $holeIds->count();
+            $phase = $group->phase ?? 1;
             $scoredCount = Score::whereIn('player_id', $group->players->pluck('id'))
                 ->whereIn('hole_id', $holeIds)
+                ->where('phase', $phase)
                 ->count();
             $totalExpected = $playerCount * $holesCount;
             $group->scoring_progress = $totalExpected > 0 ? min(100, round(($scoredCount / $totalExpected) * 100)) : 0;
@@ -199,6 +203,7 @@ class MarkerController extends Controller
 
         $scores = Score::whereIn('player_id', $players->pluck('id'))
             ->whereIn('hole_id', $holes->pluck('id'))
+            ->where('phase', $group->phase) // Only scores for this phase
             ->get()
             ->groupBy('player_id');
 

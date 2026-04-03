@@ -46,19 +46,39 @@ class CaddyMasterController extends Controller
         $tournament = Tournament::findOrFail($tournamentId);
 
         $groups = $tournament->groups()
-            ->with(['players.category', 'players.scores'])
+            ->with(['players.category', 'players.scores', 'category'])
+            ->orderBy('phase')
             ->orderBy('tee_time')
             ->get();
 
         $holes = $tournament->holes()->orderBy('number')->get();
-        $holesCount = $holes->count();
 
-        $groups->each(function ($group) use ($holesCount) {
+        $groups->each(function ($group) use ($holes) {
             $playerCount = $group->players->count();
-            $scoredCount = $group->players->sum(fn ($p) => $p->scores->count());
+            $phase = $group->phase ?? 1;
+
+            // Get holes for this group's course
+            $groupHoles = $group->course_id
+                ? $holes->where('course_id', $group->course_id)
+                : $holes->filter(fn ($h) => !$h->course_id);
+            if ($groupHoles->isEmpty()) $groupHoles = $holes;
+
+            // Filter by hole range (hole_start/hole_end from group)
+            $holeStart = $group->hole_start ?? 1;
+            $holeEnd = $group->hole_end ?? 18;
+            $groupHoles = $groupHoles->filter(fn ($h) => $h->number >= $holeStart && $h->number <= $holeEnd);
+            $holeIds = $groupHoles->pluck('id');
+            $holesCount = $holeIds->count();
+
+            // Count scores only for this phase and these holes
+            $scoredCount = \App\Models\Score::whereIn('player_id', $group->players->pluck('id'))
+                ->whereIn('hole_id', $holeIds)
+                ->where('phase', $phase)
+                ->count();
+
             $totalExpected = $playerCount * $holesCount;
             $group->scoring_progress = $totalExpected > 0
-                ? round(($scoredCount / $totalExpected) * 100)
+                ? min(100, round(($scoredCount / $totalExpected) * 100))
                 : 0;
         });
 
@@ -122,6 +142,7 @@ class CaddyMasterController extends Controller
 
         $scores = Score::whereIn('player_id', $players->pluck('id'))
             ->whereIn('hole_id', $holes->pluck('id'))
+            ->where('phase', $group->phase) // Only scores for this phase
             ->get()
             ->groupBy('player_id');
 

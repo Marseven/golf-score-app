@@ -402,6 +402,83 @@ class TournamentController extends Controller
         return back()->with('success', 'Pénalité supprimée.');
     }
 
+    public function prepareNextPhase(Request $request, Tournament $tournament)
+    {
+        $validated = $request->validate([
+            'from_phase' => 'required|integer|min:1',
+        ]);
+
+        $fromPhase = $validated['from_phase'];
+        $nextPhase = $fromPhase + 1;
+
+        if ($nextPhase > $tournament->phase_count) {
+            return back()->with('error', 'Le tournoi n\'a que '.$tournament->phase_count.' phases.');
+        }
+
+        // Check if next phase groups already exist
+        $existingNextGroups = $tournament->groups()->where('phase', $nextPhase)->count();
+        if ($existingNextGroups > 0) {
+            return back()->with('error', 'Des groupes existent déjà pour la Phase '.$nextPhase.'. Supprimez-les d\'abord si vous voulez recréer.');
+        }
+
+        // Get current phase groups with players and markers
+        $currentGroups = $tournament->groups()
+            ->where('phase', $fromPhase)
+            ->with(['players', 'markers'])
+            ->get();
+
+        $createdGroups = 0;
+        $totalPlayers = 0;
+        $eliminatedPlayers = 0;
+
+        foreach ($currentGroups as $group) {
+            // Filter out cut players
+            $qualifiedPlayers = $group->players->filter(function ($player) use ($fromPhase) {
+                return $player->cut_after_phase === null || $player->cut_after_phase >= $fromPhase;
+            });
+
+            $eliminatedPlayers += $group->players->count() - $qualifiedPlayers->count();
+
+            if ($qualifiedPlayers->isEmpty()) {
+                continue;
+            }
+
+            // Create new group for next phase
+            $newGroup = $tournament->groups()->create([
+                'code' => 'P'.$nextPhase.'-'.$group->code,
+                'tee_time' => $group->tee_time,
+                'tee_date' => $group->tee_date,
+                'phase' => $nextPhase,
+                'category_id' => $group->category_id,
+                'course_id' => $group->course_id,
+                'marker_phone' => $group->marker_phone,
+            ]);
+
+            // Copy markers via pivot
+            foreach ($group->markers as $marker) {
+                $newGroup->markers()->attach($marker->id, [
+                    'id' => (string) \Illuminate\Support\Str::uuid(),
+                    'marker_pin' => $marker->pivot->marker_pin,
+                ]);
+            }
+
+            // Assign qualified players to new group
+            foreach ($qualifiedPlayers as $player) {
+                $player->update(['group_id' => $newGroup->id]);
+            }
+
+            $createdGroups++;
+            $totalPlayers += $qualifiedPlayers->count();
+        }
+
+        $message = "Phase {$nextPhase} préparée : {$createdGroups} groupe(s), {$totalPlayers} joueur(s)";
+        if ($eliminatedPlayers > 0) {
+            $message .= ", {$eliminatedPlayers} éliminé(s) par le cut";
+        }
+
+        return back()->with('success', $message.'.');
+    }
+
     public function destroy(Tournament $tournament)
     {
         $tournament->delete();

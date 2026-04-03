@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo } from 'react';
 import { Head, Link, useForm, usePage, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
-import { ArrowLeft, Settings, BarChart3, Trophy, Users, Target, MapPin, Save, Plus, Trash2, Pencil, X, Check, RefreshCw, Clock, Copy, UserPlus, Send, FileText, FileSpreadsheet, QrCode, Flag, Tag, UserCheck, CreditCard, LinkIcon, Download, Hash, Upload, Scissors, ClipboardList, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Settings, BarChart3, Trophy, Users, Target, MapPin, Save, Plus, Trash2, Pencil, X, Check, RefreshCw, Clock, Copy, UserPlus, Send, FileText, FileSpreadsheet, QrCode, Flag, Tag, UserCheck, CreditCard, LinkIcon, Download, Hash, Upload, Scissors, ClipboardList, AlertTriangle, ChevronRight } from 'lucide-react';
 import type { Tournament, Category, Player, Group, Hole, Score, Payment, Course, Cut, CategoryPar, PageProps, Penalty } from '@/types';
 import { categoryColors, categoryDotColors } from '@/Lib/category-colors';
 import { countryCodeToFlag, countries } from '@/Lib/countries';
@@ -466,160 +466,104 @@ function TournamentTab({ tournament, players, categories, cuts }: { tournament: 
                 </div>
             )}
 
-            {/* Cut section — unified per category */}
-            <div className="glass-card">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
-                        <Scissors className="w-5 h-5 text-red-400" />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-semibold text-foreground">Cut par catégorie</h3>
-                        <p className="text-xs text-muted-foreground">Définir la phase et le nombre de qualifiés pour chaque catégorie</p>
-                    </div>
-                </div>
-                <div className="space-y-3">
-                    {/* Default cut value */}
-                    <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-primary/5 border border-primary/20">
-                        <div className="flex-1">
-                            <label className="text-sm font-medium text-foreground">Limite par défaut</label>
-                            <p className="text-[10px] text-muted-foreground">Nombre de qualifiés appliqué à toutes les catégories</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="number"
-                                value={defaultCut}
-                                onChange={(e) => setDefaultCut(Math.max(1, Number(e.target.value)))}
-                                min={1}
-                                className="w-20 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-foreground text-center focus:border-primary focus:outline-none"
-                            />
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setCutCounts((prev) => {
-                                        const updated = { ...prev };
-                                        (categories ?? []).forEach((cat) => {
-                                            const catMaxPhases = cat.max_phases ?? tournament.phase_count;
-                                            for (let p = 1; p < catMaxPhases; p++) {
-                                                updated[`${p}:${cat.id}`] = defaultCut;
-                                            }
-                                        });
-                                        return updated;
-                                    });
-                                }}
-                                className="px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium transition-colors whitespace-nowrap"
-                            >
-                                Appliquer à tous
+            {/* Cut section — on demand */}
+            {(() => {
+                const appliedCuts = cuts.filter((c) => c.applied_at);
+                const [showCutForm, setShowCutForm] = useState(false);
+                const [cutCatId, setCutCatId] = useState('');
+                const [cutPhase, setCutPhase] = useState(1);
+                const [cutCount, setCutCount] = useState(defaultCut);
+
+                return (
+                    <div className="glass-card">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center">
+                                    <Scissors className="w-5 h-5 text-red-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-semibold text-foreground">Cut</h3>
+                                    <p className="text-xs text-muted-foreground">Appliquer un cut après une phase pour éliminer des joueurs</p>
+                                </div>
+                            </div>
+                            <button type="button" onClick={() => setShowCutForm(!showCutForm)} className="flex items-center gap-1.5 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl text-xs font-semibold transition-colors">
+                                <Plus className="w-3.5 h-3.5" />Appliquer un cut
                             </button>
                         </div>
-                    </div>
 
-                    {/* Per-category cut config */}
-                    {(categories ?? []).map((cat) => {
-                        const catMaxPhases = cat.max_phases ?? tournament.phase_count;
-                        const catPlayers = players.filter((p) => p.category_id === cat.id).length;
-                        const catCuts = cuts.filter((c) => c.category_id === cat.id);
-
-                        return (
-                            <div key={cat.id} className="rounded-xl border border-border overflow-hidden">
-                                <div className="flex items-center gap-3 px-4 py-3 bg-surface/50">
-                                    <div className={`w-3 h-3 rounded-full ${categoryDotColors[cat.name] ?? 'bg-gray-500'}`} />
-                                    <span className="text-sm font-bold text-foreground">{cat.name}</span>
-                                    <span className="text-xs text-muted-foreground">({catPlayers} joueurs)</span>
-                                    <span className="ml-auto px-2 py-0.5 rounded-md bg-violet-500/10 text-violet-400 text-[10px] font-bold">{catMaxPhases} tour{catMaxPhases > 1 ? 's' : ''}</span>
+                        {/* Cut form */}
+                        {showCutForm && (
+                            <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-4 mb-4 space-y-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                    <div>
+                                        <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1">Catégorie</label>
+                                        <select value={cutCatId} onChange={(e) => setCutCatId(e.target.value)} className="w-full bg-surface border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none">
+                                            <option value="">Toutes les catégories</option>
+                                            {(categories ?? []).map((c) => <option key={c.id} value={c.id}>{c.name} ({players.filter((p) => p.category_id === c.id).length} joueurs)</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1">Après la phase</label>
+                                        <select value={cutPhase} onChange={(e) => setCutPhase(Number(e.target.value))} className="w-full bg-surface border border-border rounded-xl px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none">
+                                            {Array.from({ length: tournament.phase_count }, (_, i) => i + 1).map((p) => (
+                                                <option key={p} value={p}>Phase {p}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block mb-1">Qualifiés</label>
+                                        <input type="number" min={1} value={cutCount} onChange={(e) => setCutCount(Math.max(1, Number(e.target.value)))} className="w-full bg-surface border border-border rounded-xl px-3 py-2.5 text-sm text-foreground text-center focus:border-primary focus:outline-none" />
+                                    </div>
                                 </div>
-                                {catMaxPhases <= 1 ? (
-                                    <div className="px-4 py-3">
-                                        <div className="flex items-center gap-3">
-                                            <label className="text-xs text-muted-foreground">Qualifiés :</label>
-                                            <input
-                                                type="number"
-                                                value={cutCounts[`1:${cat.id}`] ?? defaultCut}
-                                                onChange={(e) => setCutCounts((prev) => ({ ...prev, [`1:${cat.id}`]: Math.max(1, Number(e.target.value)) }))}
-                                                min={1}
-                                                className="w-20 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-foreground text-center focus:border-primary focus:outline-none"
-                                            />
-                                            {(() => { const c = catCuts.find((c) => c.after_phase === 1); return c?.applied_at ? <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 text-[10px] font-bold">Appliqué</span> : null; })()}
-                                            <div className="ml-auto flex gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        const existing = catCuts.find((c) => c.after_phase === 1);
-                                                        if (existing?.applied_at) {
-                                                            router.post(route('tournaments.resetPhaseCut', tournament.id), { after_phase: 1 }, {
-                                                                preserveScroll: true,
-                                                                onSuccess: () => {
-                                                                    router.post(route('tournaments.applyPhaseCut', tournament.id), { after_phase: 1, cuts: [{ category_id: cat.id, qualified_count: cutCounts[`1:${cat.id}`] ?? defaultCut }] }, { preserveScroll: true });
-                                                                },
-                                                            });
-                                                        } else {
-                                                            router.post(route('tournaments.applyPhaseCut', tournament.id), { after_phase: 1, cuts: [{ category_id: cat.id, qualified_count: cutCounts[`1:${cat.id}`] ?? defaultCut }] }, { preserveScroll: true });
-                                                        }
-                                                    }}
-                                                    disabled={false}
-                                                    className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
-                                                >
-                                                    <Scissors className="w-3 h-3 inline mr-1" />Appliquer
-                                                </button>
-                                                {catCuts.find((c) => c.after_phase === 1)?.applied_at && (
-                                                    <button type="button" onClick={() => router.post(route('tournaments.resetPhaseCut', tournament.id), { after_phase: 1 }, { preserveScroll: true })} className="px-3 py-1.5 bg-surface hover:bg-surface-hover border border-border text-muted-foreground rounded-lg text-xs font-medium transition-colors">
-                                                        <RefreshCw className="w-3 h-3 inline mr-1" />Reset
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="divide-y divide-border/50">
-                                        {Array.from({ length: catMaxPhases - 1 }, (_, i) => i + 1).map((afterPhase) => {
-                                            const existingCut = catCuts.find((c) => c.after_phase === afterPhase);
-                                            return (
-                                                <div key={afterPhase} className="flex items-center gap-3 px-4 py-2.5">
-                                                    <span className="text-xs font-bold text-muted-foreground min-w-[80px]">Après P{afterPhase}</span>
-                                                    <label className="text-xs text-muted-foreground">Qualifiés :</label>
-                                                    <input
-                                                        type="number"
-                                                        value={cutCounts[`${afterPhase}:${cat.id}`] ?? defaultCut}
-                                                        onChange={(e) => setCutCounts((prev) => ({ ...prev, [`${afterPhase}:${cat.id}`]: Math.max(1, Number(e.target.value)) }))}
-                                                        min={1}
-                                                        className="w-20 bg-surface border border-border rounded-lg px-3 py-1.5 text-sm text-foreground text-center focus:border-primary focus:outline-none"
-                                                    />
-                                                    {existingCut?.applied_at && <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 text-[10px] font-bold">Appliqué</span>}
-                                                    <div className="ml-auto flex gap-1.5">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                if (existingCut?.applied_at) {
-                                                                    router.post(route('tournaments.resetPhaseCut', tournament.id), { after_phase: afterPhase }, {
-                                                                        preserveScroll: true,
-                                                                        onSuccess: () => {
-                                                                            router.post(route('tournaments.applyPhaseCut', tournament.id), { after_phase: afterPhase, cuts: [{ category_id: cat.id, qualified_count: cutCounts[`${afterPhase}:${cat.id}`] ?? defaultCut }] }, { preserveScroll: true });
-                                                                        },
-                                                                    });
-                                                                } else {
-                                                                    router.post(route('tournaments.applyPhaseCut', tournament.id), { after_phase: afterPhase, cuts: [{ category_id: cat.id, qualified_count: cutCounts[`${afterPhase}:${cat.id}`] ?? defaultCut }] }, { preserveScroll: true });
-                                                                }
-                                                            }}
-                                                            disabled={false}
-                                                            className="px-2.5 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-[10px] font-medium transition-colors disabled:opacity-50"
-                                                        >
-                                                            <Scissors className="w-3 h-3 inline mr-0.5" />Appliquer
-                                                        </button>
-                                                        {existingCut?.applied_at && (
-                                                            <button type="button" onClick={() => router.post(route('tournaments.resetPhaseCut', tournament.id), { after_phase: afterPhase }, { preserveScroll: true })} className="px-2.5 py-1 bg-surface hover:bg-surface-hover border border-border text-muted-foreground rounded-lg text-[10px] font-medium transition-colors">
-                                                                <RefreshCw className="w-3 h-3 inline mr-0.5" />Reset
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
+                                <div className="flex gap-2 justify-end">
+                                    <button type="button" onClick={() => setShowCutForm(false)} className="px-3 py-2 bg-surface border border-border rounded-xl text-xs text-foreground hover:bg-surface-hover"><X className="w-3 h-3 inline mr-1" />Annuler</button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const targetCats = cutCatId ? [cutCatId] : (categories ?? []).map((c) => c.id);
+                                            const cutsPayload = targetCats.map((catId) => ({ category_id: catId, qualified_count: cutCount }));
+                                            router.post(route('tournaments.applyPhaseCut', tournament.id), { after_phase: cutPhase, cuts: cutsPayload }, {
+                                                preserveScroll: true,
+                                                onSuccess: () => setShowCutForm(false),
+                                            });
+                                        }}
+                                        className="px-4 py-2 bg-red-500 text-white rounded-xl text-xs font-semibold hover:bg-red-600 transition-colors"
+                                    >
+                                        <Scissors className="w-3 h-3 inline mr-1" />Appliquer le cut
+                                    </button>
+                                </div>
                             </div>
-                        );
-                    })}
-                </div>
-            </div>
+                        )}
+
+                        {/* Applied cuts */}
+                        {appliedCuts.length > 0 ? (
+                            <div className="space-y-2">
+                                {appliedCuts.map((cut) => {
+                                    const catName = cut.category?.name ?? categories?.find((c) => c.id === cut.category_id)?.name ?? '—';
+                                    return (
+                                        <div key={cut.id} className="flex items-center justify-between px-4 py-3 rounded-xl bg-surface/50 border border-border/50">
+                                            <div className="flex items-center gap-3">
+                                                <span className="px-2 py-0.5 rounded-lg bg-red-500/10 text-red-400 text-[10px] font-bold">Après P{cut.after_phase}</span>
+                                                <span className="text-sm font-medium text-foreground">{catName}</span>
+                                                <span className="text-xs text-muted-foreground">Top {cut.qualified_count} qualifiés</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => router.post(route('tournaments.resetPhaseCut', tournament.id), { after_phase: cut.after_phase }, { preserveScroll: true })}
+                                                className="px-2.5 py-1 bg-surface hover:bg-surface-hover border border-border text-muted-foreground rounded-lg text-[10px] font-medium transition-colors"
+                                            >
+                                                <RefreshCw className="w-3 h-3 inline mr-0.5" />Annuler
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <p className="text-xs text-muted-foreground/50 text-center py-4">Aucun cut appliqué</p>
+                        )}
+                    </div>
+                );
+            })()}
 
             {/* Caddie Master section */}
             <div className="glass-card">
@@ -1206,6 +1150,36 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses }
                 <button onClick={() => setShowMarkerForm(!showMarkerForm)} className="flex items-center gap-2 px-4 py-2.5 bg-surface border border-border text-foreground rounded-xl text-sm font-medium hover:bg-surface-hover">
                     <UserPlus className="w-4 h-4" />Nouveau marqueur
                 </button>
+                {tournament.phase_count > 1 && activePhase < tournament.phase_count && (
+                    <button
+                        type="button"
+                        onClick={async () => {
+                            const nextPhase = activePhase + 1;
+                            const existingNext = groups.filter((g) => (g.phase ?? 1) === nextPhase).length;
+                            if (existingNext > 0) {
+                                await confirm({ title: 'Phase déjà préparée', message: `Des groupes existent déjà pour la Phase ${nextPhase}. Supprimez-les d'abord si vous voulez recréer.`, confirmLabel: 'OK', variant: 'warning' });
+                                return;
+                            }
+                            const cutPlayers = players.filter((p) => p.cut_after_phase != null && p.cut_after_phase <= activePhase).length;
+                            const qualifiedPlayers = players.filter((p) => p.cut_after_phase == null || p.cut_after_phase > activePhase).length;
+                            const ok = await confirm({
+                                title: `Préparer la Phase ${nextPhase}`,
+                                message: `Dupliquer les groupes de la Phase ${activePhase} vers la Phase ${nextPhase} ?\n\n${qualifiedPlayers} joueur(s) qualifié(s)${cutPlayers > 0 ? `, ${cutPlayers} éliminé(s) par le cut` : ''}. Mêmes marqueurs et parcours.`,
+                                confirmLabel: 'Préparer',
+                                variant: 'default',
+                            });
+                            if (ok) {
+                                router.post(route('tournaments.prepareNextPhase', tournament.id), { from_phase: activePhase }, {
+                                    preserveScroll: true,
+                                    onSuccess: () => setActivePhase(nextPhase),
+                                });
+                            }
+                        }}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-xl text-sm font-medium hover:bg-amber-500/20 transition-colors"
+                    >
+                        <ChevronRight className="w-4 h-4" />Préparer Phase {activePhase + 1}
+                    </button>
+                )}
             </div>
             {showMarkerForm && (
                 <form onSubmit={handleCreateMarker} className="glass-card space-y-4">
@@ -2240,6 +2214,7 @@ function FlashMessages() {
 function ScoresTab({ tournament, players, holes, scores, categories, categoryPars, courses, penalties }: { tournament: Tournament; players: Player[]; holes: Hole[]; scores: Score[]; categories: Category[]; categoryPars: CategoryPar[]; courses: Course[]; penalties: Penalty[] }) {
     const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
     const [filterCourseId, setFilterCourseId] = useState<string>('');
+    const [filterPhase, setFilterPhase] = useState<number | null>(null); // null = total/all
     const [editedScores, setEditedScores] = useState<Record<string, number>>({});
     const [saving, setSaving] = useState(false);
     const [showPenaltyForm, setShowPenaltyForm] = useState(false);
@@ -2299,14 +2274,36 @@ function ScoresTab({ tournament, players, holes, scores, categories, categoryPar
         return list.sort((a, b) => a.name.localeCompare(b.name));
     }, [players, filterCategoryId]);
 
+    // Filter scores by phase
+    const filteredScores = useMemo(() => {
+        if (filterPhase === null) return scores; // all phases
+        return scores.filter((s) => s.phase === filterPhase);
+    }, [scores, filterPhase]);
+
     // Build score lookup: "playerId:holeId" -> strokes
     const scoreLookup = useMemo(() => {
         const map: Record<string, number> = {};
-        for (const s of scores) {
+        for (const s of filteredScores) {
             map[`${s.player_id}:${s.hole_id}`] = s.strokes;
         }
         return map;
-    }, [scores]);
+    }, [filteredScores]);
+
+    // Cumul per player (all phases)
+    const cumulByPlayer = useMemo(() => {
+        if (tournament.phase_count <= 1) return null;
+        const map: Record<string, { totalStrokes: number; totalPar: number; holesPlayed: number }> = {};
+        const holeMap = new Map(holes.map((h) => [h.id, h]));
+        for (const s of scores) {
+            const hole = holeMap.get(s.hole_id);
+            if (!hole) continue;
+            if (!map[s.player_id]) map[s.player_id] = { totalStrokes: 0, totalPar: 0, holesPlayed: 0 };
+            map[s.player_id].totalStrokes += s.strokes;
+            map[s.player_id].totalPar += hole.par;
+            map[s.player_id].holesPlayed++;
+        }
+        return map;
+    }, [scores, holes, tournament.phase_count]);
 
     const getScore = (playerId: string, holeId: string): number | undefined => {
         const key = `${playerId}:${holeId}`;
@@ -2409,7 +2406,8 @@ function ScoresTab({ tournament, players, holes, scores, categories, categoryPar
             </div>
 
             {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col gap-3">
+                {/* Category filter */}
                 <div className="flex gap-1.5 overflow-x-auto pb-1">
                     <button
                         onClick={() => setFilterCategoryId(null)}
@@ -2419,17 +2417,58 @@ function ScoresTab({ tournament, players, holes, scores, categories, categoryPar
                     </button>
                     {categories.map((cat) => {
                         const count = players.filter((p) => p.category_id === cat.id).length;
+                        const catMaxPhases = cat.max_phases ?? tournament.phase_count;
                         return (
                             <button
                                 key={cat.id}
-                                onClick={() => setFilterCategoryId(cat.id)}
+                                onClick={() => {
+                                    setFilterCategoryId(cat.id);
+                                    // Reset phase if current phase exceeds category's max
+                                    if (filterPhase !== null && filterPhase > catMaxPhases) {
+                                        setFilterPhase(null);
+                                    }
+                                }}
                                 className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${filterCategoryId === cat.id ? `${categoryColors[cat.name] ?? 'bg-primary text-primary-foreground'} shadow-sm` : 'bg-surface text-muted-foreground hover:bg-surface-hover hover:text-foreground'}`}
                             >
-                                {cat.short_name} ({count})
+                                {cat.short_name} ({count}){tournament.phase_count > 1 && <span className="ml-1 opacity-60">{catMaxPhases}T</span>}
                             </button>
                         );
                     })}
                 </div>
+                {/* Phase filter — adapts to selected category */}
+                {tournament.phase_count > 1 && (() => {
+                    const selectedCat = filterCategoryId ? categories.find((c) => c.id === filterCategoryId) : null;
+                    const maxPhases = selectedCat?.max_phases ?? tournament.phase_count;
+                    return (
+                        <div className="flex gap-1.5 overflow-x-auto pb-1">
+                            <button
+                                onClick={() => setFilterPhase(null)}
+                                className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${filterPhase === null ? 'bg-amber-500 text-white shadow-sm' : 'bg-surface text-muted-foreground hover:bg-surface-hover hover:text-foreground'}`}
+                            >
+                                {tournament.score_aggregation === 'cumulative' ? 'Cumul' : 'Toutes'}
+                            </button>
+                            {Array.from({ length: maxPhases }, (_, i) => i + 1).map((p) => {
+                                const phaseScores = scores.filter((s) => {
+                                    if (s.phase !== p) return false;
+                                    if (filterCategoryId) {
+                                        const player = players.find((pl) => pl.id === s.player_id);
+                                        return player?.category_id === filterCategoryId;
+                                    }
+                                    return true;
+                                }).length;
+                                return (
+                                    <button
+                                        key={p}
+                                        onClick={() => setFilterPhase(p)}
+                                        className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${filterPhase === p ? 'bg-amber-500 text-white shadow-sm' : 'bg-surface text-muted-foreground hover:bg-surface-hover hover:text-foreground'}`}
+                                    >
+                                        Phase {p} <span className="opacity-60">({phaseScores})</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    );
+                })()}
                 {courseOptions.length > 1 && (
                     <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:ml-auto">
                         <span className="text-[10px] text-muted-foreground/50 font-semibold uppercase tracking-wider mr-1 hidden sm:inline">Parcours</span>
@@ -2509,11 +2548,21 @@ function ScoresTab({ tournament, players, holes, scores, categories, categoryPar
                                         </>
                                     )}
                                     <th className="px-2 py-2.5 text-center">
-                                        <span className="text-[11px] font-bold text-muted-foreground">TOT</span>
+                                        <span className="text-[11px] font-bold text-muted-foreground">{filterPhase !== null ? `P${filterPhase}` : 'TOT'}</span>
                                     </th>
                                     <th className="px-2 py-2.5 text-center">
                                         <span className="text-[11px] font-bold text-muted-foreground">+/−</span>
                                     </th>
+                                    {filterPhase !== null && cumulByPlayer && (
+                                        <>
+                                            <th className="px-2 py-2.5 text-center border-l border-border">
+                                                <span className="text-[11px] font-bold text-amber-500">CUMUL</span>
+                                            </th>
+                                            <th className="px-2 py-2.5 text-center">
+                                                <span className="text-[11px] font-bold text-amber-500">+/−</span>
+                                            </th>
+                                        </>
+                                    )}
                                 </tr>
                             </thead>
                             <tbody>
@@ -2606,6 +2655,27 @@ function ScoresTab({ tournament, players, holes, scores, categories, categoryPar
                                                     {holesPlayed > 0 ? (strokeToPar === 0 ? 'E' : `${strokeToPar > 0 ? '+' : ''}${strokeToPar}`) : '–'}
                                                 </span>
                                             </td>
+                                            {filterPhase !== null && cumulByPlayer && (() => {
+                                                const cumul = cumulByPlayer[player.id];
+                                                if (!cumul || cumul.holesPlayed === 0) return <><td className="px-2 py-1.5 text-center border-l border-border"><span className="text-muted-foreground/20">–</span></td><td className="px-2 py-1.5 text-center"><span className="text-muted-foreground/20">–</span></td></>;
+                                                const cStrokeToPar = cumul.totalStrokes - cumul.totalPar;
+                                                return (
+                                                    <>
+                                                        <td className="px-2 py-1.5 text-center border-l border-border">
+                                                            <span className="text-[15px] font-black text-amber-500 tabular-nums">{cumul.totalStrokes}</span>
+                                                        </td>
+                                                        <td className="px-2 py-1.5 text-center">
+                                                            <span className={`inline-flex items-center justify-center min-w-[36px] px-2 py-1 rounded-lg text-[13px] font-black tabular-nums ${
+                                                                cStrokeToPar < 0 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' :
+                                                                cStrokeToPar === 0 ? 'bg-amber-500/10 text-amber-500' :
+                                                                'bg-red-500/15 text-red-600 dark:text-red-400'
+                                                            }`}>
+                                                                {cStrokeToPar === 0 ? 'E' : `${cStrokeToPar > 0 ? '+' : ''}${cStrokeToPar}`}
+                                                            </span>
+                                                        </td>
+                                                    </>
+                                                );
+                                            })()}
                                         </tr>
                                     );
                                 })}
