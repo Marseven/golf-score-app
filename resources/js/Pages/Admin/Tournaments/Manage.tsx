@@ -655,7 +655,7 @@ function TournamentTab({ tournament, players, categories, cuts }: { tournament: 
 function CategoriesTab({ tournament, categories, courses }: { tournament: Tournament; categories: Category[]; courses: Course[] }) {
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const form = useForm({ name: '', short_name: '', color: 'blue', registration_fee: 0, course_id: courses[0]?.id ?? '', handicap_coefficient: 1.0, max_phases: null as number | null });
+    const form = useForm({ name: '', short_name: '', color: 'blue', registration_fee: 0, course_id: courses[0]?.id ?? '', handicap_coefficient: 1.0, max_phases: null as number | null, holes_per_round: 18 });
     const { confirm, confirmDialog } = useConfirm();
 
     const colorOptions = ['blue', 'pink', 'emerald', 'violet', 'amber', 'red', 'cyan', 'orange'];
@@ -664,7 +664,7 @@ function CategoriesTab({ tournament, categories, courses }: { tournament: Tourna
 
     const startEdit = (cat: Category) => {
         setEditingId(cat.id);
-        form.setData({ name: cat.name, short_name: cat.short_name, color: cat.color, registration_fee: cat.registration_fee ?? 0, course_id: cat.course_id ?? courses[0]?.id ?? '', handicap_coefficient: cat.handicap_coefficient ?? 1.0, max_phases: cat.max_phases ?? null });
+        form.setData({ name: cat.name, short_name: cat.short_name, color: cat.color, registration_fee: cat.registration_fee ?? 0, course_id: cat.course_id ?? courses[0]?.id ?? '', handicap_coefficient: cat.handicap_coefficient ?? 1.0, max_phases: cat.max_phases ?? null, holes_per_round: cat.holes_per_round ?? 18 });
         setShowForm(false);
     };
 
@@ -726,6 +726,14 @@ function CategoriesTab({ tournament, categories, courses }: { tournament: Tourna
                         <p className="text-[10px] text-muted-foreground mt-1">Nombre de tours que cette catégorie joue</p>
                     </div>
                 )}
+                <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Trous par tour</label>
+                    <div className="flex gap-1">
+                        {[9, 18].map((n) => (
+                            <button key={n} type="button" onClick={() => form.setData('holes_per_round', n)} className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${form.data.holes_per_round === n ? 'bg-primary text-primary-foreground' : 'bg-surface border border-border text-muted-foreground hover:bg-surface-hover'}`}>{n}</button>
+                        ))}
+                    </div>
+                </div>
                 <div>
                     <label className="text-xs text-muted-foreground block mb-1">Couleur</label>
                     <div className="flex gap-2 flex-wrap">

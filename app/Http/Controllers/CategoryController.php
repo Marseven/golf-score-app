@@ -18,6 +18,7 @@ class CategoryController extends Controller
             'course_id' => 'nullable|uuid|exists:courses,id',
             'handicap_coefficient' => 'numeric|min:0|max:2',
             'max_phases' => 'nullable|integer|min:1|max:4',
+            'holes_per_round' => 'integer|min:1|max:18',
         ]);
 
         $tournament->categories()->create($validated);
@@ -35,6 +36,7 @@ class CategoryController extends Controller
             'course_id' => 'nullable|uuid|exists:courses,id',
             'handicap_coefficient' => 'numeric|min:0|max:2',
             'max_phases' => 'nullable|integer|min:1|max:4',
+            'holes_per_round' => 'integer|min:1|max:18',
         ]);
 
         $category->update($validated);

@@ -37,6 +37,7 @@ class Category extends Model
         'registration_fee',
         'handicap_coefficient',
         'max_phases',
+        'holes_per_round',
     ];
 
     protected function casts(): array

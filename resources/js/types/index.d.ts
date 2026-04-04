@@ -63,6 +63,7 @@ export interface Category {
     registration_fee: number;
     handicap_coefficient?: number;
     max_phases?: number | null;
+    holes_per_round?: number;
 }
 
 export interface Hole {

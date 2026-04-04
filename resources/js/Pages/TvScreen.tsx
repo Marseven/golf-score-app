@@ -220,6 +220,13 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
         return map;
     }, [scores, holes, tournament?.phase_count]);
 
+    // Number of holes per round for the active category
+    const holesPerRound = useMemo(() => {
+        if (!activeCategoryId) return 18;
+        const cat = categories?.find((c) => c.id === activeCategoryId);
+        return cat?.holes_per_round ?? 18;
+    }, [activeCategoryId, categories]);
+
     const activeCatName = activeCategoryId ? categories?.find((c) => c.id === activeCategoryId)?.name ?? 'Classement' : 'Classement Général';
     const timeStr = currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     const dateStr = currentTime.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -450,8 +457,8 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                                             })}</>
                                         ) : (
                                             <div className="text-center border-r border-white/[0.06] px-2">
-                                                <span className={`text-base tabular-nums ${entry.holesPlayed >= 18 * currentPhase ? 'text-emerald-400 font-bold' : 'text-white/40'}`}>
-                                                    {entry.holesPlayed}<span className="text-white/20">/{18 * currentPhase}</span>
+                                                <span className={`text-base tabular-nums ${entry.holesPlayed >= holesPerRound * currentPhase ? 'text-emerald-400 font-bold' : 'text-white/40'}`}>
+                                                    {entry.holesPlayed}<span className="text-white/20">/{holesPerRound * currentPhase}</span>
                                                 </span>
                                             </div>
                                         )}
