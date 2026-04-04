@@ -69,13 +69,24 @@ function ScoreBadge({ strokeToPar, holesPlayed }: { strokeToPar: number; holesPl
 
 export default function TvScreen({ tournament, players, scores, holes, categories, cuts, categoryPars, penalties, logoUrl, sponsorLogoUrl }: Props) {
     useRealtimeScores(tournament?.id);
-    const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
-    const [currentPage, setCurrentPage] = useState(0);
+    // Persist TV state across reloads via sessionStorage
+    const [activeCategoryId, setActiveCategoryId] = useState<string | null>(() => {
+        const saved = sessionStorage.getItem('tv_catId');
+        if (saved && saved !== 'null') return saved;
+        const firstActive = (categories ?? []).find((c) => players.some((p) => p.category_id === c.id));
+        return firstActive?.id ?? null;
+    });
+    const [currentPage, setCurrentPage] = useState(() => Number(sessionStorage.getItem('tv_page') || '0'));
     const [isPaused, setIsPaused] = useState(false);
     const [animKey, setAnimKey] = useState(0);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
-    const [zoom, setZoom] = useState(100);
+    const [zoom, setZoom] = useState(() => Number(sessionStorage.getItem('tv_zoom') || '100'));
+
+    // Save state to sessionStorage on change
+    useEffect(() => { sessionStorage.setItem('tv_catId', activeCategoryId ?? 'null'); }, [activeCategoryId]);
+    useEffect(() => { sessionStorage.setItem('tv_page', String(currentPage)); }, [currentPage]);
+    useEffect(() => { sessionStorage.setItem('tv_zoom', String(zoom)); }, [zoom]);
     const containerRef = useRef<HTMLDivElement>(null);
     const perPage = 10;
 
@@ -133,7 +144,10 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
     dataRef.current = { playersWithCategory, scores, holes, categories, categoryPars, penalties };
 
     // Auto-rotation: paginate within slot, then switch
-    const rotationRef = useRef({ catIdx: 0, page: 0 });
+    const rotationRef = useRef({
+        catIdx: Number(sessionStorage.getItem('tv_rotIdx') || '0'),
+        page: Number(sessionStorage.getItem('tv_rotPage') || '0'),
+    });
 
     useEffect(() => {
         if (isPaused || !rotationSlots.length) return;
@@ -159,6 +173,8 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                 setActiveCategoryId(nextSlot?.filter ?? null);
                 setAnimKey((k) => k + 1);
             }
+            sessionStorage.setItem('tv_rotIdx', String(r.catIdx));
+            sessionStorage.setItem('tv_rotPage', String(r.page));
         }, 20000);
         return () => clearInterval(interval);
     }, [isPaused, rotationSlots.length]);

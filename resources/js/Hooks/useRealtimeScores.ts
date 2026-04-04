@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { router } from "@inertiajs/react";
 
 declare global {
@@ -10,22 +10,21 @@ declare global {
 export function useRealtimeScores(tournamentId?: string) {
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const intervalRef = useRef<number | null>(null);
-  const isFetching = useRef(false);
-
-  const refresh = useCallback(() => {
-    if (isFetching.current) return;
-    isFetching.current = true;
-    router.reload({
-      only: ['scores', 'players', 'penalties'],
-      onFinish: () => {
-        isFetching.current = false;
-        setLastUpdate(new Date());
-      },
-    });
-  }, []);
+  const busyRef = useRef(false);
 
   useEffect(() => {
     if (!tournamentId) return;
+
+    const refresh = () => {
+      if (busyRef.current) return;
+      busyRef.current = true;
+      router.reload({
+        onFinish: () => {
+          busyRef.current = false;
+          setLastUpdate(new Date());
+        },
+      });
+    };
 
     if (window.Echo) {
       window.Echo.channel(`tournament.${tournamentId}`)
@@ -42,7 +41,7 @@ export function useRealtimeScores(tournamentId?: string) {
         window.clearInterval(intervalRef.current);
       }
     };
-  }, [tournamentId, refresh]);
+  }, [tournamentId]);
 
   return { lastUpdate };
 }
