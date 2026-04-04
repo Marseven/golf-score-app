@@ -45,11 +45,20 @@ class CaddyMasterController extends Controller
         $tournamentId = $request->session()->get('caddie_master_tournament_id');
         $tournament = Tournament::findOrFail($tournamentId);
 
-        $groups = $tournament->groups()
+        $allGroups = $tournament->groups()
             ->with(['players.category', 'players.scores', 'category'])
             ->orderBy('phase')
             ->orderBy('tee_time')
             ->get();
+
+        // Only show groups at the latest phase per category (hide completed phases)
+        $groups = $allGroups->filter(function ($group) use ($allGroups) {
+            $laterPhaseExists = $allGroups
+                ->where('category_id', $group->category_id)
+                ->where('phase', '>', $group->phase)
+                ->contains(fn ($g) => $g->players->count() > 0);
+            return !$laterPhaseExists;
+        })->values();
 
         $holes = $tournament->holes()->orderBy('number')->get();
 

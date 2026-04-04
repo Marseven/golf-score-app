@@ -69,7 +69,7 @@ function ScoreBadge({ strokeToPar, holesPlayed }: { strokeToPar: number; holesPl
 
 export default function TvScreen({ tournament, players, scores, holes, categories, cuts, categoryPars, penalties, logoUrl, sponsorLogoUrl }: Props) {
     useRealtimeScores(tournament?.id);
-    const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
+    const [activeCategoryId, setActiveCategoryId] = useState<string | string[] | null>(null);
     const [currentPage, setCurrentPage] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
     const [animKey, setAnimKey] = useState(0);
@@ -84,8 +84,22 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
         (categories ?? []).filter((c) => players.some((p) => p.category_id === c.id)),
     [categories, players]);
 
-    const catIdsRef = useRef<string[]>([]);
-    catIdsRef.current = ['all', ...activeCategories.map((c) => c.id)];
+    // Group categories by type (Pro vs Amateur) based on name
+    const proCatIds = useMemo(() => activeCategories.filter((c) => c.name.toLowerCase().includes('pro')).map((c) => c.id), [activeCategories]);
+    const amateurCatIds = useMemo(() => activeCategories.filter((c) => c.name.toLowerCase().includes('amateur')).map((c) => c.id), [activeCategories]);
+
+    // Rotation slots: all-pro, all-amateur, then individual categories
+    type RotationSlot = { id: string; label: string; filter: string | string[] | null };
+    const rotationSlots = useMemo<RotationSlot[]>(() => {
+        const slots: RotationSlot[] = [];
+        if (proCatIds.length > 0) slots.push({ id: 'all-pro', label: 'Classement Professionnels', filter: proCatIds });
+        if (amateurCatIds.length > 0) slots.push({ id: 'all-amateur', label: 'Classement Amateurs', filter: amateurCatIds });
+        activeCategories.forEach((c) => slots.push({ id: c.id, label: c.name, filter: c.id }));
+        return slots;
+    }, [activeCategories, proCatIds, amateurCatIds]);
+
+    const catIdsRef = useRef<RotationSlot[]>([]);
+    catIdsRef.current = rotationSlots;
 
     // Live clock
     useEffect(() => {
@@ -101,18 +115,21 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
 
     const fullLeaderboard = useMemo(() =>
         buildLeaderboard(playersWithCategory, scores, holes, activeCategoryId ?? undefined, 'stroke', categories, undefined, undefined, categoryPars, penalties)
+            .filter((entry) => {
+                // Hide cut pro players entirely
+                if (entry.player.cut_after_phase != null && proCatIds.includes(entry.player.category_id ?? '')) return false;
+                return true;
+            })
             .sort((a, b) => {
-                // Withdrawn players go to the bottom
                 if (a.player.is_withdrawn && !b.player.is_withdrawn) return 1;
                 if (!a.player.is_withdrawn && b.player.is_withdrawn) return -1;
-                // Cut players after non-cut players
                 const aCut = a.player.cut_after_phase != null;
                 const bCut = b.player.cut_after_phase != null;
                 if (aCut && !bCut) return 1;
                 if (!aCut && bCut) return -1;
                 return 0;
             }),
-    [playersWithCategory, scores, holes, activeCategoryId, categories, categoryPars, penalties]);
+    [playersWithCategory, scores, holes, activeCategoryId, categories, categoryPars, penalties, proCatIds]);
 
     const totalPages = Math.max(1, Math.ceil(fullLeaderboard.length / perPage));
 
@@ -120,18 +137,19 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
     const dataRef = useRef({ playersWithCategory, scores, holes, categories, categoryPars, penalties });
     dataRef.current = { playersWithCategory, scores, holes, categories, categoryPars, penalties };
 
-    // Auto-rotation: paginate within category, then switch
+    // Auto-rotation: paginate within slot, then switch
     const rotationRef = useRef({ catIdx: 0, page: 0 });
 
     useEffect(() => {
-        if (isPaused || !categories?.length) return;
+        if (isPaused || !rotationSlots.length) return;
         const interval = setInterval(() => {
-            const ids = catIdsRef.current;
+            const slots = catIdsRef.current;
+            if (!slots.length) return;
             const r = rotationRef.current;
             const d = dataRef.current;
 
-            const currentCatId = ids[r.catIdx] === 'all' ? undefined : ids[r.catIdx];
-            const entries = buildLeaderboard(d.playersWithCategory, d.scores, d.holes, currentCatId, 'stroke', d.categories, undefined, undefined, d.categoryPars, d.penalties);
+            const currentSlot = slots[r.catIdx];
+            const entries = buildLeaderboard(d.playersWithCategory, d.scores, d.holes, currentSlot?.filter ?? undefined, 'stroke', d.categories, undefined, undefined, d.categoryPars, d.penalties);
             const catTotalPages = Math.max(1, Math.ceil(entries.length / perPage));
 
             if (r.page + 1 < catTotalPages) {
@@ -140,15 +158,15 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                 setAnimKey((k) => k + 1);
             } else {
                 r.page = 0;
-                r.catIdx = (r.catIdx + 1) % ids.length;
-                const next = ids[r.catIdx];
+                r.catIdx = (r.catIdx + 1) % slots.length;
+                const nextSlot = slots[r.catIdx];
                 setCurrentPage(0);
-                setActiveCategoryId(next === 'all' ? null : next);
+                setActiveCategoryId(nextSlot?.filter ?? null);
                 setAnimKey((k) => k + 1);
             }
         }, 20000);
         return () => clearInterval(interval);
-    }, [isPaused, categories?.length]);
+    }, [isPaused, rotationSlots.length]);
 
     const toggleFullscreen = useCallback(() => {
         if (!document.fullscreenElement) {
@@ -166,14 +184,33 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
 
     const leaderboard = fullLeaderboard.slice(currentPage * perPage, (currentPage + 1) * perPage);
 
-    // Current phase = highest phase that has scores
+    // Current phase = based on the active category's max_phases
     const currentPhase = useMemo(() => {
         if (!scores.length) return 1;
+
+        // Get the max_phases for the active category filter
+        if (activeCategoryId) {
+            const catIds = Array.isArray(activeCategoryId) ? activeCategoryId : [activeCategoryId];
+            const maxPhases = catIds.reduce((max, id) => {
+                const cat = categories.find((c) => c.id === id);
+                const mp = cat?.max_phases ?? tournament?.phase_count ?? 4;
+                return Math.min(max, mp);
+            }, tournament?.phase_count ?? 4);
+
+            // Highest phase that has scores for these categories
+            const playerIds = players.filter((p) => catIds.includes(p.category_id ?? '')).map((p) => p.id);
+            const catScores = scores.filter((s) => playerIds.includes(s.player_id));
+            if (catScores.length === 0) return 1;
+            return Math.min(Math.max(...catScores.map((s) => s.phase)), maxPhases);
+        }
+
         return Math.max(...scores.map((s) => s.phase));
-    }, [scores]);
+    }, [scores, activeCategoryId, categories, players, tournament?.phase_count]);
 
     // Scores per phase per player: { playerId: { 1: {strokes, par}, 2: {strokes, par}, ... } }
     const phaseScoresMap = useMemo(() => {
+        // Don't show phase columns if only 1 phase for the active category
+        if (currentPhase <= 1) return null;
         if (tournament?.phase_count === 1) return null;
         const holeMap = new Map(holes.map((h) => [h.id, h]));
         const map: Record<string, Record<number, { strokes: number; par: number }>> = {};
@@ -188,7 +225,16 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
         return map;
     }, [scores, holes, tournament?.phase_count]);
 
-    const activeCatName = activeCategoryId ? categories?.find((c) => c.id === activeCategoryId)?.name ?? 'Classement Général' : 'Classement Général';
+    const activeCatName = useMemo(() => {
+        if (!activeCategoryId) return 'Classement Général';
+        if (Array.isArray(activeCategoryId)) {
+            // Check if it's all pros or all amateurs
+            if (proCatIds.length > 0 && activeCategoryId.length === proCatIds.length && activeCategoryId.every((id) => proCatIds.includes(id))) return 'Classement Professionnels';
+            if (amateurCatIds.length > 0 && activeCategoryId.length === amateurCatIds.length && activeCategoryId.every((id) => amateurCatIds.includes(id))) return 'Classement Amateurs';
+            return 'Classement';
+        }
+        return categories?.find((c) => c.id === activeCategoryId)?.name ?? 'Classement';
+    }, [activeCategoryId, categories, proCatIds, amateurCatIds]);
     const timeStr = currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     const dateStr = currentTime.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -294,14 +340,22 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
 
                 {/* Category dots */}
                 <div className="flex items-center justify-center gap-6 py-3">
-                    <button onClick={() => { setActiveCategoryId(null); setCurrentPage(0); rotationRef.current = { catIdx: 0, page: 0 }; setIsPaused(true); setAnimKey((k) => k + 1); }} className="group flex flex-col items-center gap-1.5">
-                        <div className={`rounded-full transition-all duration-500 ${!activeCategoryId ? 'w-3.5 h-3.5 bg-white shadow-lg shadow-white/20' : 'w-2.5 h-2.5 bg-white/20 group-hover:bg-white/40'}`} />
-                        <span className={`text-[10px] font-semibold tracking-wider uppercase transition-colors ${!activeCategoryId ? 'text-white/70' : 'text-white/20 group-hover:text-white/40'}`}>Tous</span>
-                    </button>
+                    {proCatIds.length > 0 && (
+                        <button onClick={() => { setActiveCategoryId(proCatIds); setCurrentPage(0); const idx = rotationSlots.findIndex((s) => s.id === 'all-pro'); rotationRef.current = { catIdx: idx >= 0 ? idx : 0, page: 0 }; setIsPaused(true); setAnimKey((k) => k + 1); }} className="group flex flex-col items-center gap-1.5">
+                            <div className={`rounded-full transition-all duration-500 ${Array.isArray(activeCategoryId) && activeCategoryId.length === proCatIds.length && activeCategoryId.every((id) => proCatIds.includes(id)) ? 'w-3.5 h-3.5 bg-blue-400 shadow-lg shadow-blue-400/20' : 'w-2.5 h-2.5 bg-blue-400/30 group-hover:bg-blue-400/60'}`} />
+                            <span className={`text-[10px] font-semibold tracking-wider uppercase transition-colors ${Array.isArray(activeCategoryId) && activeCategoryId.every((id) => proCatIds.includes(id)) ? 'text-white/70' : 'text-white/20 group-hover:text-white/40'}`}>Pros</span>
+                        </button>
+                    )}
+                    {amateurCatIds.length > 0 && (
+                        <button onClick={() => { setActiveCategoryId(amateurCatIds); setCurrentPage(0); const idx = rotationSlots.findIndex((s) => s.id === 'all-amateur'); rotationRef.current = { catIdx: idx >= 0 ? idx : 0, page: 0 }; setIsPaused(true); setAnimKey((k) => k + 1); }} className="group flex flex-col items-center gap-1.5">
+                            <div className={`rounded-full transition-all duration-500 ${Array.isArray(activeCategoryId) && activeCategoryId.length === amateurCatIds.length && activeCategoryId.every((id) => amateurCatIds.includes(id)) ? 'w-3.5 h-3.5 bg-emerald-400 shadow-lg shadow-emerald-400/20' : 'w-2.5 h-2.5 bg-emerald-400/30 group-hover:bg-emerald-400/60'}`} />
+                            <span className={`text-[10px] font-semibold tracking-wider uppercase transition-colors ${Array.isArray(activeCategoryId) && activeCategoryId.every((id) => amateurCatIds.includes(id)) ? 'text-white/70' : 'text-white/20 group-hover:text-white/40'}`}>Amateurs</span>
+                        </button>
+                    )}
                     {activeCategories.map((cat) => {
                         const isActive = activeCategoryId === cat.id;
                         return (
-                            <button key={cat.id} onClick={() => { setActiveCategoryId(cat.id); setCurrentPage(0); const idx = catIdsRef.current.indexOf(cat.id); rotationRef.current = { catIdx: idx >= 0 ? idx : 0, page: 0 }; setIsPaused(true); setAnimKey((k) => k + 1); }} className="group flex flex-col items-center gap-1.5">
+                            <button key={cat.id} onClick={() => { setActiveCategoryId(cat.id); setCurrentPage(0); const idx = catIdsRef.current.findIndex((s) => s.id === cat.id); rotationRef.current = { catIdx: idx >= 0 ? idx : 0, page: 0 }; setIsPaused(true); setAnimKey((k) => k + 1); }} className="group flex flex-col items-center gap-1.5">
                                 <div className={`rounded-full transition-all duration-500 ${isActive ? `w-3.5 h-3.5 ${categoryDotColors[cat.name] ?? 'bg-white'} shadow-lg` : `w-2.5 h-2.5 ${categoryDotColors[cat.name] ?? 'bg-white'} opacity-30 group-hover:opacity-60`}`} />
                                 <span className={`text-[10px] font-semibold tracking-wider uppercase transition-colors ${isActive ? 'text-white/70' : 'text-white/20 group-hover:text-white/40'}`}>{cat.short_name}</span>
                             </button>

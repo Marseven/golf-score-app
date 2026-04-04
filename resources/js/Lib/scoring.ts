@@ -81,7 +81,7 @@ export function buildLeaderboard(
   players: PlayerData[],
   scores: ScoreData[],
   holes: HoleData[],
-  categoryId?: string,
+  categoryId?: string | string[],
   mode: "stroke" | "stableford" = "stroke",
   categories?: CategoryData[],
   phase?: number,
@@ -129,7 +129,9 @@ export function buildLeaderboard(
   }
 
   let filtered = categoryId
-    ? players.filter((p) => p.category_id === categoryId)
+    ? Array.isArray(categoryId)
+      ? players.filter((p) => categoryId.includes(p.category_id ?? ''))
+      : players.filter((p) => p.category_id === categoryId)
     : players;
 
   // Filter out players cut before this phase if phase is specified
