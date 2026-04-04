@@ -1172,15 +1172,29 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses }
                         onClick={async () => {
                             const nextPhase = activePhase + 1;
                             const existingNext = groups.filter((g) => (g.phase ?? 1) === nextPhase).length;
+                            const cutPlayers = players.filter((p) => p.cut_after_phase != null && p.cut_after_phase <= activePhase).length;
+                            const withdrawnPlayers = players.filter((p) => p.is_withdrawn).length;
+                            const qualifiedPlayers = players.filter((p) => !p.is_withdrawn && (p.cut_after_phase == null || p.cut_after_phase > activePhase)).length;
+
                             if (existingNext > 0) {
-                                await confirm({ title: 'Phase déjà préparée', message: `Des groupes existent déjà pour la Phase ${nextPhase}. Supprimez-les d'abord si vous voulez recréer.`, confirmLabel: 'OK', variant: 'warning' });
+                                const ok = await confirm({
+                                    title: `Régénérer la Phase ${nextPhase} ?`,
+                                    message: `${existingNext} groupe(s) existent déjà pour la Phase ${nextPhase}. Les supprimer et recréer avec les joueurs qualifiés ?\n\nLes scores de la Phase ${nextPhase} seront aussi supprimés.`,
+                                    confirmLabel: 'Régénérer',
+                                    variant: 'danger',
+                                });
+                                if (ok) {
+                                    router.post(route('tournaments.prepareNextPhase', tournament.id), { from_phase: activePhase, force: true }, {
+                                        preserveScroll: true,
+                                        onSuccess: () => setActivePhase(nextPhase),
+                                    });
+                                }
                                 return;
                             }
-                            const cutPlayers = players.filter((p) => p.cut_after_phase != null && p.cut_after_phase <= activePhase).length;
-                            const qualifiedPlayers = players.filter((p) => p.cut_after_phase == null || p.cut_after_phase > activePhase).length;
+
                             const ok = await confirm({
                                 title: `Préparer la Phase ${nextPhase}`,
-                                message: `Dupliquer les groupes de la Phase ${activePhase} vers la Phase ${nextPhase} ?\n\n${qualifiedPlayers} joueur(s) qualifié(s)${cutPlayers > 0 ? `, ${cutPlayers} éliminé(s) par le cut` : ''}. Mêmes marqueurs et parcours.`,
+                                message: `Créer les groupes de la Phase ${nextPhase} ?\n\n${qualifiedPlayers} joueur(s) qualifié(s)${cutPlayers > 0 ? `, ${cutPlayers} éliminé(s) par le cut` : ''}${withdrawnPlayers > 0 ? `, ${withdrawnPlayers} retiré(s)` : ''}.\nMêmes marqueurs et parcours.`,
                                 confirmLabel: 'Préparer',
                                 variant: 'default',
                             });

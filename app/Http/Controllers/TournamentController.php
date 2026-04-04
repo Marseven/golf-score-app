@@ -434,23 +434,61 @@ class TournamentController extends Controller
         // Check if next phase groups already exist
         $existingNextGroups = $tournament->groups()->where('phase', $nextPhase)->count();
         if ($existingNextGroups > 0) {
-            return back()->with('error', 'Des groupes existent déjà pour la Phase '.$nextPhase.'. Supprimez-les d\'abord si vous voulez recréer.');
+            if (!$request->boolean('force')) {
+                return back()->with('error', 'PHASE_EXISTS:'.$nextPhase.':'.$existingNextGroups);
+            }
+
+            // Force: delete next phase groups
+            $nextPhaseGroups = $tournament->groups()->where('phase', $nextPhase)->with('players')->get();
+
+            // Build source group mapping by stripping phase prefix from code
+            $sourceGroups = $tournament->groups()->where('phase', $fromPhase)->get();
+            $sourceGroupByCode = [];
+            foreach ($sourceGroups as $sg) {
+                $sourceGroupByCode[$sg->code] = $sg->id;
+            }
+
+            foreach ($nextPhaseGroups as $g) {
+                $playerIds = $g->players->pluck('id')->toArray();
+
+                // Delete scores for this phase
+                Score::whereIn('player_id', $playerIds)
+                    ->where('phase', $nextPhase)
+                    ->delete();
+
+                // Reassign players back to source group
+                $sourceCode = preg_replace('/^P\d+-/', '', $g->code);
+                $sourceGroupId = $sourceGroupByCode[$sourceCode] ?? null;
+                if ($sourceGroupId) {
+                    Player::whereIn('id', $playerIds)->update(['group_id' => $sourceGroupId]);
+                }
+
+                // Delete markers pivot and group
+                $g->markers()->detach();
+                $g->delete();
+            }
         }
 
-        // Get current phase groups with players and markers
+        // Get groups that currently have players assigned (regardless of phase label)
+        // Players are always in their most recent group
         $currentGroups = $tournament->groups()
-            ->where('phase', $fromPhase)
+            ->whereHas('players')
             ->with(['players', 'markers'])
-            ->get();
+            ->orderBy('phase')
+            ->get()
+            // Deduplicate: only keep one group per player (the one they're actually in)
+            ->unique('id');
 
         $createdGroups = 0;
         $totalPlayers = 0;
         $eliminatedPlayers = 0;
 
         foreach ($currentGroups as $group) {
-            // Filter out cut players
+            // Filter out cut and withdrawn players
             $qualifiedPlayers = $group->players->filter(function ($player) use ($fromPhase) {
-                return $player->cut_after_phase === null || $player->cut_after_phase >= $fromPhase;
+                if ($player->is_withdrawn) return false;
+                if ($player->cut_after_phase !== null && $player->cut_after_phase <= $fromPhase) return false;
+                return true;
             });
 
             $eliminatedPlayers += $group->players->count() - $qualifiedPlayers->count();

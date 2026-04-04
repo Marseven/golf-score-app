@@ -188,18 +188,22 @@ class MarkerController extends Controller
             }
         }
 
-        // Filter holes by the current marker's hole range
-        $holeStart = 1;
-        $holeEnd = 18;
+        // Filter holes by group range first, then marker range
+        $groupStart = $group->hole_start ?? 1;
+        $groupEnd = $group->hole_end ?? 18;
+
+        $markerStart = $groupStart;
+        $markerEnd = $groupEnd;
         $markerUserId = request()->session()->get('marker_user_id');
         if ($markerUserId) {
             $marker = \App\Models\User::find($markerUserId);
             if ($marker) {
-                $holeStart = $marker->hole_start ?? 1;
-                $holeEnd = $marker->hole_end ?? 18;
+                // Intersection of group range and marker range
+                $markerStart = max($groupStart, $marker->hole_start ?? 1);
+                $markerEnd = min($groupEnd, $marker->hole_end ?? 18);
             }
         }
-        $holes = $holes->filter(fn ($h) => $h->number >= $holeStart && $h->number <= $holeEnd)->values();
+        $holes = $holes->filter(fn ($h) => $h->number >= $markerStart && $h->number <= $markerEnd)->values();
 
         $scores = Score::whereIn('player_id', $players->pluck('id'))
             ->whereIn('hole_id', $holes->pluck('id'))
