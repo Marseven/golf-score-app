@@ -69,7 +69,7 @@ function ScoreBadge({ strokeToPar, holesPlayed }: { strokeToPar: number; holesPl
 
 export default function TvScreen({ tournament, players, scores, holes, categories, cuts, categoryPars, penalties, logoUrl, sponsorLogoUrl }: Props) {
     useRealtimeScores(tournament?.id);
-    const [activeCategoryId, setActiveCategoryId] = useState<string | string[] | null>(null);
+    const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
     const [animKey, setAnimKey] = useState(0);
@@ -84,19 +84,14 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
         (categories ?? []).filter((c) => players.some((p) => p.category_id === c.id)),
     [categories, players]);
 
-    // Group categories by type (Pro vs Amateur) based on name
+    // Pro category IDs (used to hide cut pro players)
     const proCatIds = useMemo(() => activeCategories.filter((c) => c.name.toLowerCase().includes('pro')).map((c) => c.id), [activeCategories]);
-    const amateurCatIds = useMemo(() => activeCategories.filter((c) => c.name.toLowerCase().includes('amateur')).map((c) => c.id), [activeCategories]);
 
-    // Rotation slots: all-pro, all-amateur, then individual categories
-    type RotationSlot = { id: string; label: string; filter: string | string[] | null };
+    // Rotation slots: individual categories only
+    type RotationSlot = { id: string; label: string; filter: string | null };
     const rotationSlots = useMemo<RotationSlot[]>(() => {
-        const slots: RotationSlot[] = [];
-        // if (proCatIds.length > 0) slots.push({ id: 'all-pro', label: 'Classement Professionnels', filter: proCatIds });
-        // if (amateurCatIds.length > 0) slots.push({ id: 'all-amateur', label: 'Classement Amateurs', filter: amateurCatIds });
-        activeCategories.forEach((c) => slots.push({ id: c.id, label: c.name, filter: c.id }));
-        return slots;
-    }, [activeCategories, proCatIds, amateurCatIds]);
+        return activeCategories.map((c) => ({ id: c.id, label: c.name, filter: c.id }));
+    }, [activeCategories]);
 
     const catIdsRef = useRef<RotationSlot[]>([]);
     catIdsRef.current = rotationSlots;
@@ -225,16 +220,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
         return map;
     }, [scores, holes, tournament?.phase_count]);
 
-    const activeCatName = useMemo(() => {
-        if (!activeCategoryId) return 'Classement Général';
-        if (Array.isArray(activeCategoryId)) {
-            // Check if it's all pros or all amateurs
-            if (proCatIds.length > 0 && activeCategoryId.length === proCatIds.length && activeCategoryId.every((id) => proCatIds.includes(id))) return 'Classement Professionnels';
-            if (amateurCatIds.length > 0 && activeCategoryId.length === amateurCatIds.length && activeCategoryId.every((id) => amateurCatIds.includes(id))) return 'Classement Amateurs';
-            return 'Classement';
-        }
-        return categories?.find((c) => c.id === activeCategoryId)?.name ?? 'Classement';
-    }, [activeCategoryId, categories, proCatIds, amateurCatIds]);
+    const activeCatName = activeCategoryId ? categories?.find((c) => c.id === activeCategoryId)?.name ?? 'Classement' : 'Classement Général';
     const timeStr = currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     const dateStr = currentTime.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -340,18 +326,6 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
 
                 {/* Category dots */}
                 <div className="flex items-center justify-center gap-6 py-3">
-                    {/* {proCatIds.length > 0 && (
-                        <button onClick={() => { setActiveCategoryId(proCatIds); setCurrentPage(0); const idx = rotationSlots.findIndex((s) => s.id === 'all-pro'); rotationRef.current = { catIdx: idx >= 0 ? idx : 0, page: 0 }; setIsPaused(true); setAnimKey((k) => k + 1); }} className="group flex flex-col items-center gap-1.5">
-                            <div className={`rounded-full transition-all duration-500 ${Array.isArray(activeCategoryId) && activeCategoryId.length === proCatIds.length && activeCategoryId.every((id) => proCatIds.includes(id)) ? 'w-3.5 h-3.5 bg-blue-400 shadow-lg shadow-blue-400/20' : 'w-2.5 h-2.5 bg-blue-400/30 group-hover:bg-blue-400/60'}`} />
-                            <span className={`text-[10px] font-semibold tracking-wider uppercase transition-colors ${Array.isArray(activeCategoryId) && activeCategoryId.every((id) => proCatIds.includes(id)) ? 'text-white/70' : 'text-white/20 group-hover:text-white/40'}`}>Pros</span>
-                        </button>
-                    )}
-                    {amateurCatIds.length > 0 && (
-                        <button onClick={() => { setActiveCategoryId(amateurCatIds); setCurrentPage(0); const idx = rotationSlots.findIndex((s) => s.id === 'all-amateur'); rotationRef.current = { catIdx: idx >= 0 ? idx : 0, page: 0 }; setIsPaused(true); setAnimKey((k) => k + 1); }} className="group flex flex-col items-center gap-1.5">
-                            <div className={`rounded-full transition-all duration-500 ${Array.isArray(activeCategoryId) && activeCategoryId.length === amateurCatIds.length && activeCategoryId.every((id) => amateurCatIds.includes(id)) ? 'w-3.5 h-3.5 bg-emerald-400 shadow-lg shadow-emerald-400/20' : 'w-2.5 h-2.5 bg-emerald-400/30 group-hover:bg-emerald-400/60'}`} />
-                            <span className={`text-[10px] font-semibold tracking-wider uppercase transition-colors ${Array.isArray(activeCategoryId) && activeCategoryId.every((id) => amateurCatIds.includes(id)) ? 'text-white/70' : 'text-white/20 group-hover:text-white/40'}`}>Amateurs</span>
-                        </button>
-                    )} */}
                     {activeCategories.map((cat) => {
                         const isActive = activeCategoryId === cat.id;
                         return (
