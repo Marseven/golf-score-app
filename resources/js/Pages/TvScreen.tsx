@@ -92,8 +92,8 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
     type RotationSlot = { id: string; label: string; filter: string | string[] | null };
     const rotationSlots = useMemo<RotationSlot[]>(() => {
         const slots: RotationSlot[] = [];
-        if (proCatIds.length > 0) slots.push({ id: 'all-pro', label: 'Classement Professionnels', filter: proCatIds });
-        if (amateurCatIds.length > 0) slots.push({ id: 'all-amateur', label: 'Classement Amateurs', filter: amateurCatIds });
+        // if (proCatIds.length > 0) slots.push({ id: 'all-pro', label: 'Classement Professionnels', filter: proCatIds });
+        // if (amateurCatIds.length > 0) slots.push({ id: 'all-amateur', label: 'Classement Amateurs', filter: amateurCatIds });
         activeCategories.forEach((c) => slots.push({ id: c.id, label: c.name, filter: c.id }));
         return slots;
     }, [activeCategories, proCatIds, amateurCatIds]);
@@ -340,7 +340,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
 
                 {/* Category dots */}
                 <div className="flex items-center justify-center gap-6 py-3">
-                    {proCatIds.length > 0 && (
+                    {/* {proCatIds.length > 0 && (
                         <button onClick={() => { setActiveCategoryId(proCatIds); setCurrentPage(0); const idx = rotationSlots.findIndex((s) => s.id === 'all-pro'); rotationRef.current = { catIdx: idx >= 0 ? idx : 0, page: 0 }; setIsPaused(true); setAnimKey((k) => k + 1); }} className="group flex flex-col items-center gap-1.5">
                             <div className={`rounded-full transition-all duration-500 ${Array.isArray(activeCategoryId) && activeCategoryId.length === proCatIds.length && activeCategoryId.every((id) => proCatIds.includes(id)) ? 'w-3.5 h-3.5 bg-blue-400 shadow-lg shadow-blue-400/20' : 'w-2.5 h-2.5 bg-blue-400/30 group-hover:bg-blue-400/60'}`} />
                             <span className={`text-[10px] font-semibold tracking-wider uppercase transition-colors ${Array.isArray(activeCategoryId) && activeCategoryId.every((id) => proCatIds.includes(id)) ? 'text-white/70' : 'text-white/20 group-hover:text-white/40'}`}>Pros</span>
@@ -351,7 +351,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                             <div className={`rounded-full transition-all duration-500 ${Array.isArray(activeCategoryId) && activeCategoryId.length === amateurCatIds.length && activeCategoryId.every((id) => amateurCatIds.includes(id)) ? 'w-3.5 h-3.5 bg-emerald-400 shadow-lg shadow-emerald-400/20' : 'w-2.5 h-2.5 bg-emerald-400/30 group-hover:bg-emerald-400/60'}`} />
                             <span className={`text-[10px] font-semibold tracking-wider uppercase transition-colors ${Array.isArray(activeCategoryId) && activeCategoryId.every((id) => amateurCatIds.includes(id)) ? 'text-white/70' : 'text-white/20 group-hover:text-white/40'}`}>Amateurs</span>
                         </button>
-                    )}
+                    )} */}
                     {activeCategories.map((cat) => {
                         const isActive = activeCategoryId === cat.id;
                         return (

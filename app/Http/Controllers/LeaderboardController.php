@@ -49,13 +49,13 @@ class LeaderboardController extends Controller
 
         return Inertia::render('Classement', [
             'tournament' => $tournament,
-            'players' => $tournament->players()->with('category')->get(),
-            'scores' => $tournament->scores()->get(),
+            'players' => fn () => $tournament->players()->with('category')->get(),
+            'scores' => fn () => $tournament->scores()->get(),
             'holes' => $tournament->holes()->orderBy('number')->get(),
             'categories' => $tournament->categories,
             'cuts' => $tournament->cuts()->with('category')->get(),
             'categoryPars' => $categoryPars,
-            'penalties' => $tournament->penalties()->get(['player_id', 'strokes', 'phase']),
+            'penalties' => fn () => $tournament->penalties()->get(['player_id', 'strokes', 'phase']),
         ]);
     }
 
@@ -88,13 +88,13 @@ class LeaderboardController extends Controller
 
         return Inertia::render('TvScreen', [
             'tournament' => $tournament,
-            'players' => $tournament->players()->with('category')->get(),
-            'scores' => $tournament->scores()->get(),
+            'players' => fn () => $tournament->players()->with('category')->get(),
+            'scores' => fn () => $tournament->scores()->get(),
             'holes' => $tournament->holes()->orderBy('number')->get(),
             'categories' => $tournament->categories,
             'cuts' => $tournament->cuts()->with('category')->get(),
             'categoryPars' => $categoryPars,
-            'penalties' => $tournament->penalties()->get(['player_id', 'strokes', 'phase']),
+            'penalties' => fn () => $tournament->penalties()->get(['player_id', 'strokes', 'phase']),
             'logoUrl' => $logoUrl,
             'sponsorLogoUrl' => $sponsorLogoUrl,
         ]);
