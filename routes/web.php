@@ -35,6 +35,9 @@ Route::get('/tournois', [LeaderboardController::class, 'tournamentList'])->name(
 // Public leaderboard
 Route::get('/classement/{tournament?}', [LeaderboardController::class, 'index'])->name('classement');
 Route::get('/tv/{tournament?}', [LeaderboardController::class, 'tv'])->name('tv');
+Route::get('/api/score-count/{tournament}', function (App\Models\Tournament $tournament) {
+    return response()->json(['count' => $tournament->scores()->count()]);
+});
 
 // Public registration
 Route::get('/inscription/{tournament}', [RegistrationController::class, 'create'])->name('inscription.create');

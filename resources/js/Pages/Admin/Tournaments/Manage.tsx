@@ -2635,23 +2635,52 @@ function ScoresTab({ tournament, players, holes, scores, categories, categoryPar
                                 {showResetMenu && (
                                     <>
                                         <div className="fixed inset-0 z-40" onClick={() => setShowResetMenu(false)} />
-                                        <div className="absolute right-0 top-full mt-1 z-50 w-56 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
-                                            {phaseScoreCounts.map((p) => (
-                                                <button
-                                                    key={p.phase}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        if (window.confirm(`Supprimer les ${p.count} scores de la Phase ${p.phase} ?`)) {
-                                                            router.delete(route('scores.reset', tournament.id), { data: { phase: p.phase }, preserveScroll: true });
-                                                        }
-                                                        setShowResetMenu(false);
-                                                    }}
-                                                    className="flex items-center justify-between w-full px-4 py-2.5 text-sm text-foreground hover:bg-surface-hover transition-colors"
-                                                >
-                                                    <span>Phase {p.phase}</span>
-                                                    <span className="text-xs text-muted-foreground">{p.count} scores</span>
-                                                </button>
-                                            ))}
+                                        <div className="absolute right-0 top-full mt-1 z-50 w-64 bg-card border border-border rounded-xl shadow-xl overflow-hidden max-h-[400px] overflow-y-auto">
+                                            {/* Par catégorie */}
+                                            <p className="px-4 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border">Par catégorie</p>
+                                            {categories.map((cat) => {
+                                                const catCount = scores.filter((s) => players.find((p) => p.id === s.player_id)?.category_id === cat.id).length;
+                                                if (catCount === 0) return null;
+                                                return (
+                                                    <button
+                                                        key={cat.id}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (window.confirm(`Supprimer les ${catCount} scores de ${cat.name} ?`)) {
+                                                                router.delete(route('scores.reset', tournament.id), { data: { category_id: cat.id }, preserveScroll: true });
+                                                            }
+                                                            setShowResetMenu(false);
+                                                        }}
+                                                        className="flex items-center justify-between w-full px-4 py-2.5 text-sm text-foreground hover:bg-surface-hover transition-colors"
+                                                    >
+                                                        <span>{cat.name}</span>
+                                                        <span className="text-xs text-muted-foreground">{catCount}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                            {/* Par phase */}
+                                            {phaseScoreCounts.length > 0 && (
+                                                <>
+                                                    <p className="px-4 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider border-t border-b border-border">Par phase</p>
+                                                    {phaseScoreCounts.map((p) => (
+                                                        <button
+                                                            key={p.phase}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                if (window.confirm(`Supprimer les ${p.count} scores de la Phase ${p.phase} ?`)) {
+                                                                    router.delete(route('scores.reset', tournament.id), { data: { phase: p.phase }, preserveScroll: true });
+                                                                }
+                                                                setShowResetMenu(false);
+                                                            }}
+                                                            className="flex items-center justify-between w-full px-4 py-2.5 text-sm text-foreground hover:bg-surface-hover transition-colors"
+                                                        >
+                                                            <span>Phase {p.phase}</span>
+                                                            <span className="text-xs text-muted-foreground">{p.count}</span>
+                                                        </button>
+                                                    ))}
+                                                </>
+                                            )}
+                                            {/* Tout */}
                                             <div className="border-t border-border">
                                                 <button
                                                     type="button"
@@ -2664,7 +2693,7 @@ function ScoresTab({ tournament, players, holes, scores, categories, categoryPar
                                                     className="flex items-center justify-between w-full px-4 py-2.5 text-sm text-red-500 font-medium hover:bg-red-500/10 transition-colors"
                                                 >
                                                     <span>Tout supprimer</span>
-                                                    <span className="text-xs">{scores.length} scores</span>
+                                                    <span className="text-xs">{scores.length}</span>
                                                 </button>
                                             </div>
                                         </div>

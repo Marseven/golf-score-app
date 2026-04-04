@@ -353,14 +353,38 @@ class TournamentController extends Controller
     public function resetScores(Request $request, Tournament $tournament)
     {
         $phase = $request->input('phase');
+        $categoryId = $request->input('category_id');
+
+        if ($categoryId) {
+            $category = $tournament->categories()->find($categoryId);
+            $catName = $category ? $category->name : '?';
+            $playerIds = $tournament->players()->where('category_id', $categoryId)->pluck('id');
+
+            $query = Score::whereIn('player_id', $playerIds);
+            if ($phase) {
+                $query->where('phase', $phase);
+            }
+            $count = $query->count();
+            $query->delete();
+
+            // Delete penalties for this category
+            $penQuery = $tournament->penalties()->whereIn('player_id', $playerIds);
+            if ($phase) {
+                $penQuery->where('phase', $phase);
+            }
+            $penQuery->delete();
+
+            broadcast(new ScoreUpdated($tournament->id))->toOthers();
+
+            $msg = $phase ? "{$count} scores de {$catName} Phase {$phase} supprimés." : "{$count} scores de {$catName} supprimés.";
+            return back()->with('success', $msg);
+        }
 
         if ($phase) {
-            // Delete scores for specific phase only
             $count = $tournament->scores()->where('phase', $phase)->count();
             $tournament->scores()->where('phase', $phase)->delete();
             $tournament->penalties()->where('phase', $phase)->delete();
 
-            // Reset confirmations for groups of this phase
             $tournament->groups()->where('phase', $phase)->update([
                 'scores_confirmed_at' => null,
                 'confirmed_by_name' => null,
