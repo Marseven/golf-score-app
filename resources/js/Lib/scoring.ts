@@ -38,6 +38,8 @@ export interface CategoryData {
   name: string;
   course_id?: string | null;
   handicap_coefficient?: number;
+  max_phases?: number | null;
+  holes_per_round?: number;
 }
 
 export interface PenaltyData {
@@ -154,16 +156,22 @@ export function buildLeaderboard(
   }
 
   const entries: LeaderboardEntry[] = filtered.map((player) => {
-    const playerScores = scoresByPlayer.get(player.id) || [];
+    const allPlayerScores = scoresByPlayer.get(player.id) || [];
+
+    // Filter scores by category's max_phases
+    const cat = player.category_id
+      ? categoryMap.get(player.category_id)
+      : undefined;
+    const catMaxPhases = cat?.max_phases ?? undefined;
+    const playerScores = catMaxPhases
+      ? allPlayerScores.filter((s) => s.phase <= catMaxPhases)
+      : allPlayerScores;
+
     let totalStrokes = 0;
     let totalPar = 0;
     let stablefordPoints = 0;
     let netStablefordPoints = 0;
 
-    // Resolve handicap coefficient from category
-    const cat = player.category_id
-      ? categoryMap.get(player.category_id)
-      : undefined;
     const coefficient = cat?.handicap_coefficient ?? player.category?.handicap_coefficient ?? 1.0;
     const playingHandicap = Math.round(player.handicap * coefficient);
 
