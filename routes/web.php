@@ -64,6 +64,7 @@ Route::middleware('caddie-master')->prefix('caddie-master')->group(function () {
     Route::get('/dashboard', [CaddyMasterController::class, 'dashboard'])->name('caddie-master.dashboard');
     Route::get('/scoring/{group}', [CaddyMasterController::class, 'scoring'])->name('caddie-master.scoring');
     Route::post('/scoring/{group}/save', [CaddyMasterController::class, 'saveScores'])->name('caddie-master.save');
+    Route::post('/manual-scores', [CaddyMasterController::class, 'saveManualScores'])->name('caddie-master.manualScores');
     Route::post('/scoring/{group}/confirm', [CaddyMasterController::class, 'confirmScores'])->name('caddie-master.confirm');
 });
 Route::post('/caddie-master/logout', [CaddyMasterController::class, 'logout'])->name('caddie-master.logout');

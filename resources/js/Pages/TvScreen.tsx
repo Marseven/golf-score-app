@@ -119,8 +119,18 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
         category: p.category ?? categories.find((c) => c.id === p.category_id) ?? null,
     })), [players, categories]);
 
+    // Determine scoring mode for active category
+    const activeScoringMode = useMemo((): 'stroke' | 'stableford' => {
+        if (activeCategoryId) {
+            const cat = categories?.find((c) => c.id === activeCategoryId);
+            if (cat?.scoring_mode === 'stableford') return 'stableford';
+            if (cat?.scoring_mode === 'stroke_play') return 'stroke';
+        }
+        return tournament?.scoring_mode === 'stableford' ? 'stableford' : 'stroke';
+    }, [activeCategoryId, categories, tournament?.scoring_mode]);
+
     const fullLeaderboard = useMemo(() =>
-        buildLeaderboard(playersWithCategory, scores, holes, activeCategoryId ?? undefined, 'stroke', categories, undefined, undefined, categoryPars, penalties)
+        buildLeaderboard(playersWithCategory, scores, holes, activeCategoryId ?? undefined, activeScoringMode, categories, undefined, undefined, categoryPars, penalties)
             .filter((entry) => {
                 // Hide cut pro players entirely
                 if (entry.player.cut_after_phase != null && proCatIds.includes(entry.player.category_id ?? '')) return false;
@@ -159,7 +169,9 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
 
             const currentSlot = slots[r.catIdx];
             const proCats = d.categories.filter((c: any) => c.name?.toLowerCase().includes('pro')).map((c: any) => c.id);
-            const entries = buildLeaderboard(d.playersWithCategory, d.scores, d.holes, currentSlot?.filter ?? undefined, 'stroke', d.categories, undefined, undefined, d.categoryPars, d.penalties)
+            const slotCat = currentSlot?.filter ? d.categories.find((c: any) => c.id === currentSlot.filter) : null;
+            const slotMode: 'stroke' | 'stableford' = slotCat?.scoring_mode === 'stableford' ? 'stableford' : 'stroke';
+            const entries = buildLeaderboard(d.playersWithCategory, d.scores, d.holes, currentSlot?.filter ?? undefined, slotMode, d.categories, undefined, undefined, d.categoryPars, d.penalties)
                 .filter((e: any) => {
                     if (e.player.cut_after_phase != null && proCats.includes(e.player.category_id)) return false;
                     return true;
@@ -224,8 +236,26 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
     }, [scores, activeCategoryId, categories, players, tournament?.phase_count]);
 
     // Scores per phase per player: { playerId: { 1: {strokes, par}, 2: {strokes, par}, ... } }
+    // Category par lookup
+    const catParMap = useMemo(() => {
+        const map = new Map<string, number>();
+        if (categoryPars) {
+            for (const cp of categoryPars) {
+                map.set(`${cp.category_id}:${cp.hole_id}`, cp.par);
+            }
+        }
+        return map;
+    }, [categoryPars]);
+
+    const getEffectivePar = (holeId: string, holePar: number, categoryId: string | null): number => {
+        if (categoryId) {
+            const v = catParMap.get(`${categoryId}:${holeId}`);
+            if (v !== undefined) return v;
+        }
+        return holePar;
+    };
+
     const phaseScoresMap = useMemo(() => {
-        // Don't show phase columns if only 1 phase for the active category
         if (currentPhase <= 1) return null;
         if (tournament?.phase_count === 1) return null;
         const holeMap = new Map(holes.map((h) => [h.id, h]));
@@ -233,13 +263,15 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
         for (const s of scores) {
             const hole = holeMap.get(s.hole_id);
             if (!hole) continue;
+            const player = players.find((p) => p.id === s.player_id);
+            const par = getEffectivePar(s.hole_id, hole.par, player?.category_id ?? null);
             if (!map[s.player_id]) map[s.player_id] = {};
             if (!map[s.player_id][s.phase]) map[s.player_id][s.phase] = { strokes: 0, par: 0 };
             map[s.player_id][s.phase].strokes += s.strokes;
-            map[s.player_id][s.phase].par += hole.par;
+            map[s.player_id][s.phase].par += par;
         }
         return map;
-    }, [scores, holes, tournament?.phase_count]);
+    }, [scores, holes, tournament?.phase_count, players, catParMap]);
 
     // Number of holes per round for the active category
     const holesPerRound = useMemo(() => {
@@ -387,8 +419,8 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                                     ) : (
                                         <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-center border-r border-white/[0.06] px-2">Trous</span>
                                     )}
-                                    <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-center border-r border-white/[0.06] px-2">Total</span>
-                                    <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-right pl-3">Score</span>
+                                    <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-center border-r border-white/[0.06] px-2">{activeScoringMode === 'stableford' ? 'PH' : 'Total'}</span>
+                                    <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-right pl-3">{activeScoringMode === 'stableford' ? 'Points' : 'Score'}</span>
                                 </div>
                             );
                         })()}
@@ -484,15 +516,23 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                                             </div>
                                         )}
 
-                                        {/* Total */}
+                                        {/* Total / PH */}
                                         <div className="text-center border-r border-white/[0.06] px-2">
-                                            <span className={`text-xl font-black tabular-nums ${isWithdrawn ? 'text-white/15' : 'text-white'}`}>{isWithdrawn ? '—' : entry.holesPlayed > 0 ? entry.totalStrokes : '—'}</span>
+                                            {activeScoringMode === 'stableford' ? (
+                                                <span className="text-base text-white/40 tabular-nums">{isWithdrawn ? '—' : entry.playingHandicap || '—'}</span>
+                                            ) : (
+                                                <span className={`text-xl font-black tabular-nums ${isWithdrawn ? 'text-white/15' : 'text-white'}`}>{isWithdrawn ? '—' : entry.holesPlayed > 0 ? entry.totalStrokes : '—'}</span>
+                                            )}
                                         </div>
 
-                                        {/* Score to par */}
+                                        {/* Score */}
                                         <div className="flex flex-col items-end gap-0.5 pl-3">
                                             {isWithdrawn ? (
                                                 <span className="text-lg text-white/20 font-bold">—</span>
+                                            ) : activeScoringMode === 'stableford' ? (
+                                                <div className="inline-flex items-center justify-center min-w-[72px] px-4 py-2 rounded-xl text-2xl font-black tabular-nums bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/30">
+                                                    {entry.netStablefordPoints}
+                                                </div>
                                             ) : (
                                                 <ScoreBadge strokeToPar={entry.strokeToPar} holesPlayed={entry.holesPlayed} />
                                             )}

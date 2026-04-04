@@ -36,6 +36,8 @@ class PlayerController extends Controller
             'phone' => 'nullable|string|max:20',
             'nationality' => 'nullable|string|max:3',
             'is_withdrawn' => 'boolean',
+            'manual_points' => 'nullable|integer',
+            'playing_handicap' => 'nullable|numeric',
         ]);
 
         $player->update($validated);

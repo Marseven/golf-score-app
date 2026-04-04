@@ -91,10 +91,19 @@ class CaddyMasterController extends Controller
                 : 0;
         });
 
+        // Get players with manual scoring categories
+        $manualCategories = $tournament->categories()->whereNotNull('scoring_mode')->where('scoring_mode', 'stableford')->pluck('id');
+        $manualPlayers = $tournament->players()
+            ->whereIn('category_id', $manualCategories)
+            ->with('category')
+            ->orderBy('name')
+            ->get();
+
         return Inertia::render('CaddyMaster/Dashboard', [
             'tournament' => $tournament,
             'groups' => $groups,
             'holes' => $holes,
+            'manualPlayers' => $manualPlayers,
         ]);
     }
 
@@ -258,6 +267,25 @@ class CaddyMasterController extends Controller
         }
 
         return back()->with('success', 'Scores confirmés.');
+    }
+
+    public function saveManualScores(Request $request)
+    {
+        $validated = $request->validate([
+            'scores' => 'required|array',
+            'scores.*.player_id' => 'required|uuid|exists:players,id',
+            'scores.*.points' => 'required|integer|min:0',
+            'scores.*.playing_handicap' => 'nullable|numeric',
+        ]);
+
+        foreach ($validated['scores'] as $data) {
+            Player::where('id', $data['player_id'])->update([
+                'manual_points' => $data['points'],
+                'playing_handicap' => $data['playing_handicap'] ?? null,
+            ]);
+        }
+
+        return back()->with('success', count($validated['scores']) . ' scores enregistrés.');
     }
 
     public function logout(Request $request)

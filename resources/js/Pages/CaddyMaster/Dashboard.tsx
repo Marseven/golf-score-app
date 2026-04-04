@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Head, Link } from '@inertiajs/react';
-import { Shield, LogOut, Users, Target, CheckCircle2, Clock, Search } from 'lucide-react';
+import { Head, Link, router } from '@inertiajs/react';
+import { Shield, LogOut, Users, Target, CheckCircle2, Clock, Search, Save } from 'lucide-react';
 import { categoryColors, categoryDotColors } from '@/Lib/category-colors';
 import { countryCodeToFlag } from '@/Lib/countries';
 import type { Tournament, Group, Hole, Player, Category } from '@/types';
@@ -14,9 +14,10 @@ interface Props {
     tournament: Tournament;
     groups: DashboardGroup[];
     holes: Hole[];
+    manualPlayers?: Player[];
 }
 
-export default function CaddyMasterDashboard({ tournament, groups, holes }: Props) {
+export default function CaddyMasterDashboard({ tournament, groups, holes, manualPlayers }: Props) {
     const [activePhase, setActivePhase] = useState(() => {
         // Default to the highest phase that has groups with players
         const phases = [...new Set(groups.filter((g) => (g.players?.length ?? 0) > 0).map((g) => g.phase ?? 1))];
@@ -210,8 +211,113 @@ export default function CaddyMasterDashboard({ tournament, groups, holes }: Prop
                             <p className="text-sm text-muted-foreground">Aucun groupe pour cette sélection</p>
                         </div>
                     )}
+
+                    {/* Manual points entry for Stableford categories */}
+                    {(manualPlayers ?? []).length > 0 && <ManualScoresSection players={manualPlayers!} />}
                 </div>
             </div>
         </>
+    );
+}
+
+function ManualScoresSection({ players }: { players: Player[] }) {
+    const [editedScores, setEditedScores] = useState<Record<string, { points: number; ph: number }>>(() => {
+        const initial: Record<string, { points: number; ph: number }> = {};
+        players.forEach((p) => {
+            initial[p.id] = { points: p.manual_points ?? 0, ph: p.playing_handicap ?? 0 };
+        });
+        return initial;
+    });
+    const [saving, setSaving] = useState(false);
+
+    const hasChanges = players.some((p) => {
+        const e = editedScores[p.id];
+        return e && (e.points !== (p.manual_points ?? 0) || e.ph !== (p.playing_handicap ?? 0));
+    });
+
+    const handleSave = () => {
+        setSaving(true);
+        const scores = Object.entries(editedScores).map(([playerId, data]) => ({
+            player_id: playerId,
+            points: data.points,
+            playing_handicap: data.ph,
+        }));
+        router.post(route('caddie-master.manualScores'), { scores }, {
+            preserveScroll: true,
+            onFinish: () => setSaving(false),
+        });
+    };
+
+    // Group by category
+    const grouped = useMemo(() => {
+        const map = new Map<string, Player[]>();
+        players.forEach((p) => {
+            const catName = p.category?.name ?? 'Autre';
+            if (!map.has(catName)) map.set(catName, []);
+            map.get(catName)!.push(p);
+        });
+        return map;
+    }, [players]);
+
+    return (
+        <div className="mt-6">
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                        <Target className="w-5 h-5 text-amber-400" />
+                    </div>
+                    <div>
+                        <h2 className="text-base font-bold text-foreground">Saisie des points</h2>
+                        <p className="text-[10px] text-muted-foreground">Points totaux et PH par joueur</p>
+                    </div>
+                </div>
+                {hasChanges && (
+                    <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
+                        <Save className="w-4 h-4" />{saving ? '...' : 'Enregistrer'}
+                    </button>
+                )}
+            </div>
+
+            {[...grouped.entries()].map(([catName, catPlayers]) => (
+                <div key={catName} className="mb-4">
+                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">{catName}</h3>
+                    <div className="space-y-2">
+                        {catPlayers.sort((a, b) => (editedScores[b.id]?.points ?? 0) - (editedScores[a.id]?.points ?? 0)).map((player) => {
+                            const data = editedScores[player.id] ?? { points: 0, ph: 0 };
+                            return (
+                                <div key={player.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card border border-border">
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-foreground truncate">
+                                            {player.nationality ? countryCodeToFlag(player.nationality) + ' ' : ''}{player.name}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="text-center">
+                                            <label className="text-[9px] text-muted-foreground block">PH</label>
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                value={data.ph}
+                                                onChange={(e) => setEditedScores((prev) => ({ ...prev, [player.id]: { ...prev[player.id], ph: Number(e.target.value) } }))}
+                                                className="w-16 h-9 text-center text-sm font-medium bg-surface border border-border rounded-lg focus:border-primary focus:outline-none"
+                                            />
+                                        </div>
+                                        <div className="text-center">
+                                            <label className="text-[9px] text-amber-400 block font-bold">Points</label>
+                                            <input
+                                                type="number"
+                                                value={data.points}
+                                                onChange={(e) => setEditedScores((prev) => ({ ...prev, [player.id]: { ...prev[player.id], points: Number(e.target.value) } }))}
+                                                className="w-16 h-9 text-center text-sm font-bold bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-500 focus:border-amber-500 focus:outline-none"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            ))}
+        </div>
     );
 }

@@ -19,6 +19,7 @@ class CategoryController extends Controller
             'handicap_coefficient' => 'numeric|min:0|max:2',
             'max_phases' => 'nullable|integer|min:1|max:4',
             'holes_per_round' => 'integer|min:1|max:18',
+            'scoring_mode' => 'nullable|in:stroke_play,stableford',
         ]);
 
         $tournament->categories()->create($validated);
@@ -37,6 +38,7 @@ class CategoryController extends Controller
             'handicap_coefficient' => 'numeric|min:0|max:2',
             'max_phases' => 'nullable|integer|min:1|max:4',
             'holes_per_round' => 'integer|min:1|max:18',
+            'scoring_mode' => 'nullable|in:stroke_play,stableford',
         ]);
 
         $category->update($validated);

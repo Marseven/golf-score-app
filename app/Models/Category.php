@@ -38,6 +38,7 @@ class Category extends Model
         'handicap_coefficient',
         'max_phases',
         'holes_per_round',
+        'scoring_mode',
     ];
 
     protected function casts(): array

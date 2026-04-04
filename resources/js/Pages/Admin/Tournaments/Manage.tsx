@@ -655,7 +655,7 @@ function TournamentTab({ tournament, players, categories, cuts }: { tournament: 
 function CategoriesTab({ tournament, categories, courses }: { tournament: Tournament; categories: Category[]; courses: Course[] }) {
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const form = useForm({ name: '', short_name: '', color: 'blue', registration_fee: 0, course_id: courses[0]?.id ?? '', handicap_coefficient: 1.0, max_phases: null as number | null, holes_per_round: 18 });
+    const form = useForm({ name: '', short_name: '', color: 'blue', registration_fee: 0, course_id: courses[0]?.id ?? '', handicap_coefficient: 1.0, max_phases: null as number | null, holes_per_round: 18, scoring_mode: '' as string });
     const { confirm, confirmDialog } = useConfirm();
 
     const colorOptions = ['blue', 'pink', 'emerald', 'violet', 'amber', 'red', 'cyan', 'orange'];
@@ -664,7 +664,7 @@ function CategoriesTab({ tournament, categories, courses }: { tournament: Tourna
 
     const startEdit = (cat: Category) => {
         setEditingId(cat.id);
-        form.setData({ name: cat.name, short_name: cat.short_name, color: cat.color, registration_fee: cat.registration_fee ?? 0, course_id: cat.course_id ?? courses[0]?.id ?? '', handicap_coefficient: cat.handicap_coefficient ?? 1.0, max_phases: cat.max_phases ?? null, holes_per_round: cat.holes_per_round ?? 18 });
+        form.setData({ name: cat.name, short_name: cat.short_name, color: cat.color, registration_fee: cat.registration_fee ?? 0, course_id: cat.course_id ?? courses[0]?.id ?? '', handicap_coefficient: cat.handicap_coefficient ?? 1.0, max_phases: cat.max_phases ?? null, holes_per_round: cat.holes_per_round ?? 18, scoring_mode: cat.scoring_mode ?? '' });
         setShowForm(false);
     };
 
@@ -732,6 +732,14 @@ function CategoriesTab({ tournament, categories, courses }: { tournament: Tourna
                         {[9, 18].map((n) => (
                             <button key={n} type="button" onClick={() => form.setData('holes_per_round', n)} className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${form.data.holes_per_round === n ? 'bg-primary text-primary-foreground' : 'bg-surface border border-border text-muted-foreground hover:bg-surface-hover'}`}>{n}</button>
                         ))}
+                    </div>
+                </div>
+                <div>
+                    <label className="text-xs text-muted-foreground block mb-1">Mode de scoring</label>
+                    <div className="flex gap-1">
+                        <button type="button" onClick={() => form.setData('scoring_mode', '')} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${!form.data.scoring_mode ? 'bg-primary text-primary-foreground' : 'bg-surface border border-border text-muted-foreground hover:bg-surface-hover'}`}>Par défaut</button>
+                        <button type="button" onClick={() => form.setData('scoring_mode', 'stroke_play')} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${form.data.scoring_mode === 'stroke_play' ? 'bg-emerald-500 text-white' : 'bg-surface border border-border text-muted-foreground hover:bg-surface-hover'}`}>Stroke Play</button>
+                        <button type="button" onClick={() => form.setData('scoring_mode', 'stableford')} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${form.data.scoring_mode === 'stableford' ? 'bg-amber-500 text-white' : 'bg-surface border border-border text-muted-foreground hover:bg-surface-hover'}`}>Stableford</button>
                     </div>
                 </div>
                 <div>
@@ -2267,6 +2275,17 @@ function LeaderboardTab({ tournament, players, scores, holes, categories, catego
             }),
     [playersWithCategory, scores, holes, filterCategoryId, filterPhase, categories, categoryPars, penalties, tournament.score_aggregation]);
 
+    // Category par lookup
+    const lbCatParMap = useMemo(() => {
+        const map = new Map<string, number>();
+        if (categoryPars) {
+            for (const cp of categoryPars) {
+                map.set(`${cp.category_id}:${cp.hole_id}`, cp.par);
+            }
+        }
+        return map;
+    }, [categoryPars]);
+
     // Phase scores per player
     const phaseScoresMap = useMemo(() => {
         if (tournament.phase_count <= 1) return null;
@@ -2275,17 +2294,16 @@ function LeaderboardTab({ tournament, players, scores, holes, categories, catego
         for (const s of scores) {
             const hole = holeMap.get(s.hole_id);
             if (!hole) continue;
-            if (filterCategoryId) {
-                const player = players.find((p) => p.id === s.player_id);
-                if (player?.category_id !== filterCategoryId) continue;
-            }
+            const player = players.find((p) => p.id === s.player_id);
+            if (filterCategoryId && player?.category_id !== filterCategoryId) continue;
+            const par = lbCatParMap.get(`${player?.category_id}:${s.hole_id}`) ?? hole.par;
             if (!map[s.player_id]) map[s.player_id] = {};
             if (!map[s.player_id][s.phase]) map[s.player_id][s.phase] = { strokes: 0, par: 0 };
             map[s.player_id][s.phase].strokes += s.strokes;
-            map[s.player_id][s.phase].par += hole.par;
+            map[s.player_id][s.phase].par += par;
         }
         return map;
-    }, [scores, holes, tournament.phase_count, filterCategoryId, players]);
+    }, [scores, holes, tournament.phase_count, filterCategoryId, players, lbCatParMap]);
 
     const currentPhase = useMemo(() => {
         if (!scores.length) return 1;
@@ -2475,6 +2493,25 @@ function ScoresTab({ tournament, players, holes, scores, categories, categoryPar
         return groups;
     }, [holes, courses]);
 
+    // Category par lookup
+    const catParMap = useMemo(() => {
+        const map = new Map<string, number>();
+        if (categoryPars) {
+            for (const cp of categoryPars) {
+                map.set(`${cp.category_id}:${cp.hole_id}`, cp.par);
+            }
+        }
+        return map;
+    }, [categoryPars]);
+
+    const getEffectivePar = (holeId: string, holePar: number, categoryId: string | null): number => {
+        if (categoryId) {
+            const v = catParMap.get(`${categoryId}:${holeId}`);
+            if (v !== undefined) return v;
+        }
+        return holePar;
+    };
+
     // Determine effective course filter
     const effectiveCourseId = useMemo(() => {
         if (filterCourseId) return filterCourseId;
@@ -2497,7 +2534,9 @@ function ScoresTab({ tournament, players, holes, scores, categories, categoryPar
 
     const getHeaderPar = (holeNumber: number): number => {
         const hole = sortedHoles.find((h) => h.number === holeNumber);
-        return hole?.par ?? 0;
+        if (!hole) return 0;
+        if (filterCategoryId) return getEffectivePar(hole.id, hole.par, filterCategoryId);
+        return hole.par;
     };
 
     // For a player + hole number, find the matching hole_id from this course
@@ -2525,7 +2564,7 @@ function ScoresTab({ tournament, players, holes, scores, categories, categoryPar
         return map;
     }, [filteredScores]);
 
-    // Cumul per player (all phases)
+    // Cumul per player (all phases) using category pars
     const cumulByPlayer = useMemo(() => {
         if (tournament.phase_count <= 1) return null;
         const map: Record<string, { totalStrokes: number; totalPar: number; holesPlayed: number }> = {};
@@ -2533,13 +2572,15 @@ function ScoresTab({ tournament, players, holes, scores, categories, categoryPar
         for (const s of scores) {
             const hole = holeMap.get(s.hole_id);
             if (!hole) continue;
+            const player = players.find((p) => p.id === s.player_id);
+            const par = getEffectivePar(s.hole_id, hole.par, player?.category_id ?? null);
             if (!map[s.player_id]) map[s.player_id] = { totalStrokes: 0, totalPar: 0, holesPlayed: 0 };
             map[s.player_id].totalStrokes += s.strokes;
-            map[s.player_id].totalPar += hole.par;
+            map[s.player_id].totalPar += par;
             map[s.player_id].holesPlayed++;
         }
         return map;
-    }, [scores, holes, tournament.phase_count]);
+    }, [scores, holes, tournament.phase_count, players, catParMap]);
 
     const getScore = (playerId: string, holeId: string): number | undefined => {
         const key = `${playerId}:${holeId}`;
@@ -2894,7 +2935,7 @@ function ScoresTab({ tournament, players, holes, scores, categories, categoryPar
                                             return <td key={num} className={`px-0.5 py-1.5 text-center ${zoneBg}`}><span className="inline-block w-11 h-10 leading-10 text-muted-foreground/15 text-xs">–</span></td>;
                                         }
                                         const strokes = getScore(player.id, hole.id);
-                                        const par = hole.par;
+                                        const par = getEffectivePar(hole.id, hole.par, player.category_id);
                                         if (strokes !== undefined) {
                                             totalStrokes += strokes;
                                             totalPar += par;

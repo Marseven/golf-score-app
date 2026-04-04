@@ -64,6 +64,7 @@ export interface Category {
     handicap_coefficient?: number;
     max_phases?: number | null;
     holes_per_round?: number;
+    scoring_mode?: 'stroke_play' | 'stableford' | null;
 }
 
 export interface Hole {
@@ -133,6 +134,8 @@ export interface Player {
     registration_status: 'pending' | 'approved' | 'rejected';
     cut_after_phase: number | null;
     is_withdrawn: boolean;
+    manual_points: number | null;
+    playing_handicap: number | null;
     category?: Category | null;
     group?: Group | null;
     scores?: Score[];
