@@ -150,6 +150,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/admin/users/{user}', [UserController::class, 'update'])->name('admin.users.update');
         Route::delete('/admin/users/{user}', [UserController::class, 'destroy'])->name('admin.users.destroy');
         Route::post('/admin/users/{user}/regenerate-pin', [UserController::class, 'regeneratePin'])->name('admin.users.regeneratePin');
+
+        Route::get('/admin/logs', function () {
+            $logs = \App\Models\ActivityLog::orderBy('created_at', 'desc')->limit(500)->get();
+            return \Inertia\Inertia::render('Admin/Logs', ['logs' => $logs]);
+        })->name('admin.logs');
     });
 });
 

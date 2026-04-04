@@ -1,6 +1,6 @@
 import { PropsWithChildren, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { Settings, Wifi, WifiOff, Menu, LogOut, X, User, ExternalLink, Sun, Moon, Monitor, Cog, Users, Contact } from 'lucide-react';
+import { Settings, Wifi, WifiOff, Menu, LogOut, X, User, ExternalLink, Sun, Moon, Monitor, Cog, Users, Contact, Activity } from 'lucide-react';
 import { useTheme, type Theme } from '@/Hooks/useTheme';
 import logo from '@/assets/logo.png';
 
@@ -18,6 +18,7 @@ const adminNavItems: NavItem[] = [
     { title: 'Membres', routeName: 'admin.members', icon: Contact, adminOnly: true, matchPatterns: ['admin.members'] },
     { title: 'Utilisateurs', routeName: 'admin.users', icon: Users, adminOnly: true, matchPatterns: ['admin.users'] },
     { title: 'Paramètres', routeName: 'admin.settings', icon: Cog, adminOnly: true, matchPatterns: ['admin.settings', 'admin.settings.*'] },
+    { title: 'Journal', routeName: 'admin.logs', icon: Activity, adminOnly: true, matchPatterns: ['admin.logs'] },
     { title: 'Mon profil', routeName: 'profile.edit', icon: User, matchPatterns: ['profile.*'] },
 ];
 
