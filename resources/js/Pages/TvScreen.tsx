@@ -158,7 +158,12 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
             const d = dataRef.current;
 
             const currentSlot = slots[r.catIdx];
-            const entries = buildLeaderboard(d.playersWithCategory, d.scores, d.holes, currentSlot?.filter ?? undefined, 'stroke', d.categories, undefined, undefined, d.categoryPars, d.penalties);
+            const proCats = d.categories.filter((c: any) => c.name?.toLowerCase().includes('pro')).map((c: any) => c.id);
+            const entries = buildLeaderboard(d.playersWithCategory, d.scores, d.holes, currentSlot?.filter ?? undefined, 'stroke', d.categories, undefined, undefined, d.categoryPars, d.penalties)
+                .filter((e: any) => {
+                    if (e.player.cut_after_phase != null && proCats.includes(e.player.category_id)) return false;
+                    return true;
+                });
             const catTotalPages = Math.max(1, Math.ceil(entries.length / perPage));
 
             if (r.page + 1 < catTotalPages) {
