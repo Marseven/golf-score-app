@@ -102,6 +102,13 @@ class GroupController extends Controller
             Player::where('tournament_id', $tournament->id)
                 ->whereIn('id', $validated['player_ids'])
                 ->update(['group_id' => $group->id]);
+
+            // Also add to pivot table
+            $pivotData = [];
+            foreach ($validated['player_ids'] as $pid) {
+                $pivotData[$pid] = ['id' => (string) Str::uuid()];
+            }
+            $group->players()->syncWithoutDetaching($pivotData);
         }
 
         return back()->with('success', 'Groupe créé.');
@@ -169,14 +176,23 @@ class GroupController extends Controller
         }
         $group->markers()->sync($syncData);
 
-        // Unassign all current players from this group
-        $group->players()->update(['group_id' => null]);
+        // Unassign all current players from this group (legacy)
+        $group->playersLegacy()->update(['group_id' => null]);
 
         // Assign selected players
         if (! empty($validated['player_ids'])) {
             Player::where('tournament_id', $tournament->id)
                 ->whereIn('id', $validated['player_ids'])
                 ->update(['group_id' => $group->id]);
+
+            // Sync pivot table (keeps history of other phases)
+            $pivotData = [];
+            foreach ($validated['player_ids'] as $pid) {
+                $pivotData[$pid] = ['id' => (string) Str::uuid()];
+            }
+            $group->players()->sync($pivotData);
+        } else {
+            $group->players()->detach();
         }
 
         return back()->with('success', 'Groupe mis à jour.');
@@ -259,7 +275,8 @@ class GroupController extends Controller
 
     public function destroy(Tournament $tournament, Group $group)
     {
-        $group->players()->update(['group_id' => null]);
+        $group->playersLegacy()->update(['group_id' => null]);
+        $group->players()->detach();
         $group->delete();
 
         return back()->with('success', 'Groupe supprimé.');

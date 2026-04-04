@@ -130,11 +130,20 @@ class Group extends Model
     }
 
     /**
-     * Get the players in this group.
+     * Get the players in this group (legacy via group_id).
      */
-    public function players(): HasMany
+    public function playersLegacy(): HasMany
     {
         return $this->hasMany(Player::class);
+    }
+
+    /**
+     * Get the players in this group (via pivot table).
+     */
+    public function players(): BelongsToMany
+    {
+        return $this->belongsToMany(Player::class, 'group_player')
+            ->withTimestamps();
     }
 
     /**

@@ -7,7 +7,9 @@
       "Bash(npx tsc:*)",
       "Bash(mdfind \"kMDItemFSName == ''''*09.35*''''\")",
       "Bash(ls:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(grep -i \"group_player\\\\|group_id\\\\|INSERT INTO \\\\`groups\\\\`\\\\|INSERT INTO \\\\`players\\\\`\" \"/Users/primeclet/Downloads/u304906226_mgcscore \\(1\\).sql\")",
+      "Bash(grep \"INSERT INTO \\\\`players\\\\`\" \"/Users/primeclet/Downloads/u304906226_mgcscore \\(1\\).sql\" -A 100)"
     ]
   }
 }

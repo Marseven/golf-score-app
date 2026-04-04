@@ -456,28 +456,26 @@ class TournamentController extends Controller
                     ->where('phase', $nextPhase)
                     ->delete();
 
-                // Reassign players back to source group
+                // Reassign legacy group_id back to source group
                 $sourceCode = preg_replace('/^P\d+-/', '', $g->code);
                 $sourceGroupId = $sourceGroupByCode[$sourceCode] ?? null;
                 if ($sourceGroupId) {
                     Player::whereIn('id', $playerIds)->update(['group_id' => $sourceGroupId]);
                 }
 
-                // Delete markers pivot and group
+                // Detach players from pivot, markers, and delete group
+                $g->players()->detach();
                 $g->markers()->detach();
                 $g->delete();
             }
         }
 
-        // Get groups that currently have players assigned (regardless of phase label)
-        // Players are always in their most recent group
+        // Get groups from the source phase that have players
         $currentGroups = $tournament->groups()
+            ->where('phase', $fromPhase)
             ->whereHas('players')
             ->with(['players', 'markers'])
-            ->orderBy('phase')
-            ->get()
-            // Deduplicate: only keep one group per player (the one they're actually in)
-            ->unique('id');
+            ->get();
 
         $createdGroups = 0;
         $totalPlayers = 0;
@@ -516,10 +514,14 @@ class TournamentController extends Controller
                 ]);
             }
 
-            // Assign qualified players to new group
+            // Assign qualified players to new group via pivot (keep them in old group too)
+            $pivotData = [];
             foreach ($qualifiedPlayers as $player) {
+                $pivotData[$player->id] = ['id' => (string) \Illuminate\Support\Str::uuid()];
+                // Also update legacy group_id to the newest group
                 $player->update(['group_id' => $newGroup->id]);
             }
+            $newGroup->players()->attach($pivotData);
 
             $createdGroups++;
             $totalPlayers += $qualifiedPlayers->count();
