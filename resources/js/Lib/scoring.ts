@@ -158,14 +158,21 @@ export function buildLeaderboard(
   const entries: LeaderboardEntry[] = filtered.map((player) => {
     const allPlayerScores = scoresByPlayer.get(player.id) || [];
 
-    // Filter scores by category's max_phases
+    // Filter scores by category's max_phases and holes_per_round
     const cat = player.category_id
       ? categoryMap.get(player.category_id)
       : undefined;
     const catMaxPhases = cat?.max_phases ?? undefined;
-    const playerScores = catMaxPhases
-      ? allPlayerScores.filter((s) => s.phase <= catMaxPhases)
-      : allPlayerScores;
+    const catHolesPerRound = cat?.holes_per_round ?? 18;
+    const playerScores = allPlayerScores.filter((s) => {
+      if (catMaxPhases && s.phase > catMaxPhases) return false;
+      // Filter out holes beyond holes_per_round
+      if (catHolesPerRound < 18) {
+        const hole = holeMap.get(s.hole_id);
+        if (hole && hole.number > catHolesPerRound) return false;
+      }
+      return true;
+    });
 
     let totalStrokes = 0;
     let totalPar = 0;
@@ -208,11 +215,16 @@ export function buildLeaderboard(
     };
   });
 
-  entries.sort((a, b) =>
-    mode === "stroke"
-      ? a.strokeToPar - b.strokeToPar
-      : b.netStablefordPoints - a.netStablefordPoints
-  );
+  entries.sort((a, b) => {
+    // Players without scores go to the bottom
+    if (a.holesPlayed === 0 && b.holesPlayed > 0) return 1;
+    if (a.holesPlayed > 0 && b.holesPlayed === 0) return -1;
+
+    if (mode === "stroke") {
+      return a.strokeToPar - b.strokeToPar;
+    }
+    return b.netStablefordPoints - a.netStablefordPoints;
+  });
 
   return entries;
 }
