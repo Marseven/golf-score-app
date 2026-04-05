@@ -993,7 +993,7 @@ function PlayersTab({ tournament, players, categories, groups }: { tournament: T
 }
 
 // --- Groups Tab (enriched with marker, PIN, QR code, phase filtering) ---
-function GroupsTab({ tournament, groups, markers, players, categories, courses }: { tournament: Tournament; groups: Group[]; markers: MarkerUser[]; players: Player[]; categories: Category[]; courses: Course[] }) {
+function GroupsTab({ tournament, groups, markers, players, categories, courses, scores }: { tournament: Tournament; groups: Group[]; markers: MarkerUser[]; players: Player[]; categories: Category[]; courses: Course[]; scores: Score[] }) {
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [copiedToken, setCopiedToken] = useState<string | null>(null);
@@ -1012,8 +1012,15 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses }
     const activeCategory = categories.find((c) => c.id === activeCategoryId);
     const catMaxPhases = activeCategory?.max_phases ?? tournament.phase_count;
     const catLatestPhase = Math.max(...groups.filter((g) => g.category_id === activeCategoryId).map((g) => g.phase ?? 1), 1);
-    // Phases older than (latestPhase - 1) are disabled
-    const isPhaseDisabled = (phase: number) => phase < catLatestPhase - 1;
+    // Check if the latest phase has scores entered
+    const latestPhasePlayerIds = groups.filter((g) => g.category_id === activeCategoryId && (g.phase ?? 1) === catLatestPhase).flatMap((g) => g.players?.map((p) => p.id) ?? []);
+    const latestPhaseHasScores = scores.some((s) => latestPhasePlayerIds.includes(s.player_id) && s.phase === catLatestPhase);
+    // If latest phase has scores, disable ALL previous phases. Otherwise only disable phases 2+ behind.
+    const isPhaseDisabled = (phase: number) => {
+        if (phase === catLatestPhase) return false;
+        if (latestPhaseHasScores) return true;
+        return phase < catLatestPhase - 1;
+    };
     const markerForm = useForm({ name: '', email: '', password: '', hole_start: 1, hole_end: 18 });
 
     const resetForm = () => { form.reset(); form.setData('phase', activePhase); form.setData('category_id', activeCategoryId); setShowForm(false); setEditingId(null); };
@@ -3311,7 +3318,7 @@ export default function TournamentManage({ tournament, courses, categories, play
             {activeTab === 'tournament' && <TournamentTab tournament={tournament} players={players} categories={categories} cuts={cuts} />}
             {activeTab === 'categories' && <CategoriesTab tournament={tournament} categories={categories} courses={courses} />}
             {activeTab === 'players' && <PlayersTab tournament={tournament} players={players} categories={categories} groups={groups} />}
-            {activeTab === 'groups' && <GroupsTab tournament={tournament} groups={groups} markers={markers} players={players} categories={categories} courses={courses} />}
+            {activeTab === 'groups' && <GroupsTab tournament={tournament} groups={groups} markers={markers} players={players} categories={categories} courses={courses} scores={scores} />}
             {activeTab === 'course' && <CourseTab tournament={tournament} courses={courses} holes={holes} categories={categories} categoryPars={categoryPars} />}
             {activeTab === 'scores' && <ScoresTab tournament={tournament} players={players} holes={holes} scores={scores} categories={categories} categoryPars={categoryPars} courses={courses} penalties={penalties} />}
             {activeTab === 'leaderboard' && <LeaderboardTab tournament={tournament} players={players} scores={scores} holes={holes} categories={categories} categoryPars={categoryPars} penalties={penalties} cuts={cuts} />}
