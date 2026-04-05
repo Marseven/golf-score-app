@@ -1293,6 +1293,30 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses, 
                         </button>
                     )}
 
+                    {/* Vider tous les groupes de cette phase */}
+                    {filteredGroups.some((g) => g.players && g.players.length > 0) && (
+                        <button
+                            type="button"
+                            onClick={async () => {
+                                const playerCount = filteredGroups.reduce((sum, g) => sum + (g.players?.length ?? 0), 0);
+                                const ok = await confirm({
+                                    title: `Vider les groupes J${activePhase} — ${activeCategory?.name} ?`,
+                                    message: `Retirer tous les joueurs (${playerCount}) des ${filteredGroups.length} groupe(s) de la J${activePhase}.\n\nLes groupes restent, seuls les joueurs sont retirés.`,
+                                    confirmLabel: 'Vider',
+                                    variant: 'warning',
+                                });
+                                if (ok) {
+                                    router.post(route('tournaments.emptyPhaseGroups', tournament.id), { phase: activePhase, category_id: activeCategoryId }, {
+                                        preserveScroll: true,
+                                    });
+                                }
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-xl text-xs font-medium hover:bg-amber-500/20 transition-colors"
+                        >
+                            <X className="w-3.5 h-3.5" />Vider J{activePhase}
+                        </button>
+                    )}
+
                     {/* Supprimer tous les groupes de cette phase */}
                     {filteredGroups.length > 0 && (
                         <button

@@ -121,6 +121,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('penalties', [TournamentController::class, 'storePenalty'])->name('penalties.store');
         Route::post('groups/{group}/regenerate-pin', [GroupController::class, 'regeneratePin'])->name('groups.regeneratePin');
         Route::post('prepare-next-phase', [TournamentController::class, 'prepareNextPhase'])->name('tournaments.prepareNextPhase');
+        Route::post('empty-phase-groups', [TournamentController::class, 'emptyPhaseGroups'])->name('tournaments.emptyPhaseGroups');
         Route::delete('delete-phase-groups', [TournamentController::class, 'deletePhaseGroups'])->name('tournaments.deletePhaseGroups');
         Route::delete('penalties/{penalty}', [TournamentController::class, 'destroyPenalty'])->name('penalties.destroy');
     });

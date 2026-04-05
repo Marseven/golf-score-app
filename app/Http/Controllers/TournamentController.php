@@ -593,6 +593,34 @@ class TournamentController extends Controller
         return back()->with('success', $message.'.');
     }
 
+    public function emptyPhaseGroups(Request $request, Tournament $tournament)
+    {
+        $validated = $request->validate([
+            'phase' => 'required|integer|min:1',
+            'category_id' => 'required|uuid|exists:categories,id',
+        ]);
+
+        $phase = $validated['phase'];
+        $categoryId = $validated['category_id'];
+        $category = $tournament->categories()->find($categoryId);
+
+        $groups = $tournament->groups()
+            ->where('phase', $phase)
+            ->where('category_id', $categoryId)
+            ->with('players')
+            ->get();
+
+        $totalDetached = 0;
+        foreach ($groups as $group) {
+            $totalDetached += $group->players->count();
+            $group->players()->detach();
+        }
+
+        $catName = $category?->name ?? '';
+
+        return back()->with('success', "J{$phase} {$catName} : {$totalDetached} joueur(s) retirés de {$groups->count()} groupe(s).");
+    }
+
     public function deletePhaseGroups(Request $request, Tournament $tournament)
     {
         $validated = $request->validate([
