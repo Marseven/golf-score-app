@@ -134,7 +134,8 @@ export interface Player {
     registration_status: 'pending' | 'approved' | 'rejected';
     cut_after_phase: number | null;
     is_withdrawn: boolean;
-    manual_points: number | null;
+    manual_points_r1: number | null;
+    manual_points_r2: number | null;
     playing_handicap: number | null;
     category?: Category | null;
     group?: Group | null;

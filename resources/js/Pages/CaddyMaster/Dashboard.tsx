@@ -221,10 +221,10 @@ export default function CaddyMasterDashboard({ tournament, groups, holes, manual
 }
 
 function ManualScoresSection({ players }: { players: Player[] }) {
-    const [editedScores, setEditedScores] = useState<Record<string, { points: number; ph: number }>>(() => {
-        const initial: Record<string, { points: number; ph: number }> = {};
+    const [editedScores, setEditedScores] = useState<Record<string, { r1: number; r2: number; ph: number }>>(() => {
+        const initial: Record<string, { r1: number; r2: number; ph: number }> = {};
         players.forEach((p) => {
-            initial[p.id] = { points: p.manual_points ?? 0, ph: p.playing_handicap ?? 0 };
+            initial[p.id] = { r1: p.manual_points_r1 ?? 0, r2: p.manual_points_r2 ?? 0, ph: p.playing_handicap ?? 0 };
         });
         return initial;
     });
@@ -232,14 +232,15 @@ function ManualScoresSection({ players }: { players: Player[] }) {
 
     const hasChanges = players.some((p) => {
         const e = editedScores[p.id];
-        return e && (e.points !== (p.manual_points ?? 0) || e.ph !== (p.playing_handicap ?? 0));
+        return e && (e.r1 !== (p.manual_points_r1 ?? 0) || e.r2 !== (p.manual_points_r2 ?? 0) || e.ph !== (p.playing_handicap ?? 0));
     });
 
     const handleSave = () => {
         setSaving(true);
         const scores = Object.entries(editedScores).map(([playerId, data]) => ({
             player_id: playerId,
-            points: data.points,
+            points_r1: data.r1,
+            points_r2: data.r2,
             playing_handicap: data.ph,
         }));
         router.post(route('caddie-master.manualScores'), { scores }, {
@@ -282,8 +283,9 @@ function ManualScoresSection({ players }: { players: Player[] }) {
                 <div key={catName} className="mb-4">
                     <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">{catName}</h3>
                     <div className="space-y-2">
-                        {catPlayers.sort((a, b) => (editedScores[b.id]?.points ?? 0) - (editedScores[a.id]?.points ?? 0)).map((player) => {
-                            const data = editedScores[player.id] ?? { points: 0, ph: 0 };
+                        {catPlayers.sort((a, b) => ((editedScores[b.id]?.r1 ?? 0) + (editedScores[b.id]?.r2 ?? 0)) - ((editedScores[a.id]?.r1 ?? 0) + (editedScores[a.id]?.r2 ?? 0))).map((player) => {
+                            const data = editedScores[player.id] ?? { r1: 0, r2: 0, ph: 0 };
+                            const total = data.r1 + data.r2;
                             return (
                                 <div key={player.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-card border border-border">
                                     <div className="flex-1 min-w-0">
@@ -299,17 +301,30 @@ function ManualScoresSection({ players }: { players: Player[] }) {
                                                 step="0.1"
                                                 value={data.ph}
                                                 onChange={(e) => setEditedScores((prev) => ({ ...prev, [player.id]: { ...prev[player.id], ph: Number(e.target.value) } }))}
-                                                className="w-16 h-9 text-center text-sm font-medium bg-surface border border-border rounded-lg focus:border-primary focus:outline-none"
+                                                className="w-14 h-9 text-center text-xs font-medium bg-surface border border-border rounded-lg focus:border-primary focus:outline-none"
                                             />
                                         </div>
                                         <div className="text-center">
-                                            <label className="text-[9px] text-amber-400 block font-bold">Points</label>
+                                            <label className="text-[9px] text-blue-400 block font-bold">R1</label>
                                             <input
                                                 type="number"
-                                                value={data.points}
-                                                onChange={(e) => setEditedScores((prev) => ({ ...prev, [player.id]: { ...prev[player.id], points: Number(e.target.value) } }))}
-                                                className="w-16 h-9 text-center text-sm font-bold bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-500 focus:border-amber-500 focus:outline-none"
+                                                value={data.r1}
+                                                onChange={(e) => setEditedScores((prev) => ({ ...prev, [player.id]: { ...prev[player.id], r1: Number(e.target.value) } }))}
+                                                className="w-14 h-9 text-center text-xs font-bold bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-500 focus:border-blue-500 focus:outline-none"
                                             />
+                                        </div>
+                                        <div className="text-center">
+                                            <label className="text-[9px] text-violet-400 block font-bold">R2</label>
+                                            <input
+                                                type="number"
+                                                value={data.r2}
+                                                onChange={(e) => setEditedScores((prev) => ({ ...prev, [player.id]: { ...prev[player.id], r2: Number(e.target.value) } }))}
+                                                className="w-14 h-9 text-center text-xs font-bold bg-violet-500/10 border border-violet-500/20 rounded-lg text-violet-500 focus:border-violet-500 focus:outline-none"
+                                            />
+                                        </div>
+                                        <div className="text-center">
+                                            <label className="text-[9px] text-amber-400 block font-bold">Total</label>
+                                            <span className="inline-block w-14 h-9 leading-9 text-center text-sm font-black text-amber-400">{total}</span>
                                         </div>
                                     </div>
                                 </div>

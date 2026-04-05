@@ -4,7 +4,8 @@ export interface PlayerData {
   handicap: number;
   nationality?: string | null;
   is_withdrawn?: boolean;
-  manual_points?: number | null;
+  manual_points_r1?: number | null;
+  manual_points_r2?: number | null;
   playing_handicap?: number | null;
   category_id: string | null;
   cut_after_phase?: number | null;
@@ -203,29 +204,34 @@ export function buildLeaderboard(
     const penaltyStrokes = penaltiesByPlayer.get(player.id) ?? 0;
     totalStrokes += penaltyStrokes;
 
-    // Use manual points if category is stableford and player has manual_points
+    // Use manual points if category is stableford and player has manual_points_r1/r2
     const catScoringMode = cat?.scoring_mode;
-    const useManualPoints = catScoringMode === 'stableford' && player.manual_points != null;
+    const manualR1 = player.manual_points_r1 ?? 0;
+    const manualR2 = player.manual_points_r2 ?? 0;
+    const manualTotal = manualR1 + manualR2;
+    const hasManualPoints = catScoringMode === 'stableford' && (player.manual_points_r1 != null || player.manual_points_r2 != null);
 
     return {
       player,
       categoryName: player.category?.name ?? "",
       categoryColor: player.category?.color ?? "",
-      totalStrokes: useManualPoints ? 0 : totalStrokes,
-      totalPar: useManualPoints ? 0 : totalPar,
-      strokeToPar: useManualPoints ? 0 : totalStrokes - totalPar,
-      stablefordPoints: useManualPoints ? player.manual_points! : stablefordPoints,
-      netStablefordPoints: useManualPoints ? player.manual_points! : Math.max(0, netStablefordPoints - penaltyStrokes),
-      playingHandicap: useManualPoints ? (player.playing_handicap ?? playingHandicap) : playingHandicap,
-      holesPlayed: useManualPoints ? 1 : playerScores.length, // 1 = has data
-      penaltyStrokes: useManualPoints ? 0 : penaltyStrokes,
+      totalStrokes: hasManualPoints ? 0 : totalStrokes,
+      totalPar: hasManualPoints ? 0 : totalPar,
+      strokeToPar: hasManualPoints ? 0 : totalStrokes - totalPar,
+      stablefordPoints: hasManualPoints ? manualTotal : stablefordPoints,
+      netStablefordPoints: hasManualPoints ? manualTotal : Math.max(0, netStablefordPoints - penaltyStrokes),
+      playingHandicap: hasManualPoints ? (player.playing_handicap ?? playingHandicap) : playingHandicap,
+      holesPlayed: hasManualPoints ? 1 : playerScores.length,
+      penaltyStrokes: hasManualPoints ? 0 : penaltyStrokes,
     };
   });
 
   entries.sort((a, b) => {
     // Players without scores/points go to the bottom
-    const aHasData = a.holesPlayed > 0 || (a.player.manual_points != null && a.player.manual_points > 0);
-    const bHasData = b.holesPlayed > 0 || (b.player.manual_points != null && b.player.manual_points > 0);
+    const aManual = (a.player.manual_points_r1 ?? 0) + (a.player.manual_points_r2 ?? 0);
+    const bManual = (b.player.manual_points_r1 ?? 0) + (b.player.manual_points_r2 ?? 0);
+    const aHasData = a.holesPlayed > 0 || aManual > 0;
+    const bHasData = b.holesPlayed > 0 || bManual > 0;
     if (!aHasData && bHasData) return 1;
     if (aHasData && !bHasData) return -1;
 

@@ -274,13 +274,15 @@ class CaddyMasterController extends Controller
         $validated = $request->validate([
             'scores' => 'required|array',
             'scores.*.player_id' => 'required|uuid|exists:players,id',
-            'scores.*.points' => 'required|integer|min:0',
+            'scores.*.points_r1' => 'nullable|integer|min:0',
+            'scores.*.points_r2' => 'nullable|integer|min:0',
             'scores.*.playing_handicap' => 'nullable|numeric',
         ]);
 
         foreach ($validated['scores'] as $data) {
             Player::where('id', $data['player_id'])->update([
-                'manual_points' => $data['points'],
+                'manual_points_r1' => $data['points_r1'] ?? 0,
+                'manual_points_r2' => $data['points_r2'] ?? 0,
                 'playing_handicap' => $data['playing_handicap'] ?? null,
             ]);
         }

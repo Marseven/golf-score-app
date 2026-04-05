@@ -446,27 +446,49 @@ class TournamentController extends Controller
     {
         $validated = $request->validate([
             'from_phase' => 'required|integer|min:1',
+            'category_id' => 'nullable|uuid|exists:categories,id',
         ]);
 
         $fromPhase = $validated['from_phase'];
         $nextPhase = $fromPhase + 1;
+        $categoryId = $validated['category_id'] ?? null;
 
-        if ($nextPhase > $tournament->phase_count) {
-            return back()->with('error', 'Le tournoi n\'a que '.$tournament->phase_count.' phases.');
+        // Check phase limit: use category max_phases if filtering by category, else tournament phase_count
+        $maxPhases = $tournament->phase_count;
+        $categoryName = null;
+        if ($categoryId) {
+            $category = $tournament->categories()->find($categoryId);
+            if ($category) {
+                $maxPhases = $category->max_phases ?? $tournament->phase_count;
+                $categoryName = $category->name;
+            }
         }
 
-        // Check if next phase groups already exist
-        $existingNextGroups = $tournament->groups()->where('phase', $nextPhase)->count();
+        if ($nextPhase > $maxPhases) {
+            $label = $categoryName ? "la catégorie {$categoryName}" : 'le tournoi';
+            return back()->with('error', "{$label} n'a que {$maxPhases} phase(s).");
+        }
+
+        // Build query scoped to category if specified
+        $scopeCategory = function ($query) use ($categoryId) {
+            if ($categoryId) {
+                $query->where('category_id', $categoryId);
+            }
+            return $query;
+        };
+
+        // Check if next phase groups already exist (for this category)
+        $existingNextGroups = $scopeCategory($tournament->groups()->where('phase', $nextPhase))->count();
         if ($existingNextGroups > 0) {
             if (!$request->boolean('force')) {
                 return back()->with('error', 'PHASE_EXISTS:'.$nextPhase.':'.$existingNextGroups);
             }
 
-            // Force: delete next phase groups
-            $nextPhaseGroups = $tournament->groups()->where('phase', $nextPhase)->with('players')->get();
+            // Force: delete next phase groups (for this category)
+            $nextPhaseGroups = $scopeCategory($tournament->groups()->where('phase', $nextPhase))->with('players')->get();
 
             // Build source group mapping by stripping phase prefix from code
-            $sourceGroups = $tournament->groups()->where('phase', $fromPhase)->get();
+            $sourceGroups = $scopeCategory($tournament->groups()->where('phase', $fromPhase))->get();
             $sourceGroupByCode = [];
             foreach ($sourceGroups as $sg) {
                 $sourceGroupByCode[$sg->code] = $sg->id;
@@ -494,9 +516,9 @@ class TournamentController extends Controller
             }
         }
 
-        // Get groups from the source phase that have players
-        $currentGroups = $tournament->groups()
-            ->where('phase', $fromPhase)
+        // Get groups from the source phase that have players (for this category)
+        $currentGroups = $scopeCategory($tournament->groups()
+            ->where('phase', $fromPhase))
             ->whereHas('players')
             ->with(['players', 'markers'])
             ->get();
@@ -551,7 +573,8 @@ class TournamentController extends Controller
             $totalPlayers += $qualifiedPlayers->count();
         }
 
-        $message = "Phase {$nextPhase} préparée : {$createdGroups} groupe(s), {$totalPlayers} joueur(s)";
+        $label = $categoryName ? " ({$categoryName})" : '';
+        $message = "Phase {$nextPhase}{$label} préparée : {$createdGroups} groupe(s), {$totalPlayers} joueur(s)";
         if ($eliminatedPlayers > 0) {
             $message .= ", {$eliminatedPlayers} éliminé(s) par le cut";
         }

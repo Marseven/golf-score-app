@@ -402,15 +402,24 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                     <div className="h-full flex flex-col" key={animKey}>
                         {/* Column headers */}
                         {(() => {
-                            const headerGridCols = phaseScoresMap
-                                ? `80px 1fr 70px ${Array.from({ length: currentPhase }, () => '56px').join(' ')} 70px 100px`
-                                : '80px 1fr 70px 70px 70px 100px';
+                            const stablefordGrid = '80px 1fr 70px 56px 56px 56px 70px 100px';
+                            const headerGridCols = activeScoringMode === 'stableford'
+                                ? stablefordGrid
+                                : phaseScoresMap
+                                    ? `80px 1fr 70px ${Array.from({ length: currentPhase }, () => '56px').join(' ')} 70px 100px`
+                                    : '80px 1fr 70px 70px 70px 100px';
                             return (
                                 <div className="grid items-center px-6 py-3 border-b border-white/[0.08]" style={{ gridTemplateColumns: headerGridCols }}>
                                     <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] border-r border-white/[0.06] pr-3">Pos</span>
                                     <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] border-r border-white/[0.06] px-3">Joueur</span>
                                     <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-center border-r border-white/[0.06] px-2">Nat.</span>
-                                    {phaseScoresMap ? (
+                                    {activeScoringMode === 'stableford' ? (
+                                        <>
+                                            <span className="text-[10px] font-bold text-white/25 uppercase tracking-wider text-center border-r border-white/[0.06] px-1">PH</span>
+                                            <span className="text-[10px] font-bold text-blue-400/50 uppercase tracking-wider text-center border-r border-white/[0.06] px-1">R1</span>
+                                            <span className="text-[10px] font-bold text-violet-400/50 uppercase tracking-wider text-center border-r border-white/[0.06] px-1">R2</span>
+                                        </>
+                                    ) : phaseScoresMap ? (
                                         <>
                                             {Array.from({ length: currentPhase }, (_, i) => (
                                                 <span key={i} className="text-[10px] font-bold text-amber-400/40 uppercase tracking-wider text-center border-r border-white/[0.06] px-1">R{i + 1}</span>
@@ -419,7 +428,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                                     ) : (
                                         <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-center border-r border-white/[0.06] px-2">Trous</span>
                                     )}
-                                    <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-center border-r border-white/[0.06] px-2">{activeScoringMode === 'stableford' ? 'PH' : 'Total'}</span>
+                                    <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-center border-r border-white/[0.06] px-2">{activeScoringMode === 'stableford' ? 'Total' : 'Total'}</span>
                                     <span className="text-[10px] font-bold text-white/25 uppercase tracking-[0.2em] text-right pl-3">{activeScoringMode === 'stableford' ? 'Points' : 'Score'}</span>
                                 </div>
                             );
@@ -457,7 +466,7 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                                     )}
                                     <div
                                         className={`tv-row grid items-center px-6 py-3 border-b border-white/[0.04] transition-colors ${isWithdrawn ? 'opacity-40' : isCut ? 'opacity-40' : isLeader ? 'tv-leader-glow' : isTop3 ? 'bg-white/[0.02]' : 'hover:bg-white/[0.02]'}`}
-                                        style={{ gridTemplateColumns: phaseScoresMap ? `80px 1fr 70px ${Array.from({ length: currentPhase }, () => '56px').join(' ')} 70px 100px` : '80px 1fr 70px 70px 70px 100px', animationDelay: `${idx * 0.06}s` }}
+                                        style={{ gridTemplateColumns: activeScoringMode === 'stableford' ? '80px 1fr 70px 56px 56px 56px 70px 100px' : phaseScoresMap ? `80px 1fr 70px ${Array.from({ length: currentPhase }, () => '56px').join(' ')} 70px 100px` : '80px 1fr 70px 70px 70px 100px', animationDelay: `${idx * 0.06}s` }}
                                     >
                                         {/* Position */}
                                         <div className="border-r border-white/[0.06] pr-3">
@@ -490,8 +499,20 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                                             <span className="text-2xl">{entry.player.nationality ? countryCodeToFlag(entry.player.nationality) : ''}</span>
                                         </div>
 
-                                        {/* Phase scores / Holes */}
-                                        {isWithdrawn ? (
+                                        {/* Phase scores / Holes / Stableford R1+R2 */}
+                                        {activeScoringMode === 'stableford' ? (
+                                            <>
+                                                <div className="text-center border-r border-white/[0.06] px-1">
+                                                    <span className="text-sm text-white/40 tabular-nums">{isWithdrawn ? '—' : entry.playingHandicap || '—'}</span>
+                                                </div>
+                                                <div className="text-center border-r border-white/[0.06] px-1">
+                                                    <span className="text-sm font-bold text-blue-400 tabular-nums">{isWithdrawn ? '—' : entry.player.manual_points_r1 ?? '—'}</span>
+                                                </div>
+                                                <div className="text-center border-r border-white/[0.06] px-1">
+                                                    <span className="text-sm font-bold text-violet-400 tabular-nums">{isWithdrawn ? '—' : entry.player.manual_points_r2 ?? '—'}</span>
+                                                </div>
+                                            </>
+                                        ) : isWithdrawn ? (
                                             phaseScoresMap ? (
                                                 <>{Array.from({ length: currentPhase }, (_, i) => <div key={i} className="text-center border-r border-white/[0.06] px-1"><span className="text-sm text-white/15">—</span></div>)}</>
                                             ) : (
@@ -516,10 +537,10 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                                             </div>
                                         )}
 
-                                        {/* Total / PH */}
+                                        {/* Total */}
                                         <div className="text-center border-r border-white/[0.06] px-2">
                                             {activeScoringMode === 'stableford' ? (
-                                                <span className="text-base text-white/40 tabular-nums">{isWithdrawn ? '—' : entry.playingHandicap || '—'}</span>
+                                                <span className="text-xl font-black text-amber-400 tabular-nums">{isWithdrawn ? '—' : entry.netStablefordPoints || '—'}</span>
                                             ) : (
                                                 <span className={`text-xl font-black tabular-nums ${isWithdrawn ? 'text-white/15' : 'text-white'}`}>{isWithdrawn ? '—' : entry.holesPlayed > 0 ? entry.totalStrokes : '—'}</span>
                                             )}

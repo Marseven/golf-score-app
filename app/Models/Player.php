@@ -42,7 +42,8 @@ class Player extends Model
         'registration_status',
         'cut_after_phase',
         'is_withdrawn',
-        'manual_points',
+        'manual_points_r1',
+        'manual_points_r2',
         'playing_handicap',
     ];
 
