@@ -181,8 +181,8 @@ class TournamentController extends Controller
             'score_aggregation' => 'in:cumulative,separate',
             'rules' => 'nullable|string',
             'registration_open' => 'boolean',
-            'registration_fee' => 'numeric|min:0',
-            'registration_currency' => 'string|max:3',
+            'registration_fee' => 'nullable|numeric|min:0',
+            'registration_currency' => 'nullable|string|max:3',
             'caddie_master_pin' => 'nullable|string|digits:6|unique:tournaments,caddie_master_pin,'.$tournament->id,
         ]);
 

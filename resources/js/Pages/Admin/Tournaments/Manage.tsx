@@ -310,6 +310,7 @@ function TournamentTab({ tournament, players, categories, cuts }: { tournament: 
         score_aggregation: tournament.score_aggregation,
         rules: tournament.rules || '',
         registration_open: tournament.registration_open,
+        registration_fee: tournament.registration_fee ?? 0,
         registration_currency: tournament.registration_currency,
         caddie_master_pin: tournament.caddie_master_pin || '',
     });
@@ -1012,14 +1013,17 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses, 
     const activeCategory = categories.find((c) => c.id === activeCategoryId);
     const catMaxPhases = activeCategory?.max_phases ?? tournament.phase_count;
     const catLatestPhase = Math.max(...groups.filter((g) => g.category_id === activeCategoryId).map((g) => g.phase ?? 1), 1);
-    // Check if the latest phase has scores entered
-    const latestPhasePlayerIds = groups.filter((g) => g.category_id === activeCategoryId && (g.phase ?? 1) === catLatestPhase).flatMap((g) => g.players?.map((p) => p.id) ?? []);
-    const latestPhaseHasScores = scores.some((s) => latestPhasePlayerIds.includes(s.player_id) && s.phase === catLatestPhase);
-    // If latest phase has scores, disable ALL previous phases. Otherwise only disable phases 2+ behind.
-    const isPhaseDisabled = (phase: number) => {
-        if (phase === catLatestPhase) return false;
-        if (latestPhaseHasScores) return true;
-        return phase < catLatestPhase - 1;
+    // Check if a given phase has scores entered for this category
+    const phaseHasScores = (phase: number) => {
+        const phasePlayerIds = groups.filter((g) => g.category_id === activeCategoryId && (g.phase ?? 1) === phase).flatMap((g) => g.players?.map((p) => p.id) ?? []);
+        return scores.some((s) => phasePlayerIds.includes(s.player_id) && s.phase === phase);
+    };
+    // Check if "Préparer J{phase+1}" should be disabled on a given phase tab
+    // Disabled if: next phase already has scores entered, or next phase exceeds max
+    const isPrepareDisabled = (fromPhase: number) => {
+        const nextPhase = fromPhase + 1;
+        if (nextPhase > catMaxPhases) return true;
+        return phaseHasScores(nextPhase);
     };
     const markerForm = useForm({ name: '', email: '', password: '', hole_start: 1, hole_end: 18 });
 
@@ -1203,22 +1207,20 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses, 
 
             {/* Phase tabs within selected category */}
             {catMaxPhases > 1 && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     {Array.from({ length: catMaxPhases }, (_, i) => i + 1).map((phase) => {
                         const count = groups.filter((g) => g.category_id === activeCategoryId && (g.phase ?? 1) === phase).length;
-                        const disabled = isPhaseDisabled(phase);
                         const hasGroups = count > 0;
                         return (
                             <button
                                 key={phase}
-                                disabled={disabled}
-                                onClick={() => { if (!disabled) { setActivePhase(phase); form.setData('phase', phase); } }}
+                                onClick={() => { setActivePhase(phase); form.setData('phase', phase); }}
                                 className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                                    disabled
-                                        ? 'bg-surface/50 text-muted-foreground/30 cursor-not-allowed line-through'
-                                        : activePhase === phase
-                                            ? 'bg-primary/10 text-primary'
-                                            : 'bg-surface text-muted-foreground hover:bg-surface-hover'
+                                    activePhase === phase
+                                        ? 'bg-primary/10 text-primary'
+                                        : hasGroups
+                                            ? 'bg-surface text-muted-foreground hover:bg-surface-hover'
+                                            : 'bg-surface/50 text-muted-foreground/40 hover:bg-surface-hover'
                                 }`}
                             >
                                 J{phase} {hasGroups ? `(${count})` : ''}
@@ -1226,15 +1228,17 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses, 
                         );
                     })}
 
-                    {/* Préparer phase suivante */}
-                    {catLatestPhase < catMaxPhases && (
+                    {/* Préparer phase suivante — on each phase, disabled if next phase already has scores */}
+                    {activePhase < catMaxPhases && (
                         <button
                             type="button"
+                            disabled={isPrepareDisabled(activePhase)}
                             onClick={async () => {
-                                const nextPhase = catLatestPhase + 1;
+                                if (isPrepareDisabled(activePhase)) return;
+                                const nextPhase = activePhase + 1;
                                 const catPlayers = players.filter((p) => p.category_id === activeCategoryId);
-                                const qualified = catPlayers.filter((p) => !p.is_withdrawn && (p.cut_after_phase == null || p.cut_after_phase > catLatestPhase)).length;
-                                const cut = catPlayers.filter((p) => p.cut_after_phase != null && p.cut_after_phase <= catLatestPhase).length;
+                                const qualified = catPlayers.filter((p) => !p.is_withdrawn && (p.cut_after_phase == null || p.cut_after_phase > activePhase)).length;
+                                const cut = catPlayers.filter((p) => p.cut_after_phase != null && p.cut_after_phase <= activePhase).length;
                                 const withdrawn = catPlayers.filter((p) => p.is_withdrawn).length;
                                 const existingNext = groups.filter((g) => g.category_id === activeCategoryId && (g.phase ?? 1) === nextPhase).length;
 
@@ -1246,7 +1250,7 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses, 
                                         variant: 'danger',
                                     });
                                     if (ok) {
-                                        router.post(route('tournaments.prepareNextPhase', tournament.id), { from_phase: catLatestPhase, category_id: activeCategoryId, force: true }, {
+                                        router.post(route('tournaments.prepareNextPhase', tournament.id), { from_phase: activePhase, category_id: activeCategoryId, force: true }, {
                                             preserveScroll: true,
                                             onSuccess: () => setActivePhase(nextPhase),
                                         });
@@ -1261,15 +1265,19 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses, 
                                     variant: 'default',
                                 });
                                 if (ok) {
-                                    router.post(route('tournaments.prepareNextPhase', tournament.id), { from_phase: catLatestPhase, category_id: activeCategoryId }, {
+                                    router.post(route('tournaments.prepareNextPhase', tournament.id), { from_phase: activePhase, category_id: activeCategoryId }, {
                                         preserveScroll: true,
                                         onSuccess: () => setActivePhase(nextPhase),
                                     });
                                 }
                             }}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-xl text-xs font-medium hover:bg-amber-500/20 transition-colors ml-auto"
+                            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors ml-auto ${
+                                isPrepareDisabled(activePhase)
+                                    ? 'bg-surface/50 border border-border/50 text-muted-foreground/30 cursor-not-allowed'
+                                    : 'bg-amber-500/10 border border-amber-500/20 text-amber-500 hover:bg-amber-500/20'
+                            }`}
                         >
-                            <ChevronRight className="w-3.5 h-3.5" />Préparer J{catLatestPhase + 1}
+                            <ChevronRight className="w-3.5 h-3.5" />Préparer J{activePhase + 1}
                         </button>
                     )}
                 </div>
