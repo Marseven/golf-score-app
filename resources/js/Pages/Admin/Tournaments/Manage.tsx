@@ -641,6 +641,11 @@ function TournamentTab({ tournament, players, categories, cuts }: { tournament: 
                 </div>
             </div>
 
+            {Object.keys(form.errors).length > 0 && (
+                <div className="px-4 py-3 rounded-xl bg-red-500/20 text-red-400 text-sm">
+                    {Object.entries(form.errors).map(([key, msg]) => <p key={key}><strong>{key}:</strong> {msg}</p>)}
+                </div>
+            )}
             <div className="flex justify-end">
                 <button type="submit" disabled={form.processing} className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 shadow-lg shadow-primary/25 disabled:opacity-50">
                     <Save className="w-4 h-4" />
