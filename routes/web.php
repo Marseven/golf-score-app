@@ -55,6 +55,7 @@ Route::get('/marqueur/groupes', [MarkerController::class, 'groups'])->name('marq
 Route::get('/marqueur/scoring/{group}', [MarkerController::class, 'scoring'])->name('marqueur.scoring')->middleware('marker');
 Route::post('/marqueur/scoring/{group}/save', [MarkerController::class, 'saveScores'])->name('marqueur.save')->middleware('marker');
 Route::post('/marqueur/scoring/{group}/confirm', [MarkerController::class, 'confirmScores'])->name('marqueur.confirm')->middleware('marker');
+Route::get('/marqueur/player/{player}/stats', [MarkerController::class, 'playerStats'])->name('marqueur.playerStats');
 Route::post('/marqueur/logout', [MarkerController::class, 'logout'])->name('marqueur.logout');
 
 // Caddie-Master (public login, session-based multi-group scoring)

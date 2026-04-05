@@ -311,6 +311,59 @@ class MarkerController extends Controller
         return back()->with('success', 'Scores confirmés.');
     }
 
+    public function playerStats(Player $player)
+    {
+        $tournament = $player->tournament;
+
+        // All scores for this player across all phases
+        $scores = Score::where('player_id', $player->id)
+            ->get()
+            ->groupBy('phase');
+
+        // All holes for this tournament (with category pars)
+        $categoryPars = DB::table('category_hole')
+            ->where('category_id', $player->category_id)
+            ->get()
+            ->keyBy('hole_id');
+
+        $holes = $tournament->holes()->orderBy('number')->get();
+
+        $phases = [];
+        foreach ($scores as $phase => $phaseScores) {
+            $phaseHoles = [];
+            foreach ($phaseScores->sortBy(fn ($s) => $holes->firstWhere('id', $s->hole_id)?->number ?? 0) as $score) {
+                $hole = $holes->firstWhere('id', $score->hole_id);
+                if (! $hole) continue;
+                $par = $categoryPars->has($hole->id) ? $categoryPars[$hole->id]->par : $hole->par;
+                $diff = $score->strokes - $par;
+                $stableford = max(0, $par - $score->strokes + 2);
+                $phaseHoles[] = [
+                    'hole_number' => $hole->number,
+                    'par' => $par,
+                    'strokes' => $score->strokes,
+                    'diff' => $diff,
+                    'stableford' => $stableford,
+                ];
+            }
+            $phases[] = [
+                'phase' => (int) $phase,
+                'holes' => $phaseHoles,
+                'total_strokes' => collect($phaseHoles)->sum('strokes'),
+                'total_par' => collect($phaseHoles)->sum('par'),
+                'total_stableford' => collect($phaseHoles)->sum('stableford'),
+            ];
+        }
+
+        return response()->json([
+            'player' => [
+                'name' => $player->name,
+                'handicap' => $player->handicap,
+                'category' => $player->category?->name,
+            ],
+            'phases' => $phases,
+        ]);
+    }
+
     public function scoringByToken(Request $request, string $token)
     {
         $group = Group::where('marker_token', $token)->firstOrFail();

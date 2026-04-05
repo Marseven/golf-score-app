@@ -17,7 +17,8 @@
       "Bash(curl -sI https://tournaments.mangagolfclub.com/)",
       "Bash(curl:*)",
       "Bash(nslookup:*)",
-      "Bash(ping:*)"
+      "Bash(ping:*)",
+      "Bash(grep -E \"\\\\.\\(php|tsx\\)$\")"
     ]
   }
 }
