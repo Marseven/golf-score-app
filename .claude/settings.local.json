@@ -13,7 +13,11 @@
       "Bash(php -l /Users/primeclet/golf-score-app/app/Http/Controllers/TournamentController.php)",
       "Bash(php -l /Users/primeclet/golf-score-app/app/Http/Controllers/CaddyMasterController.php)",
       "Bash(php -l /Users/primeclet/golf-score-app/app/Http/Controllers/MarkerController.php)",
-      "Bash(php -l /Users/primeclet/golf-score-app/routes/web.php)"
+      "Bash(php -l /Users/primeclet/golf-score-app/routes/web.php)",
+      "Bash(curl -sI https://tournaments.mangagolfclub.com/)",
+      "Bash(curl:*)",
+      "Bash(nslookup:*)",
+      "Bash(ping:*)"
     ]
   }
 }

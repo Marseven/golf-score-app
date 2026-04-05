@@ -1569,7 +1569,7 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses, 
                 </div>
             )}
 
-            <DataTable data={filteredGroups} searchKeys={['code']} searchPlaceholder="Rechercher un groupe..." defaultPerPage={10}>
+            <DataTable data={filteredGroups} searchKeys={['code', 'players.name']} searchPlaceholder="Rechercher un groupe ou un joueur..." defaultPerPage={10}>
                 {(paginatedGroups) => (
                     <div className="glass-card !p-0 overflow-hidden">
                         <div className="overflow-x-auto">

@@ -10,9 +10,23 @@ interface DataTableProps<T> {
     defaultPerPage?: number;
 }
 
-function getNestedValue(obj: any, path: string): string {
-    const value = path.split('.').reduce((acc, key) => acc?.[key], obj);
-    return value != null ? String(value) : '';
+function getNestedValues(obj: any, path: string): string[] {
+    const keys = path.split('.');
+    let current: any[] = [obj];
+    for (const key of keys) {
+        const next: any[] = [];
+        for (const item of current) {
+            if (item == null) continue;
+            const val = item[key];
+            if (Array.isArray(val)) {
+                next.push(...val);
+            } else {
+                next.push(val);
+            }
+        }
+        current = next;
+    }
+    return current.filter((v) => v != null).map(String);
 }
 
 export default function DataTable<T>({
@@ -32,8 +46,8 @@ export default function DataTable<T>({
         if (!q) return data;
         return data.filter((item) =>
             searchKeys.some((key) => {
-                const val = getNestedValue(item, key as string);
-                return val.toLowerCase().includes(q);
+                const vals = getNestedValues(item, key as string);
+                return vals.some((v) => v.toLowerCase().includes(q));
             })
         );
     }, [data, searchQuery, searchKeys]);
