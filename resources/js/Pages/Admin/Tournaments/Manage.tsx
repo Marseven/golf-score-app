@@ -1292,6 +1292,34 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses, 
                             <ChevronRight className="w-3.5 h-3.5" />Préparer J{activePhase + 1}
                         </button>
                     )}
+
+                    {/* Supprimer tous les groupes de cette phase */}
+                    {filteredGroups.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={async () => {
+                                const ok = await confirm({
+                                    title: `Supprimer tous les groupes J${activePhase} — ${activeCategory?.name} ?`,
+                                    message: `${filteredGroups.length} groupe(s) seront supprimés ainsi que les scores associés à la J${activePhase}.\n\nCette action est irréversible.`,
+                                    confirmLabel: 'Supprimer',
+                                    variant: 'danger',
+                                });
+                                if (ok) {
+                                    router.delete(route('tournaments.deletePhaseGroups', tournament.id), {
+                                        data: { phase: activePhase, category_id: activeCategoryId },
+                                        preserveScroll: true,
+                                        onSuccess: () => {
+                                            const prevPhase = Math.max(1, activePhase - 1);
+                                            setActivePhase(prevPhase);
+                                        },
+                                    });
+                                }
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-xs font-medium hover:bg-red-500/20 transition-colors"
+                        >
+                            <Trash2 className="w-3.5 h-3.5" />Supprimer J{activePhase}
+                        </button>
+                    )}
                 </div>
             )}
 

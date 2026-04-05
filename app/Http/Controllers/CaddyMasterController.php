@@ -52,12 +52,9 @@ class CaddyMasterController extends Controller
             ->get();
 
         // Only show groups at the latest phase per category (hide completed phases)
-        $groups = $allGroups->filter(function ($group) use ($allGroups) {
-            $laterPhaseExists = $allGroups
-                ->where('category_id', $group->category_id)
-                ->where('phase', '>', $group->phase)
-                ->contains(fn ($g) => $g->players->count() > 0);
-            return !$laterPhaseExists;
+        $latestPhasePerCat = $allGroups->groupBy('category_id')->map(fn ($g) => $g->max('phase'));
+        $groups = $allGroups->filter(function ($group) use ($latestPhasePerCat) {
+            return $group->phase === ($latestPhasePerCat[$group->category_id] ?? 1);
         })->values();
 
         $holes = $tournament->holes()->orderBy('number')->get();

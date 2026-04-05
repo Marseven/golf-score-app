@@ -10,7 +10,10 @@
       "Bash(git checkout:*)",
       "Bash(grep -i \"group_player\\\\|group_id\\\\|INSERT INTO \\\\`groups\\\\`\\\\|INSERT INTO \\\\`players\\\\`\" \"/Users/primeclet/Downloads/u304906226_mgcscore \\(1\\).sql\")",
       "Bash(grep \"INSERT INTO \\\\`players\\\\`\" \"/Users/primeclet/Downloads/u304906226_mgcscore \\(1\\).sql\" -A 100)",
-      "Bash(php -l /Users/primeclet/golf-score-app/app/Http/Controllers/TournamentController.php)"
+      "Bash(php -l /Users/primeclet/golf-score-app/app/Http/Controllers/TournamentController.php)",
+      "Bash(php -l /Users/primeclet/golf-score-app/app/Http/Controllers/CaddyMasterController.php)",
+      "Bash(php -l /Users/primeclet/golf-score-app/app/Http/Controllers/MarkerController.php)",
+      "Bash(php -l /Users/primeclet/golf-score-app/routes/web.php)"
     ]
   }
 }

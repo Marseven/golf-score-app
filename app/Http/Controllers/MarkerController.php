@@ -107,22 +107,16 @@ class MarkerController extends Controller
         }
 
         $groups = Group::whereIn('id', $groupIds)
-            ->whereHas('players')
             ->with(['players.category', 'category', 'course', 'tournament'])
             ->orderBy('phase')
             ->orderBy('tee_time')
-            ->get()
-            ->filter(function ($group) {
-                // Only show groups where this is the latest phase for the category
-                // i.e., no higher phase group exists with players for the same category
-                $laterPhaseExists = Group::where('tournament_id', $group->tournament_id)
-                    ->where('category_id', $group->category_id)
-                    ->where('phase', '>', $group->phase)
-                    ->whereHas('players')
-                    ->exists();
-                return !$laterPhaseExists;
-            })
-            ->values();
+            ->get();
+
+        // Only show groups at the latest phase per category
+        $latestPhasePerCat = $groups->groupBy('category_id')->map(fn ($g) => $g->max('phase'));
+        $groups = $groups->filter(function ($group) use ($latestPhasePerCat) {
+            return $group->phase === ($latestPhasePerCat[$group->category_id] ?? 1);
+        })->values();
 
         // Calculate scoring progress based on current marker's hole range
         $markerUserId = $request->session()->get('marker_user_id');

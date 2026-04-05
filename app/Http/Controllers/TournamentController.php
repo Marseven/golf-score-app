@@ -535,11 +535,9 @@ class TournamentController extends Controller
 
         foreach ($currentGroups as $group) {
             // Filter out cut and withdrawn players
-            $qualifiedPlayers = $group->players->filter(function ($player) use ($fromPhase, $categoryId) {
+            $qualifiedPlayers = $group->players->filter(function ($player) use ($fromPhase) {
                 if ($player->is_withdrawn) return false;
                 if ($player->cut_after_phase !== null && $player->cut_after_phase <= $fromPhase) return false;
-                // For mixed groups (no category_id), only take players matching the target category
-                if ($categoryId && !$group->category_id && $player->category_id !== $categoryId) return false;
                 return true;
             });
 
@@ -585,6 +583,45 @@ class TournamentController extends Controller
         }
 
         return back()->with('success', $message.'.');
+    }
+
+    public function deletePhaseGroups(Request $request, Tournament $tournament)
+    {
+        $validated = $request->validate([
+            'phase' => 'required|integer|min:1',
+            'category_id' => 'required|uuid|exists:categories,id',
+        ]);
+
+        $phase = $validated['phase'];
+        $categoryId = $validated['category_id'];
+        $category = $tournament->categories()->find($categoryId);
+
+        $groups = $tournament->groups()
+            ->where('phase', $phase)
+            ->where('category_id', $categoryId)
+            ->with('players')
+            ->get();
+
+        $deletedGroups = 0;
+        $deletedScores = 0;
+
+        foreach ($groups as $group) {
+            $playerIds = $group->players->pluck('id')->toArray();
+
+            // Delete scores for this phase
+            $deletedScores += Score::whereIn('player_id', $playerIds)
+                ->where('phase', $phase)
+                ->delete();
+
+            $group->players()->detach();
+            $group->markers()->detach();
+            $group->delete();
+            $deletedGroups++;
+        }
+
+        $catName = $category?->name ?? '';
+
+        return back()->with('success', "J{$phase} {$catName} : {$deletedGroups} groupe(s) et {$deletedScores} score(s) supprimés.");
     }
 
     public function destroy(Tournament $tournament)
