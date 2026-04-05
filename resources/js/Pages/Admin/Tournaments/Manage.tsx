@@ -323,7 +323,9 @@ function TournamentTab({ tournament, players, categories, cuts }: { tournament: 
 
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
-        form.put(route('tournaments.update', tournament.id));
+        form.put(route('tournaments.update', tournament.id), {
+            preserveScroll: true,
+        });
     };
 
     const copyRegistrationLink = () => {
