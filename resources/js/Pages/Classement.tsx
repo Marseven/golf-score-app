@@ -1,13 +1,14 @@
 import { useState, useRef } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import PublicLayout from '@/Layouts/PublicLayout';
-import { Trophy, Download, Share2, FileText, Tv, Image, Loader2, ChevronDown, QrCode, X, FileSpreadsheet, MoreHorizontal } from 'lucide-react';
+import { Trophy, Download, Share2, FileText, Tv, Image, Loader2, ChevronDown, QrCode, X, FileSpreadsheet, MoreHorizontal, BarChart3 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { buildLeaderboard } from '@/Lib/scoring';
 import type { PenaltyData } from '@/Lib/scoring';
 import { categoryColors } from '@/Lib/category-colors';
 import { countryCodeToFlag } from '@/Lib/countries';
 import { useRealtimeScores } from '@/Hooks/useRealtimeScores';
+import PlayerStatsModal from '@/Components/PlayerStatsModal';
 import type { Tournament, Player, Score, Hole, Category, Cut, CategoryPar } from '@/types';
 
 interface Props {
@@ -42,6 +43,7 @@ export default function Classement({ tournament, players, scores, holes, categor
     const [capturing, setCapturing] = useState(false);
     const [showQR, setShowQR] = useState(false);
     const [showMoreMenu, setShowMoreMenu] = useState(false);
+    const [statsPlayer, setStatsPlayer] = useState<Player | null>(null);
     const leaderboardRef = useRef<HTMLDivElement>(null);
 
     const playersWithCategory = players.map((p) => ({
@@ -267,7 +269,10 @@ export default function Classement({ tournament, players, scores, holes, categor
 
                         return (
                             <div key={entry.player.id}>
-                                <div className={`glass-card flex items-center justify-between ${isWithdrawn ? 'opacity-40' : isCut ? 'opacity-50' : ''} ${isTop3 && !isCut ? 'bg-gradient-to-r from-amber-500/10 to-transparent' : ''}`}>
+                                <div
+                                    onClick={() => !isWithdrawn && setStatsPlayer(entry.player as Player)}
+                                    className={`glass-card flex items-center justify-between cursor-pointer hover:ring-1 hover:ring-primary/20 transition-all ${isWithdrawn ? 'opacity-40 cursor-default' : isCut ? 'opacity-50' : ''} ${isTop3 && !isCut ? 'bg-gradient-to-r from-amber-500/10 to-transparent' : ''}`}
+                                >
                                 <div className="flex items-center gap-3 min-w-0">
                                     {isWithdrawn ? (
                                         <span className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center text-[10px] font-black text-red-400">DIS</span>
@@ -326,6 +331,9 @@ export default function Classement({ tournament, players, scores, holes, categor
                     Temps reel &bull; {lastUpdate.toLocaleTimeString('fr-FR')}
                 </div>
             </div>
+            {/* Player Stats Modal */}
+            {statsPlayer && <PlayerStatsModal player={statsPlayer} onClose={() => setStatsPlayer(null)} />}
+
             {/* QR Code Modal */}
             {showQR && tournament && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
