@@ -544,36 +544,44 @@ class TournamentController extends Controller
             $eliminatedPlayers += $group->players->count() - $qualifiedPlayers->count();
 
             // Create new group for next phase (even if empty, so admin can reassign players)
-            // Assign the target category_id if the source group has none (mixed group)
-            $newGroup = $tournament->groups()->create([
-                'code' => 'P'.$nextPhase.'-'.$group->code,
-                'tee_time' => $group->tee_time,
-                'tee_date' => $group->tee_date,
-                'phase' => $nextPhase,
-                'category_id' => $group->category_id ?? $categoryId,
-                'course_id' => $group->course_id,
-                'marker_phone' => $group->marker_phone,
-            ]);
+            $newCode = 'P'.$nextPhase.'-'.$group->code;
 
-            // Copy markers via pivot
-            foreach ($group->markers as $marker) {
-                $newGroup->markers()->attach($marker->id, [
-                    'id' => (string) \Illuminate\Support\Str::uuid(),
-                    'marker_pin' => $marker->pivot->marker_pin,
+            // Check if group with this code already exists (e.g. mixed group already created by another category)
+            $newGroup = $tournament->groups()->where('code', $newCode)->first();
+            if (!$newGroup) {
+                $newGroup = $tournament->groups()->create([
+                    'code' => $newCode,
+                    'tee_time' => $group->tee_time,
+                    'tee_date' => $group->tee_date,
+                    'phase' => $nextPhase,
+                    'category_id' => $group->category_id ?? $categoryId,
+                    'course_id' => $group->course_id,
+                    'marker_phone' => $group->marker_phone,
                 ]);
+
+                // Copy markers via pivot
+                foreach ($group->markers as $marker) {
+                    $newGroup->markers()->attach($marker->id, [
+                        'id' => (string) \Illuminate\Support\Str::uuid(),
+                        'marker_pin' => $marker->pivot->marker_pin,
+                    ]);
+                }
+                $createdGroups++;
             }
 
-            // Assign qualified players to new group via pivot (keep them in old group too)
+            // Assign qualified players to new group via pivot (skip already attached)
+            $existingPlayerIds = $newGroup->players()->pluck('players.id')->toArray();
             $pivotData = [];
             foreach ($qualifiedPlayers as $player) {
+                if (in_array($player->id, $existingPlayerIds)) continue;
                 $pivotData[$player->id] = ['id' => (string) \Illuminate\Support\Str::uuid()];
-                // Also update legacy group_id to the newest group
                 $player->update(['group_id' => $newGroup->id]);
             }
-            $newGroup->players()->attach($pivotData);
+            if (!empty($pivotData)) {
+                $newGroup->players()->attach($pivotData);
+            }
 
-            $createdGroups++;
-            $totalPlayers += $qualifiedPlayers->count();
+            $totalPlayers += count($pivotData);
         }
 
         $label = $categoryName ? " ({$categoryName})" : '';
