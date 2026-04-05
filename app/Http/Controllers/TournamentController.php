@@ -523,10 +523,9 @@ class TournamentController extends Controller
             }
         }
 
-        // Get groups from the source phase that have players (for this category)
+        // Get groups from the source phase (for this category), including empty ones
         $currentGroups = $scopeCategory($tournament->groups()
             ->where('phase', $fromPhase))
-            ->whereHas('players')
             ->with(['players', 'markers'])
             ->get();
 
@@ -536,25 +535,24 @@ class TournamentController extends Controller
 
         foreach ($currentGroups as $group) {
             // Filter out cut and withdrawn players
-            $qualifiedPlayers = $group->players->filter(function ($player) use ($fromPhase) {
+            $qualifiedPlayers = $group->players->filter(function ($player) use ($fromPhase, $categoryId) {
                 if ($player->is_withdrawn) return false;
                 if ($player->cut_after_phase !== null && $player->cut_after_phase <= $fromPhase) return false;
+                // For mixed groups (no category_id), only take players matching the target category
+                if ($categoryId && !$group->category_id && $player->category_id !== $categoryId) return false;
                 return true;
             });
 
             $eliminatedPlayers += $group->players->count() - $qualifiedPlayers->count();
 
-            if ($qualifiedPlayers->isEmpty()) {
-                continue;
-            }
-
-            // Create new group for next phase
+            // Create new group for next phase (even if empty, so admin can reassign players)
+            // Assign the target category_id if the source group has none (mixed group)
             $newGroup = $tournament->groups()->create([
                 'code' => 'P'.$nextPhase.'-'.$group->code,
                 'tee_time' => $group->tee_time,
                 'tee_date' => $group->tee_date,
                 'phase' => $nextPhase,
-                'category_id' => $group->category_id,
+                'category_id' => $group->category_id ?? $categoryId,
                 'course_id' => $group->course_id,
                 'marker_phone' => $group->marker_phone,
             ]);
