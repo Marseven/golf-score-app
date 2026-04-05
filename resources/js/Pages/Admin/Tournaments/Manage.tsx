@@ -1019,10 +1019,11 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses, 
     // Compute per-category phase info
     const activeCategory = categories.find((c) => c.id === activeCategoryId);
     const catMaxPhases = activeCategory?.max_phases ?? tournament.phase_count;
-    const catLatestPhase = Math.max(...groups.filter((g) => g.category_id === activeCategoryId).map((g) => g.phase ?? 1), 1);
+    const catGroups = groups.filter((g) => g.category_id === activeCategoryId || (!g.category_id && g.players?.some((p) => p.category_id === activeCategoryId)));
+    const catLatestPhase = Math.max(...catGroups.map((g) => g.phase ?? 1), 1);
     // Check if a given phase has scores entered for this category
     const phaseHasScores = (phase: number) => {
-        const phasePlayerIds = groups.filter((g) => g.category_id === activeCategoryId && (g.phase ?? 1) === phase).flatMap((g) => g.players?.map((p) => p.id) ?? []);
+        const phasePlayerIds = groups.filter((g) => (g.category_id === activeCategoryId || (!g.category_id && g.players?.some((p) => p.category_id === activeCategoryId))) && (g.phase ?? 1) === phase).flatMap((g) => g.players?.map((p) => p.id) ?? []);
         return scores.some((s) => phasePlayerIds.includes(s.player_id) && s.phase === phase);
     };
     // Check if "Préparer J{phase+1}" should be disabled on a given phase tab
@@ -1178,8 +1179,11 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses, 
     };
 
     // Filter groups by active category and phase
+    // Include groups with matching category_id OR groups without category_id that have players in this category
     const filteredGroups = groups.filter((g) => {
-        if (g.category_id !== activeCategoryId) return false;
+        const matchesCategory = g.category_id === activeCategoryId
+            || (!g.category_id && g.players?.some((p) => p.category_id === activeCategoryId));
+        if (!matchesCategory) return false;
         if (catMaxPhases > 1 && (g.phase ?? 1) !== activePhase) return false;
         return true;
     });
@@ -1190,7 +1194,7 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses, 
             {categories.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                     {categories.map((cat) => {
-                        const catGroupCount = groups.filter((g) => g.category_id === cat.id).length;
+                        const catGroupCount = groups.filter((g) => g.category_id === cat.id || (!g.category_id && g.players?.some((p) => p.category_id === cat.id))).length;
                         const isActive = activeCategoryId === cat.id;
                         return (
                             <button
@@ -1198,7 +1202,8 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses, 
                                 onClick={() => {
                                     setActiveCategoryId(cat.id);
                                     // Auto-select latest phase for this category
-                                    const latestPhase = Math.max(...groups.filter((g) => g.category_id === cat.id).map((g) => g.phase ?? 1), 1);
+                                    const catGroups = groups.filter((g) => g.category_id === cat.id || (!g.category_id && g.players?.some((p) => p.category_id === cat.id)));
+                                    const latestPhase = Math.max(...catGroups.map((g) => g.phase ?? 1), 1);
                                     setActivePhase(latestPhase);
                                     form.setData('category_id', cat.id);
                                     form.setData('phase', latestPhase);
@@ -1216,7 +1221,7 @@ function GroupsTab({ tournament, groups, markers, players, categories, courses, 
             {catMaxPhases > 1 && (
                 <div className="flex items-center gap-2 flex-wrap">
                     {Array.from({ length: catMaxPhases }, (_, i) => i + 1).map((phase) => {
-                        const count = groups.filter((g) => g.category_id === activeCategoryId && (g.phase ?? 1) === phase).length;
+                        const count = groups.filter((g) => (g.category_id === activeCategoryId || (!g.category_id && g.players?.some((p) => p.category_id === activeCategoryId))) && (g.phase ?? 1) === phase).length;
                         const hasGroups = count > 0;
                         return (
                             <button

@@ -470,9 +470,16 @@ class TournamentController extends Controller
         }
 
         // Build query scoped to category if specified
+        // Include groups with matching category_id OR groups without category_id that have players in this category
         $scopeCategory = function ($query) use ($categoryId) {
             if ($categoryId) {
-                $query->where('category_id', $categoryId);
+                $query->where(function ($q) use ($categoryId) {
+                    $q->where('category_id', $categoryId)
+                      ->orWhere(function ($q2) use ($categoryId) {
+                          $q2->whereNull('category_id')
+                             ->whereHas('players', fn ($pq) => $pq->where('category_id', $categoryId));
+                      });
+                });
             }
             return $query;
         };
