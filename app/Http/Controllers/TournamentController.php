@@ -611,10 +611,13 @@ class TournamentController extends Controller
             ->get();
 
         $totalDetached = 0;
+        $groupIds = $groups->pluck('id')->toArray();
         foreach ($groups as $group) {
             $totalDetached += $group->players->count();
             $group->players()->detach();
         }
+        // Clear legacy group_id for players pointing to these groups
+        Player::whereIn('group_id', $groupIds)->update(['group_id' => null]);
 
         $catName = $category?->name ?? '';
 
