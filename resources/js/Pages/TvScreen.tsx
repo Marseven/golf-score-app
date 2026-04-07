@@ -377,8 +377,14 @@ export default function TvScreen({ tournament, players, scores, holes, categorie
                         </div>
                         <div className="h-[2px] flex-1 bg-gradient-to-r from-white/20 via-white/10 to-transparent" />
                         <div className="flex items-center gap-3">
-                            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                            <span className="text-sm font-bold text-white/60 uppercase tracking-[0.2em]">{activeCatName}{totalPages > 1 && ` (${currentPage + 1}/${totalPages})`}</span>
+                            {tournament?.status === 'finished' ? (
+                                <div className="w-2 h-2 rounded-full bg-violet-400" />
+                            ) : (
+                                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                            )}
+                            <span className="text-sm font-bold text-white/60 uppercase tracking-[0.2em]">
+                                {tournament?.status === 'finished' && 'Résultats officiels — '}{activeCatName}{totalPages > 1 && ` (${currentPage + 1}/${totalPages})`}
+                            </span>
                         </div>
                         <div className="h-[2px] flex-1 bg-gradient-to-l from-white/20 via-white/10 to-transparent" />
                     </div>

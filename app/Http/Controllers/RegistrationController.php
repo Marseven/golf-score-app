@@ -28,7 +28,7 @@ class RegistrationController extends Controller
 
     public function create(Tournament $tournament)
     {
-        if (! $tournament->registration_open) {
+        if (! $tournament->registration_open || $tournament->status === 'finished') {
             abort(403, 'Les inscriptions sont fermées.');
         }
 

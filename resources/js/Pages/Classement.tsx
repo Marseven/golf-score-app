@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import PublicLayout from '@/Layouts/PublicLayout';
-import { Trophy, Download, Share2, FileText, Tv, Image, Loader2, ChevronDown, QrCode, X, FileSpreadsheet, MoreHorizontal, BarChart3 } from 'lucide-react';
+import { Trophy, Download, Share2, FileText, Tv, Image, Loader2, ChevronDown, QrCode, X, FileSpreadsheet, MoreHorizontal, BarChart3, CheckCircle2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { buildLeaderboard } from '@/Lib/scoring';
 import type { PenaltyData } from '@/Lib/scoring';
@@ -137,11 +137,11 @@ export default function Classement({ tournament, players, scores, holes, categor
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center">
-                            <Trophy className="w-5 h-5 text-accent" />
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${tournament?.status === 'finished' ? 'bg-violet-500/20' : 'bg-accent/20'}`}>
+                            {tournament?.status === 'finished' ? <CheckCircle2 className="w-5 h-5 text-violet-400" /> : <Trophy className="w-5 h-5 text-accent" />}
                         </div>
                         <div>
-                            <h1 className="text-2xl font-bold text-foreground">Classement en direct</h1>
+                            <h1 className="text-2xl font-bold text-foreground">{tournament?.status === 'finished' ? 'Résultats officiels' : 'Classement en direct'}</h1>
                             <p className="text-sm text-muted-foreground">{tournament?.name ?? ''}</p>
                         </div>
                     </div>
@@ -325,10 +325,19 @@ export default function Classement({ tournament, players, scores, holes, categor
                     })}
                 </div>
 
-                {/* Realtime indicator */}
+                {/* Status indicator */}
                 <div className="mt-6 flex items-center gap-2 text-xs text-muted-foreground">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    Temps reel &bull; {lastUpdate.toLocaleTimeString('fr-FR')}
+                    {tournament?.status === 'finished' ? (
+                        <>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-violet-400" />
+                            <span className="text-violet-400 font-medium">Résultats définitifs</span>
+                        </>
+                    ) : (
+                        <>
+                            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            Temps reel &bull; {lastUpdate.toLocaleTimeString('fr-FR')}
+                        </>
+                    )}
                 </div>
             </div>
             {/* Player Stats Modal */}

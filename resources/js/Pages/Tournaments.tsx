@@ -1,21 +1,21 @@
 import { useState, useMemo } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import PublicLayout from '@/Layouts/PublicLayout';
-import { Trophy, MapPin, Calendar, Users, Target, UserPlus, Search } from 'lucide-react';
+import { Trophy, MapPin, Calendar, Users, Target, UserPlus, Search, CheckCircle2, FileText, FileSpreadsheet } from 'lucide-react';
 import type { Tournament } from '@/types';
 
 interface Props {
     tournaments: Tournament[];
 }
 
-type StatusFilter = 'all' | 'upcoming' | 'active' | 'open';
+type StatusFilter = 'all' | 'upcoming' | 'active' | 'finished' | 'open';
 
-function getTournamentState(tournament: Tournament): 'upcoming' | 'active' {
+function getTournamentState(tournament: Tournament): 'upcoming' | 'active' | 'finished' {
+    if (tournament.status === 'finished') return 'finished';
+    if (tournament.status === 'active') return 'active';
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const start = new Date(tournament.start_date);
-
-    if (tournament.status === 'active') return 'active';
     if (start > startOfToday) return 'upcoming';
     return 'active';
 }
@@ -33,6 +33,7 @@ export default function Tournaments({ tournaments }: Props) {
             let matchesStatus = true;
             if (statusFilter === 'upcoming') matchesStatus = getTournamentState(t) === 'upcoming';
             else if (statusFilter === 'active') matchesStatus = getTournamentState(t) === 'active';
+            else if (statusFilter === 'finished') matchesStatus = getTournamentState(t) === 'finished';
             else if (statusFilter === 'open') matchesStatus = !!t.registration_open;
 
             return matchesSearch && matchesStatus;
@@ -43,6 +44,7 @@ export default function Tournaments({ tournaments }: Props) {
         { value: 'all', label: `Tous (${tournaments.length})` },
         { value: 'upcoming', label: 'A venir' },
         { value: 'active', label: 'En cours' },
+        { value: 'finished', label: 'Terminés' },
         { value: 'open', label: 'Inscriptions ouvertes' },
     ];
 
@@ -100,7 +102,11 @@ export default function Tournaments({ tournaments }: Props) {
                             return (
                                 <div key={tournament.id} className="glass-card">
                                     <div className="mb-4">
-                                        {state === 'upcoming' ? (
+                                        {state === 'finished' ? (
+                                            <span className="px-3 py-1 rounded-lg text-xs font-medium bg-violet-500/20 text-violet-400 inline-flex items-center gap-1">
+                                                <CheckCircle2 className="w-3 h-3" />Terminé
+                                            </span>
+                                        ) : state === 'upcoming' ? (
                                             <span className="px-3 py-1 rounded-lg text-xs font-medium bg-blue-500/20 text-blue-400">
                                                 A venir
                                             </span>
@@ -109,7 +115,7 @@ export default function Tournaments({ tournaments }: Props) {
                                                 En cours
                                             </span>
                                         )}
-                                        {tournament.registration_open && (
+                                        {tournament.registration_open && state !== 'finished' && (
                                             <span className="ml-2 px-3 py-1 rounded-lg text-xs font-medium bg-amber-500/20 text-amber-400">
                                                 Inscriptions ouvertes
                                             </span>
@@ -148,9 +154,24 @@ export default function Tournaments({ tournaments }: Props) {
                                             href={route('classement', tournament.id)}
                                             className="flex-1 text-center px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors"
                                         >
-                                            Voir classement
+                                            {state === 'finished' ? 'Résultats' : 'Voir classement'}
                                         </Link>
-                                        {tournament.registration_open && (
+                                        {state === 'finished' ? (
+                                            <>
+                                                <a
+                                                    href={route('export.pdf', tournament.id)}
+                                                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-sm font-medium text-red-500 hover:bg-red-500/20 transition-colors"
+                                                >
+                                                    <FileText className="w-4 h-4" />
+                                                </a>
+                                                <a
+                                                    href={route('export.excel', tournament.id)}
+                                                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-sm font-medium text-emerald-500 hover:bg-emerald-500/20 transition-colors"
+                                                >
+                                                    <FileSpreadsheet className="w-4 h-4" />
+                                                </a>
+                                            </>
+                                        ) : tournament.registration_open && (
                                             <Link
                                                 href={route('inscription.create', tournament.id)}
                                                 className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-amber-500 text-amber-950 rounded-xl text-sm font-medium hover:bg-amber-400 transition-colors"

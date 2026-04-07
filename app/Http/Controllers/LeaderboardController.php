@@ -17,7 +17,7 @@ class LeaderboardController extends Controller
 
     public function tournamentList()
     {
-        $tournaments = Tournament::whereIn('status', ['published', 'active'])
+        $tournaments = Tournament::whereIn('status', ['published', 'active', 'finished'])
             ->withCount('players', 'groups')
             ->orderBy('start_date', 'desc')
             ->get();
